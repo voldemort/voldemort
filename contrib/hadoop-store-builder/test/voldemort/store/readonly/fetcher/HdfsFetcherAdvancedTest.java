@@ -400,9 +400,9 @@ public class HdfsFetcherAdvancedTest {
 
         try {
             // When disk quota is set to -1, no quota check should be performed
-            testForDiskQuota((int) VoldemortConfig.DEFAULT_STORAGE_SPACE_QUOTA_IN_KB, 2048);
+            testForDiskQuota((int) VoldemortConfig.DEFAULT_DEFAULT_STORAGE_SPACE_QUOTA_IN_KB, 2048);
         } catch(Exception e) {
-            Assert.fail("testDiskForQuota(" + VoldemortConfig.DEFAULT_STORAGE_SPACE_QUOTA_IN_KB
+            Assert.fail("testDiskForQuota(" + VoldemortConfig.DEFAULT_DEFAULT_STORAGE_SPACE_QUOTA_IN_KB
                         + ", 2048) failed with Exception: " + e);
         }
 

@@ -19,11 +19,16 @@ package voldemort.store.readonly.fetcher;
 import java.io.File;
 import java.io.IOException;
 import java.text.NumberFormat;
+import java.util.Arrays;
+import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import javax.management.ObjectName;
 
+import com.google.common.collect.Lists;
+import com.google.common.collect.Sets;
 import org.apache.commons.io.IOUtils;
 import org.apache.hadoop.fs.FileStatus;
 import org.apache.hadoop.fs.FileSystem;
@@ -34,14 +39,19 @@ import voldemort.VoldemortException;
 import voldemort.client.ClientConfig;
 import voldemort.client.protocol.admin.AdminClient;
 import voldemort.client.protocol.admin.AdminClientConfig;
+import voldemort.cluster.Cluster;
+import voldemort.routing.RoutingStrategy;
+import voldemort.routing.RoutingStrategyFactory;
 import voldemort.server.VoldemortConfig;
 import voldemort.server.protocol.admin.AdminServiceRequestHandler;
 import voldemort.server.protocol.admin.AsyncOperationStatus;
+import voldemort.store.StoreDefinition;
 import voldemort.store.metadata.MetadataStore;
 import voldemort.store.quota.QuotaExceededException;
 import voldemort.store.quota.QuotaType;
 import voldemort.store.readonly.FileFetcher;
 import voldemort.store.readonly.ReadOnlyStorageMetadata;
+import voldemort.store.readonly.ReadOnlyUtils;
 import voldemort.store.readonly.checksum.CheckSum.CheckSumType;
 import voldemort.store.readonly.mr.utils.HadoopUtils;
 import voldemort.store.readonly.mr.utils.VoldemortUtils;
@@ -61,7 +71,7 @@ public class HdfsFetcher implements FileFetcher {
     // Class-level state
     private static final Logger logger = Logger.getLogger(HdfsFetcher.class);
     private static final AtomicInteger copyCount = new AtomicInteger(0);
-    private static Boolean allowFetchOfFiles = false;
+    private static Boolean allowFetchingOfSingleFile = false;
 
     // Instance-level state
     private final Long maxBytesPerSecond, reportingIntervalBytes;
@@ -106,7 +116,7 @@ public class HdfsFetcher implements FileFetcher {
     public HdfsFetcher() {
         this(new VoldemortConfig(-1, ""), // Fake config with a bogus node ID and server config path
              (Long) null,
-             VoldemortConfig.REPORTING_INTERVAL_BYTES,
+             VoldemortConfig.DEFAULT_REPORTING_INTERVAL_BYTES,
              VoldemortConfig.DEFAULT_FETCHER_THROTTLE_INTERVAL_WINDOW_MS,
              VoldemortConfig.DEFAULT_FETCHER_BUFFER_SIZE,
              3,
@@ -164,7 +174,7 @@ public class HdfsFetcher implements FileFetcher {
     @Deprecated
     @Override
     public File fetch(String source, String dest) throws Exception {
-        return fetch(source, dest, VoldemortConfig.DEFAULT_STORAGE_SPACE_QUOTA_IN_KB);
+        return fetch(source, dest, VoldemortConfig.DEFAULT_DEFAULT_STORAGE_SPACE_QUOTA_IN_KB);
     }
 
     /**
@@ -177,7 +187,7 @@ public class HdfsFetcher implements FileFetcher {
     @Deprecated
     @Override
     public File fetch(String source, String dest, long diskQuotaSizeInKB) throws Exception {
-        return fetchFromSource(source, dest, null, null, -1, diskQuotaSizeInKB);
+        return fetchFromSource(source, dest, null, null, -1, diskQuotaSizeInKB, null);
     }
 
     @Override
@@ -196,14 +206,15 @@ public class HdfsFetcher implements FileFetcher {
             Versioned<String> diskQuotaSize = adminClient.quotaMgmtOps.getQuotaForNode(storeName,
                                                                                        QuotaType.STORAGE_SPACE,
                                                                                        metadataStore.getNodeId());
-            Long diskQuoataSizeInKB = (diskQuotaSize == null) ? null : (Long.parseLong(diskQuotaSize.getValue()));
+            Long diskQuotaSizeInKB = (diskQuotaSize == null) ? null : (Long.parseLong(diskQuotaSize.getValue()));
             logger.info("Starting fetch for : " + sourceFileUrl);
             return fetchFromSource(sourceFileUrl,
                                    destinationFile,
                                    status,
                                    storeName,
                                    pushVersion,
-                                   diskQuoataSizeInKB);
+                                   diskQuotaSizeInKB,
+                                   metadataStore);
         } finally {
             if(adminClient != null) {
                 IOUtils.closeQuietly(adminClient);
@@ -212,11 +223,12 @@ public class HdfsFetcher implements FileFetcher {
     }
 
     private File fetchFromSource(String sourceFileUrl,
-                          String destinationFile,
-                          AsyncOperationStatus status,
-                          String storeName,
-                          long pushVersion,
-                          Long diskQuotaSizeInKB) throws Exception {
+                                 String destinationFile,
+                                 AsyncOperationStatus status,
+                                 String storeName,
+                                 long pushVersion,
+                                 Long diskQuotaSizeInKB,
+                                 MetadataStore metadataStore) throws Exception {
         ObjectName jmxName = null;
         HdfsCopyStats stats = null;
         FileSystem fs = null;
@@ -224,7 +236,7 @@ public class HdfsFetcher implements FileFetcher {
             .modifyURL(sourceFileUrl, voldemortConfig.getModifiedProtocol(), voldemortConfig.getModifiedPort());
         try {
             fs = HadoopUtils.getHadoopFileSystem(voldemortConfig, sourceFileUrl);
-            final Path path = new Path(sourceFileUrl);
+            final Path rootPath = new Path(sourceFileUrl);
             File destination = new File(destinationFile);
 
             if(destination.exists()) {
@@ -232,14 +244,14 @@ public class HdfsFetcher implements FileFetcher {
                                              + " already exists");
             }
 
-            boolean isFile = fs.isFile(path);
+            boolean isFile = fs.isFile(rootPath);
 
             stats = new HdfsCopyStats(sourceFileUrl,
                                       destination,
                                       enableStatsFile,
                                       maxVersionsStatsFile,
                                       isFile,
-                                      new HdfsPathInfo(fs, path));
+                                      new HdfsPathInfo(fs, rootPath));
             jmxName = JmxUtils.registerMbean("hdfs-copy-" + copyCount.getAndIncrement(), stats);
             logger.info("Starting fetch for : " + sourceFileUrl);
 
@@ -248,64 +260,80 @@ public class HdfsFetcher implements FileFetcher {
                                                                  stats,
                                                                  status,
                                                                  bufferSize);
-            if(!fs.isFile(path)) {
+            if(!fs.isFile(rootPath)) { // We are asked to fetch a directory
                 Utils.mkdirs(destination);
-                HdfsDirectory directory = new HdfsDirectory(fs, path);
+                HdfsDirectory rootDirectory = new HdfsDirectory(fs, rootPath);
+                List<HdfsDirectory> directoriesToFetch = Lists.newArrayList();
 
-                HdfsFile metadataFile = directory.getMetadataFile();
-                Long estimatedDiskSize = -1L;
+                HdfsFile metadataFile = rootDirectory.getMetadataFile();
+                Long expectedDiskSize = -1L;
 
                 if(metadataFile != null) {
                     File copyLocation = new File(destination, metadataFile.getPath().getName());
                     fetchStrategy.fetch(metadataFile, copyLocation, null);
-                    directory.initializeMetadata(copyLocation);
-                    String diskSizeInBytes = (String) directory.getMetadata()
-                                                               .get(ReadOnlyStorageMetadata.DISK_SIZE_IN_BYTES);
-                    estimatedDiskSize = (diskSizeInBytes != null && diskSizeInBytes != "") ? (Long.parseLong(diskSizeInBytes))
-                                                                                          : -1L;
-                }
+                    rootDirectory.initializeMetadata(copyLocation);
 
-
-                /*
-                 * Only check quota for those stores:that are listed in the
-                 * System store - voldsys$_store_quotas and have non -1 values.
-                 * Others are either:
-                 * 
-                 * 1. already existing non quota-ed store, that will be
-                 * converted to quota-ed stores in future. (or) 2. new stores
-                 * that do not want to be affected by the disk quota feature at
-                 * all. -1 represents no Quota
-                 */
-
-                if(diskQuotaSizeInKB != null
-                   && diskQuotaSizeInKB != VoldemortConfig.DEFAULT_STORAGE_SPACE_QUOTA_IN_KB) {
-                    checkIfQuotaExceeded(diskQuotaSizeInKB,
-                                         storeName,
-                                         destination,
-                                         estimatedDiskSize);
-                } else {
-                    if(logger.isDebugEnabled()) {
-                        logger.debug("store: " + storeName + " is a Non Quota type store.");
+                    if (metadataFile.getDiskFileName().equals(ReadOnlyUtils.FULL_STORE_METADATA_FILE)) {
+                        // Then we are in build.primary.replica.only mode, and we need to determine which
+                        // partition sub-directories to download
+                        Set<Integer> partitions = getPartitionsForCurrentNode(metadataStore, storeName);
+                        for (int partitionId: partitions) {
+                            String partitionKey = ReadOnlyUtils.PARTITION_DIRECTORY_PREFIX + partitionId;
+                            ReadOnlyStorageMetadata partitionMetadata = rootDirectory.getMetadata().getNestedMetadata(partitionKey);
+                            String diskSizeInBytes = (String) partitionMetadata.get(ReadOnlyStorageMetadata.DISK_SIZE_IN_BYTES);
+                            if (diskSizeInBytes != null && diskSizeInBytes != "") {
+                                logger.debug("Partition " + partitionId + " is served by this node and is not empty, so it will be downloaded.");
+                                if (expectedDiskSize == -1) {
+                                    expectedDiskSize = Long.parseLong(diskSizeInBytes);
+                                } else {
+                                    expectedDiskSize += Long.parseLong(diskSizeInBytes);
+                                }
+                                HdfsDirectory partitionDirectory = new HdfsDirectory(fs, new Path(rootPath, partitionKey));
+                                partitionDirectory.initializeMetadata(partitionMetadata);
+                                directoriesToFetch.add(partitionDirectory);
+                            } else {
+                                logger.debug("Partition " + partitionId + " is served by this node but it is empty, so it will be skipped.");
+                            }
+                        }
+                    } else {
+                        // Then we are not in build.primary.replica.only mode (old behavior), and we
+                        // need to download the entire node directory we're currently in.
+                        String diskSizeInBytes = (String) rootDirectory.getMetadata()
+                                .get(ReadOnlyStorageMetadata.DISK_SIZE_IN_BYTES);
+                        if (diskSizeInBytes != null && diskSizeInBytes != "") {
+                            expectedDiskSize = Long.parseLong(diskSizeInBytes);
+                        }
+                        directoriesToFetch.add(rootDirectory);
                     }
                 }
-                Map<HdfsFile, byte[]> fileCheckSumMap = fetchStrategy.fetch(directory, destination);
-                if(directory.validateCheckSum(fileCheckSumMap)) {
-                    logger.info("Completed fetch : " + sourceFileUrl);
-                    return destination;
-                } else {
-                    logger.error("Checksum did not match!");
-                    return null;
+
+                checkIfQuotaExceeded(diskQuotaSizeInKB,
+                                     storeName,
+                                     destination,
+                                     expectedDiskSize);
+
+                logger.debug("directoriesToFetch for store '" + storeName + "': " + Arrays.toString(directoriesToFetch.toArray()));
+                for (HdfsDirectory directoryToFetch: directoriesToFetch) {
+                    Map<HdfsFile, byte[]> fileCheckSumMap = fetchStrategy.fetch(directoryToFetch, destination);
+                    if(directoryToFetch.validateCheckSum(fileCheckSumMap)) {
+                        logger.info("Completed fetch: " + sourceFileUrl);
+                    } else {
+                        logger.error("Checksum did not match for " + directoryToFetch.toString() + " !");
+                        return null;
+                    }
                 }
-            } else if(allowFetchOfFiles) {
+                return destination;
+            } else if (allowFetchingOfSingleFile) {
+                /** This code path is only used by {@link #main(String[])} */
                 Utils.mkdirs(destination);
-                HdfsFile file = new HdfsFile(fs.getFileStatus(path));
+                HdfsFile file = new HdfsFile(fs.getFileStatus(rootPath));
                 String fileName = file.getDiskFileName();
                 File copyLocation = new File(destination, fileName);
                 fetchStrategy.fetch(file, copyLocation, CheckSumType.NONE);
                 logger.info("Completed fetch : " + sourceFileUrl);
                 return destination;
             } else {
-                logger.error("Source " + path.toString() + " should be a directory");
+                logger.error("Source " + rootPath.toString() + " should be a directory");
                 return null;
             }
         } catch (Exception e) {
@@ -339,30 +367,71 @@ public class HdfsFetcher implements FileFetcher {
         }
     }
 
+    /**
+     * @return the set of partitions which need to be served (and thus fetched) by the current node.
+     */
+    private Set<Integer> getPartitionsForCurrentNode(MetadataStore metadataStore, String storeName) {
+        Set<Integer> partitions = Sets.newHashSet();
+        StoreDefinition storeDefinition = metadataStore.getStoreDef(storeName);
+        Cluster cluster = metadataStore.getCluster();
+        List<Integer> partitionsMasteredByCurrentNode = cluster.getNodeById(metadataStore.getNodeId()).getPartitionIds();
+        RoutingStrategy routingStrategy = new RoutingStrategyFactory().updateRoutingStrategy(storeDefinition, cluster);
+
+        // For each partition in the cluster, determine if it needs to be served by the current node
+        for (int partitionId = 0; partitionId < cluster.getNumberOfPartitions(); partitionId++) {
+            boolean partitionIdIsServedByCurrentNode = false;
+            for (Integer replicatingPartition: routingStrategy.getReplicatingPartitionList(partitionId)) {
+                if (partitionsMasteredByCurrentNode.contains(replicatingPartition)) {
+                    partitionIdIsServedByCurrentNode = true;
+                    break;
+                }
+            }
+            if (partitionIdIsServedByCurrentNode) {
+                partitions.add(partitionId);
+            } else {
+                logger.debug("Partition " + partitionId + " is not served by this node, so it will be skipped.");
+            }
+        }
+        return partitions;
+    }
+
+    /**
+     * Only check quota for those stores:that are listed in the
+     * System store - voldsys$_store_quotas and have non -1 values.
+     * Others are either:
+     *
+     * 1. already existing non quota-ed store, that will be
+     * converted to quota-ed stores in future. (or)
+     * 2. new stores that do not want to be affected by the
+     * disk quota feature at all. -1 represents no Quota
+     */
     private void checkIfQuotaExceeded(Long diskQuotaSizeInKB,
-                            String storeName,
-                            File dest,
-                            Long estimatedDiskSize) {
-        String logMessage = "Store: " + storeName + ", Destination: " + dest.getAbsolutePath()
-                            + ", Expected disk size in KB: "
-                            + (estimatedDiskSize / ByteUtils.BYTES_PER_KB)
-                            + ", Disk quota size in KB: " + diskQuotaSizeInKB;
-        if(logger.isDebugEnabled()) {
-            logger.error(logMessage);
-        }
-        if(diskQuotaSizeInKB == 0L) {
-            String errorMessage = "This store: \'"
-                                  + storeName
-                                  + "\' does not belong to this Voldemort cluster. Please use a valid bootstrap url.";
-            logger.error(errorMessage);
-            throw new InvalidBootstrapURLException(errorMessage);
-        }
-        // check if there is still sufficient quota left for this push
-        Long estimatedDiskSizeNeeded = (estimatedDiskSize / ByteUtils.BYTES_PER_KB);
-        if(estimatedDiskSizeNeeded >= diskQuotaSizeInKB) {
-            String errorMessage = "Quota Exceeded for " + logMessage;
-            logger.error(errorMessage);
-            throw new QuotaExceededException(errorMessage);
+                                      String storeName,
+                                      File dest,
+                                      Long expectedDiskSize) {
+        if(diskQuotaSizeInKB != null
+                && diskQuotaSizeInKB != VoldemortConfig.DEFAULT_DEFAULT_STORAGE_SPACE_QUOTA_IN_KB) {
+            String logMessage = "Store: " + storeName + ", Destination: " + dest.getAbsolutePath()
+                                + ", Expected disk size in KB: "
+                                + (expectedDiskSize / ByteUtils.BYTES_PER_KB)
+                                + ", Disk quota size in KB: " + diskQuotaSizeInKB;
+            logger.debug(logMessage);
+            if(diskQuotaSizeInKB == 0L) {
+                String errorMessage = "This store: \'"
+                                      + storeName
+                                      + "\' does not belong to this Voldemort cluster. Please use a valid bootstrap url.";
+                logger.error(errorMessage);
+                throw new InvalidBootstrapURLException(errorMessage);
+            }
+            // check if there is still sufficient quota left for this push
+            Long estimatedDiskSizeNeeded = (expectedDiskSize / ByteUtils.BYTES_PER_KB);
+            if(estimatedDiskSizeNeeded >= diskQuotaSizeInKB) {
+                String errorMessage = "Quota Exceeded for " + logMessage;
+                logger.error(errorMessage);
+                throw new QuotaExceededException(errorMessage);
+            }
+        } else {
+            logger.debug("store: " + storeName + " is a Non Quota type store.");
         }
     }
 
@@ -403,7 +472,7 @@ public class HdfsFetcher implements FileFetcher {
             destDir = args[4];
 
         // for testing we want to be able to download a single file
-        allowFetchOfFiles = true;
+        allowFetchingOfSingleFile = true;
 
         FileSystem fs = HadoopUtils.getHadoopFileSystem(fetcher.voldemortConfig, url);
         Path p = new Path(url);

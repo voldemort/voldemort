@@ -440,8 +440,8 @@ public class VoldemortServer extends AbstractService {
                 croak("USAGE: java " + VoldemortServer.class.getName()
                       + " [voldemort_home_dir] [voldemort_config_dir]");
         } catch(Exception e) {
-            logger.error(e);
-            Utils.croak("Error while loading configuration: " + e.getMessage());
+            logger.error("Error while loading configuration", e);
+            Utils.croak("Error while loading configuration. Will exit.");
         }
 
         final VoldemortServer server = new VoldemortServer(config);

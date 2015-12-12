@@ -61,7 +61,21 @@ public class ReadOnlyStorageMetadata {
         return properties.isEmpty();
     }
 
+    /**
+     * Add a simple String property to the metadata.
+     * @param key String for the name of the property
+     * @param value String for the value of the property
+     */
     public void add(String key, String value) {
+        properties.put(key, value);
+    }
+
+    /**
+     * Add a nested metadata object into this metadata.
+     * @param key String for the name of the metadata object.
+     * @param value {@link ReadOnlyStorageMetadata} to add.
+     */
+    public void addNestedMetadata(String key, ReadOnlyStorageMetadata value) {
         properties.put(key, value);
     }
 
@@ -71,6 +85,25 @@ public class ReadOnlyStorageMetadata {
 
     public Object get(String key) {
         return properties.get(key);
+    }
+
+    public ReadOnlyStorageMetadata getNestedMetadata(String key) {
+        Object metadataObject = properties.get(key);
+        if (metadataObject == null) {
+            return null;
+        } else if (metadataObject instanceof ReadOnlyStorageMetadata) {
+            return (ReadOnlyStorageMetadata) metadataObject;
+        } else if (metadataObject instanceof Map) {
+            try {
+                return new ReadOnlyStorageMetadata((Map<String, Object>) metadataObject);
+            } catch (Exception e) {
+                throw new IllegalArgumentException("Could not parse ReadOnlyStorageMetadata for key '" + key + "'. " +
+                        "It contains: " + metadataObject.toString(), e);
+            }
+        } else {
+            throw new IllegalArgumentException("The metadata key '" + key + "' does not contain nested metadata! " +
+                                               "It contains: " + metadataObject.toString());
+        }
     }
 
     public CheckSumType getCheckSumType() {
@@ -140,15 +173,10 @@ public class ReadOnlyStorageMetadata {
 
     @Override
     public String toString() {
-        StringBuilder sb = new StringBuilder("ReadOnlyStorageMetadata( ");
-        sb.append("\n");
-        for(String key: this.properties.keySet()) {
-            sb.append(key + " : " + properties.get(key) + ",");
-            sb.append("\n");
+        try {
+            return toJsonString();
+        } catch (IOException e) {
+            return "Cannot parse malformed ReadOnlyStorageMetadata!";
         }
-        sb.append(")");
-
-        return sb.toString();
     }
-
 }

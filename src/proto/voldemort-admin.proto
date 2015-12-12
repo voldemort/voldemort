@@ -445,6 +445,22 @@ message HandleFetchFailureResponse {
   repeated DisableStoreVersionResponse disable_store_responses = 3;
 }
 
+message GetConfigRequest {
+  repeated string config_key = 1;
+}
+
+message GetConfigResponse {
+  // Key/value pairs of each requested config key
+  repeated MapFieldEntry config_map = 1;
+  // Requested config keys which cannot be provided, along with the reason why in the value.
+  repeated MapFieldEntry invalid_config_map = 2;
+}
+
+message MapFieldEntry {
+  required string key = 1;
+  required string value = 2;
+}
+
 enum AdminRequestType {
   GET_METADATA = 0;
   UPDATE_METADATA = 1;
@@ -488,6 +504,7 @@ enum AdminRequestType {
   GET_HA_SETTINGS = 41;
   DISABLE_STORE_VERSION = 42;
   HANDLE_FETCH_FAILURE = 43;
+  GET_CONFIG = 44;
 }
 
 message VoldemortAdminRequest {
@@ -534,4 +551,5 @@ message VoldemortAdminRequest {
   optional GetHighAvailabilitySettingsRequest get_ha_settings = 43;
   optional DisableStoreVersionRequest disable_store_version = 44;
   optional HandleFetchFailureRequest handle_fetch_failure = 45;
+  optional GetConfigRequest get_config = 46;
 }

@@ -25,6 +25,7 @@ import java.util.Timer;
 import java.util.TimerTask;
 import java.util.concurrent.TimeUnit;
 
+import com.google.common.collect.Lists;
 import voldemort.client.ClientConfig;
 import voldemort.client.DefaultStoreClient;
 import voldemort.client.TimeoutConfig;
@@ -68,32 +69,440 @@ import com.google.common.collect.ImmutableList;
 
 /**
  * Configuration parameters for the voldemort server.
- * 
- * 
  */
 public class VoldemortConfig implements Serializable {
 
     private static final long serialVersionUID = 1;
+
+    // Config keys
+    public static final String NODE_ID = "node.id";
+    public static final String VOLDEMORT_HOME = "voldemort.home";
+    public static final String DATA_DIRECTORY = "data.directory";
+    public static final String METADATA_DIRECTORY = "metadata.directory";
+    public static final String BDB_CACHE_SIZE = "bdb.cache.size";
+    public static final String BDB_WRITE_TRANSACTIONS = "bdb.write.transactions";
+    public static final String BDB_FLUSH_TRANSACTIONS = "bdb.flush.transactions";
+    public static final String BDB_DATA_DIRECTORY = "bdb.data.directory";
+    public static final String BDB_MAX_LOGFILE_SIZE = "bdb.max.logfile.size";
+    public static final String BDB_BTREE_FANOUT = "bdb.btree.fanout";
+    public static final String BDB_MAX_DELTA = "bdb.max.delta";
+    public static final String BDB_BIN_DELTA = "bdb.bin.delta";
+    public static final String BDB_CHECKPOINT_INTERVAL_BYTES = "bdb.checkpoint.interval.bytes";
+    public static final String BDB_CHECKPOINT_INTERVAL_MS = "bdb.checkpoint.interval.ms";
+    public static final String BDB_ONE_ENV_PER_STORE = "bdb.one.env.per.store";
+    public static final String BDB_CLEANER_MIN_FILE_UTILIZATION = "bdb.cleaner.min.file.utilization";
+    public static final String BDB_CLEANER_MIN_UTILIZATION = "bdb.cleaner.minUtilization";
+    public static final String BDB_CLEANER_THREADS = "bdb.cleaner.threads";
+    public static final String BDB_CLEANER_INTERVAL_BYTES = "bdb.cleaner.interval.bytes";
+    public static final String BDB_CLEANER_LOOKAHEAD_CACHE_SIZE = "bdb.cleaner.lookahead.cache.size";
+    public static final String BDB_LOCK_TIMEOUT_MS = "bdb.lock.timeout.ms";
+    public static final String BDB_LOCK_N_LOCK_TABLES = "bdb.lock.nLockTables";
+    public static final String BDB_LOG_FAULT_READ_SIZE = "bdb.log.fault.read.size";
+    public static final String BDB_LOG_ITERATOR_READ_SIZE = "bdb.log.iterator.read.size";
+    public static final String BDB_FAIR_LATCHES = "bdb.fair.latches";
+    public static final String BDB_CHECKPOINTER_HIGH_PRIORITY = "bdb.checkpointer.high.priority";
+    public static final String BDB_CLEANER_MAX_BATCH_FILES = "bdb.cleaner.max.batch.files";
+    public static final String BDB_LOCK_READ_UNCOMMITTED = "bdb.lock.read_uncommitted";
+    public static final String BDB_STATS_CACHE_TTL_MS = "bdb.stats.cache.ttl.ms";
+    public static final String BDB_EXPOSE_SPACE_UTILIZATION = "bdb.expose.space.utilization";
+    public static final String BDB_MINIMUM_SHARED_CACHE = "bdb.minimum.shared.cache";
+    public static final String BDB_CLEANER_LAZY_MIGRATION = "bdb.cleaner.lazy.migration";
+    public static final String BDB_CACHE_EVICTLN = "bdb.cache.evictln";
+    public static final String BDB_MINIMIZE_SCAN_IMPACT = "bdb.minimize.scan.impact";
+    public static final String BDB_PREFIX_KEYS_WITH_PARTITIONID = "bdb.prefix.keys.with.partitionid";
+    public static final String BDB_EVICT_BY_LEVEL = "bdb.evict.by.level";
+    public static final String BDB_CHECKPOINTER_OFF_BATCH_WRITES = "bdb.checkpointer.off.batch.writes";
+    public static final String BDB_CLEANER_FETCH_OBSOLETE_SIZE = "bdb.cleaner.fetch.obsolete.size";
+    public static final String BDB_CLEANER_ADJUST_UTILIZATION = "bdb.cleaner.adjust.utilization";
+    public static final String BDB_RECOVERY_FORCE_CHECKPOINT = "bdb.recovery.force.checkpoint";
+    public static final String BDB_RAW_PROPERTY_STRING = "bdb.raw.property.string";
+    public static final String READONLY_HADOOP_CONFIG_PATH = "readonly.hadoop.config.path";
+    public static final String READONLY_BACKUPS = "readonly.backups";
+    public static final String READONLY_SEARCH_STRATEGY = "readonly.search.strategy";
+    public static final String READONLY_DATA_DIRECTORY = "readonly.data.directory";
+    public static final String READONLY_DELETE_BACKUP_MS = "readonly.delete.backup.ms";
+    public static final String READONLY_KEYTAB_PATH = "readonly.keytab.path";
+    public static final String READONLY_KERBEROS_USER = "readonly.kerberos.user";
+    public static final String READONLY_KERBEROS_KDC = "readonly.kerberos.kdc";
+    public static final String READONLY_KERBEROS_REALM = "readonly.kerberos.realm";
+    public static final String FETCHER_MAX_BYTES_PER_SEC = "fetcher.max.bytes.per.sec";
+    public static final String FETCHER_REPORTING_INTERVAL_BYTES = "fetcher.reporting.interval.bytes";
+    public static final String FETCHER_THROTTLER_INTERVAL = "fetcher.throttler.interval";
+    public static final String FETCHER_RETRY_COUNT = "fetcher.retry.count";
+    public static final String FETCHER_RETRY_DELAY_MS = "fetcher.retry.delay.ms";
+    public static final String FETCHER_LOGIN_INTERVAL_MS = "fetcher.login.interval.ms";
+    public static final String DEFAULT_STORAGE_SPACE_QUOTA_IN_KB = "default.storage.space.quota.in.kb";
+    public static final String HDFS_FETCHER_BUFFER_SIZE = "hdfs.fetcher.buffer.size";
+    public static final String HDFS_FETCHER_SOCKET_TIMEOUT = "hdfs.fetcher.socket.timeout";
+    public static final String FILE_FETCHER_CLASS = "file.fetcher.class";
+    public static final String READONLY_STATS_FILE_ENABLED = "readonly.stats.file.enabled";
+    public static final String READONLY_STATS_FILE_MAX_VERSIONS = "readonly.stats.file.max.versions";
+    public static final String READONLY_MAX_VALUE_BUFFER_ALLOCATION_SIZE = "readonly.max.value.buffer.allocation.size";
+    public static final String READONLY_COMPRESSION_CODEC = "readonly.compression.codec";
+    public static final String READONLY_MODIFY_PROTOCOL = "readonly.modify.protocol";
+    public static final String READONLY_MODIFY_PORT = "readonly.modify.port";
+    public static final String USE_BOUNCYCASTLE_FOR_SSL = "use.bouncycastle.for.ssl";
+    public static final String READONLY_BUILD_PRIMARY_REPLICAS_ONLY = "readonly.build.primary.replicas.only";
+    public static final String PUSH_HA_ENABLED = "push.ha.enabled";
+    public static final String PUSH_HA_CLUSTER_ID = "push.ha.cluster.id";
+    public static final String PUSH_HA_LOCK_PATH = "push.ha.lock.path";
+    public static final String PUSH_HA_LOCK_IMPLEMENTATION = "push.ha.lock.implementation";
+    public static final String PUSH_HA_MAX_NODE_FAILURES = "push.ha.max.node.failure";
+    public static final String MYSQL_USER = "mysql.user";
+    public static final String MYSQL_PASSWORD = "mysql.password";
+    public static final String MYSQL_HOST = "mysql.host";
+    public static final String MYSQL_PORT = "mysql.port";
+    public static final String MYSQL_DATABASE = "mysql.database";
+    public static final String TESTING_SLOW_QUEUEING_GET_MS = "testing.slow.queueing.get.ms";
+    public static final String TESTING_SLOW_QUEUEING_GETALL_MS = "testing.slow.queueing.getall.ms";
+    public static final String TESTING_SLOW_QUEUEING_GETVERSIONS_MS = "testing.slow.queueing.getversions.ms";
+    public static final String TESTING_SLOW_QUEUEING_PUT_MS = "testing.slow.queueing.put.ms";
+    public static final String TESTING_SLOW_QUEUEING_DELETE_MS = "testing.slow.queueing.delete.ms";
+    public static final String TESTING_SLOW_CONCURRENT_GET_MS = "testing.slow.concurrent.get.ms";
+    public static final String TESTING_SLOW_CONCURRENT_GETALL_MS = "testing.slow.concurrent.getall.ms";
+    public static final String TESTING_SLOW_CONCURRENT_GETVERSIONS_MS = "testing.slow.concurrent.getversions.ms";
+    public static final String TESTING_SLOW_CONCURRENT_PUT_MS = "testing.slow.concurrent.put.ms";
+    public static final String TESTING_SLOW_CONCURRENT_DELETE_MS = "testing.slow.concurrent.delete.ms";
+    public static final String MAX_THREADS = "max.threads";
+    public static final String CORE_THREADS = "core.threads";
+    public static final String ADMIN_MAX_THREADS = "admin.max.threads";
+    public static final String ADMIN_CORE_THREADS = "admin.core.threads";
+    public static final String ADMIN_STREAMS_BUFFER_SIZE = "admin.streams.buffer.size";
+    public static final String ADMIN_CLIENT_CONNECTION_TIMEOUT_SEC = "admin.client.connection.timeout.sec";
+    public static final String ADMIN_CLIENT_SOCKET_TIMEOUT_SEC = "admin.client.socket.timeout.sec";
+    public static final String STREAM_READ_BYTE_PER_SEC = "stream.read.byte.per.sec";
+    public static final String STREAM_WRITE_BYTE_PER_SEC = "stream.write.byte.per.sec";
+    public static final String USE_MULTI_VERSION_STREAMING_PUTS = "use.multi.version.streaming.puts";
+    public static final String SOCKET_TIMEOUT_MS = "socket.timeout.ms";
+    public static final String SOCKET_BUFFER_SIZE = "socket.buffer.size";
+    public static final String SOCKET_KEEPALIVE = "socket.keepalive";
+    public static final String ENABLE_NIO_CONNECTOR = "enable.nio.connector";
+    public static final String NIO_CONNECTOR_KEEPALIVE = "nio.connector.keepalive";
+    public static final String NIO_CONNECTOR_SELECTORS = "nio.connector.selectors";
+    public static final String NIO_ADMIN_CONNECTOR_SELECTORS = "nio.admin.connector.selectors";
+    public static final String NIO_ADMIN_CONNECTOR_KEEPALIVE = "nio.admin.connector.keepalive";
+    public static final String NIO_ACCEPTOR_BACKLOG = "nio.acceptor.backlog";
+    public static final String NIO_SELECTOR_MAX_HEART_BEAT_TIME_MS = "nio.selector.max.heart.beat.time.ms";
+    public static final String CLIENT_SELECTORS = "client.selectors";
+    public static final String CLIENT_MAX_CONNECTIONS_PER_NODE = "client.max.connections.per.node";
+    public static final String CLIENT_CONNECTION_TIMEOUT_MS = "client.connection.timeout.ms";
+    public static final String CLIENT_ROUTING_TIMEOUT_MS = "client.routing.timeout.ms";
+    public static final String CLIENT_ROUTING_GET_TIMEOUT_MS = "client.routing.get.timeout.ms";
+    public static final String CLIENT_ROUTING_GETALL_TIMEOUT_MS = "client.routing.getall.timeout.ms";
+    public static final String CLIENT_ROUTING_PUT_TIMEOUT_MS = "client.routing.put.timeout.ms";
+    public static final String CLIENT_ROUTING_GETVERSIONS_TIMEOUT_MS = "client.routing.getversions.timeout.ms";
+    public static final String CLIENT_ROUTING_DELETE_TIMEOUT_MS = "client.routing.delete.timeout.ms";
+    public static final String CLIENT_ROUTING_ALLOW_PARTIAL_GETALL = "client.routing.allow.partial.getall";
+    public static final String CLIENT_MAX_THREADS = "client.max.threads";
+    public static final String CLIENT_THREAD_IDLE_MS = "client.thread.idle.ms";
+    public static final String CLIENT_MAX_QUEUED_REQUESTS = "client.max.queued.requests";
+    public static final String HTTP_ENABLE = "http.enable";
+    public static final String SOCKET_ENABLE = "socket.enable";
+    public static final String ADMIN_ENABLE = "admin.enable";
+    public static final String JMX_ENABLE = "jmx.enable";
+    public static final String SLOP_ENABLE = "slop.enable";
+    public static final String SLOP_PUSHER_ENABLE = "slop.pusher.enable";
+    public static final String SLOP_WRITE_BYTE_PER_SEC = "slop.write.byte.per.sec";
+    public static final String ENABLE_VERBOSE_LOGGING = "enable.verbose.logging";
+    public static final String ENABLE_STAT_TRACKING = "enable.stat.tracking";
+    public static final String ENABLE_SERVER_ROUTING = "enable.server.routing";
+    public static final String ENABLE_METADATA_CHECKING = "enable.metadata.checking";
+    public static final String ENABLE_GOSSIP = "enable.gossip";
+    public static final String ENABLE_REBALANCING = "enable.rebalancing";
+    public static final String ENABLE_REPAIR = "enable.repair";
+    public static final String ENABLE_PRUNEJOB = "enable.prunejob";
+    public static final String ENABLE_SLOP_PURGE_JOB = "enable.slop.purge.job";
+    public static final String ENABLE_JMX_CLUSTERNAME = "enable.jmx.clustername";
+    public static final String ENABLE_QUOTA_LIMITING = "enable.quota.limiting";
+    public static final String GOSSIP_INTERVAL_MS = "gossip.interval.ms";
+    public static final String SLOP_WRITE_BYTE_PER_SEC1 = "slop.write.byte.per.sec";
+    public static final String SLOP_READ_BYTE_PER_SEC = "slop.read.byte.per.sec";
+    public static final String SLOP_STORE_ENGINE = "slop.store.engine";
+    public static final String SLOP_FREQUENCY_MS = "slop.frequency.ms";
+    public static final String SLOP_BATCH_SIZE = "slop.batch.size";
+    public static final String PUSHER_TYPE = "pusher.type";
+    public static final String SLOP_ZONES_TERMINATE = "slop.zones.terminate";
+    public static final String AUTO_PURGE_DEAD_SLOPS = "auto.purge.dead.slops";
+    public static final String SCHEDULER_THREADS = "scheduler.threads";
+    public static final String SERVICE_INTERRUPTIBLE = "service.interruptible";
+    public static final String NUM_SCAN_PERMITS = "num.scan.permits";
+    public static final String STORAGE_CONFIGS = "storage.configs";
+    public static final String RETENTION_CLEANUP_FIRST_START_HOUR = "retention.cleanup.first.start.hour";
+    public static final String RETENTION_CLEANUP_FIRST_START_DAY = "retention.cleanup.first.start.day";
+    public static final String RETENTION_CLEANUP_PERIOD_HOURS = "retention.cleanup.period.hours";
+    public static final String RETENTION_CLEANUP_PIN_START_TIME = "retention.cleanup.pin.start.time";
+    public static final String ENFORCE_RETENTION_POLICY_ON_READ = "enforce.retention.policy.on.read";
+    public static final String DELETE_EXPIRED_VALUES_ON_READ = "delete.expired.values.on.read";
+    public static final String REQUEST_FORMAT = "request.format";
+    public static final String REBALANCING_TIMEOUT_SECONDS = "rebalancing.timeout.seconds";
+    public static final String MAX_PARALLEL_STORES_REBALANCING = "max.parallel.stores.rebalancing";
+    public static final String USE_PARTITION_SCAN_FOR_REBALANCE = "use.partition.scan.for.rebalance";
+    public static final String MAX_PROXY_PUT_THREADS = "max.proxy.put.threads";
+    public static final String FAILUREDETECTOR_IMPLEMENTATION = "failuredetector.implementation";
+    public static final String CLIENT_NODE_BANNAGE_MS = "client.node.bannage.ms";
+    public static final String FAILUREDETECTOR_BANNAGE_PERIOD = "failuredetector.bannage.period";
+    public static final String FAILUREDETECTOR_THRESHOLD = "failuredetector.threshold";
+    public static final String FAILUREDETECTOR_THRESHOLD_COUNTMINIMUM = "failuredetector.threshold.countminimum";
+    public static final String FAILUREDETECTOR_THRESHOLD_INTERVAL = "failuredetector.threshold.interval";
+    public static final String FAILUREDETECTOR_ASYNCRECOVERY_INTERVAL = "failuredetector.asyncrecovery.interval";
+    public static final String FAILUREDETECTOR_CATASTROPHIC_ERROR_TYPES = "failuredetector.catastrophic.error.types";
+    public static final String FAILUREDETECTOR_REQUEST_LENGTH_THRESHOLD = "failuredetector.request.length.threshold";
+    public static final String ENABLE_NETWORK_CLASSLOADER = "enable.network.classloader";
+    public static final String REST_ENABLE = "rest.enable";
+    public static final String NUM_REST_SERVICE_NETTY_SERVER_BACKLOG = "num.rest.service.netty.server.backlog";
+    public static final String NUM_REST_SERVICE_NETTY_BOSS_THREADS = "num.rest.service.netty.boss.threads";
+    public static final String NUM_REST_SERVICE_NETTY_WORKER_THREADS = "num.rest.service.netty.worker.threads";
+    public static final String NUM_REST_SERVICE_STORAGE_THREADS = "num.rest.service.storage.threads";
+    public static final String REST_SERVICE_STORAGE_THREAD_POOL_QUEUE_SIZE = "rest.service.storage.thread.pool.queue.size";
+    public static final String MAX_HTTP_AGGREGATED_CONTENT_LENGTH = "max.http.aggregated.content.length";
+    public static final String REPAIRJOB_MAX_KEYS_SCANNED_PER_SEC = "repairjob.max.keys.scanned.per.sec";
+    public static final String PRUNEJOB_MAX_KEYS_SCANNED_PER_SEC = "prunejob.max.keys.scanned.per.sec";
+    public static final String SLOP_PURGEJOB_MAX_KEYS_SCANNED_PER_SEC = "slop.purgejob.max.keys.scanned.per.sec";
+    // Options prefixed with "rocksdb.db.options." or "rocksdb.cf.options." can be used to tune RocksDB performance
+    // and are passed directly to the RocksDB configuration code. See the RocksDB documentation for details:
+    //   https://github.com/facebook/rocksdb/blob/master/include/rocksdb/options.h
+    //   https://github.com/facebook/rocksdb/wiki/RocksDB-Tuning-Guide
+    public static final String ROCKSDB_DB_OPTIONS = "rocksdb.db.options.";
+    public static final String ROCKSDB_CF_OPTIONS = "rocksdb.cf.options.";
+    public static final String ROCKSDB_DATA_DIR = "rocksdb.data.dir";
+    public static final String ROCKSDB_PREFIX_KEYS_WITH_PARTITIONID = "rocksdb.prefix.keys.with.partitionid";
+    public static final String ROCKSDB_ENABLE_READ_LOCKS = "rocksdb.enable.read.locks";
+    public static final String RESTRICTED_CONFIGS = "restricted.configs";
+
+    // Environment variables
     public static final String VOLDEMORT_HOME_VAR_NAME = "VOLDEMORT_HOME";
     public static final String VOLDEMORT_CONFIG_DIR = "VOLDEMORT_CONFIG_DIR";
     private static final String VOLDEMORT_NODE_ID_VAR_NAME = "VOLDEMORT_NODE_ID";
-    public static int VOLDEMORT_DEFAULT_ADMIN_PORT = 6660;
-    public static final long REPORTING_INTERVAL_BYTES = 25 * 1024 * 1024;
+
+    // Frequently used default values
+    public static final long DEFAULT_REPORTING_INTERVAL_BYTES = 25 * 1024 * 1024;
     public static final int DEFAULT_FETCHER_BUFFER_SIZE = 64 * 1024;
     public static final int DEFAULT_FETCHER_SOCKET_TIMEOUT = 1000 * 60 * 30; // 30 minutes
     public static final int DEFAULT_FETCHER_THROTTLE_INTERVAL_WINDOW_MS = 1000;
-
-    // -1 represents no storage space quota constraint
-    public static final long DEFAULT_STORAGE_SPACE_QUOTA_IN_KB = -1L;
-    
-    // Kerberos support for read-only fetches (constants)
-    public static final String DEFAULT_KERBEROS_PRINCIPAL = "voldemrt";
-    public static final String DEFAULT_KEYTAB_PATH = "/voldemrt.headless.keytab";
-    private static final String DEFAULT_KERBEROS_KDC = "";
-    private static final String DEFAULT_KERBEROS_REALM = "";
-    private static final String DEFAULT_FILE_FETCHER_CLASS = null; // FIXME: Some unit tests fail without this default.
-    private static final String DEFAULT_RO_COMPRESSION_CODEC = "NO_CODEC";
+    public static final long DEFAULT_DEFAULT_STORAGE_SPACE_QUOTA_IN_KB = -1L; // -1 represents no storage space quota constraint
     public static final int DEFAULT_RO_MAX_VALUE_BUFFER_ALLOCATION_SIZE = 25 * 1024 * 1024;
+
+    private static final Props defaultConfig = new Props();
+    static {
+        defaultConfig.put(BDB_CACHE_SIZE, 200 * 1024 * 1024);
+        defaultConfig.put(BDB_WRITE_TRANSACTIONS, false);
+        defaultConfig.put(BDB_FLUSH_TRANSACTIONS, false);
+        defaultConfig.put(BDB_MAX_LOGFILE_SIZE, 60 * 1024 * 1024);
+        defaultConfig.put(BDB_BTREE_FANOUT, 512);
+        defaultConfig.put(BDB_MAX_DELTA, 100);
+        defaultConfig.put(BDB_BIN_DELTA, 75);
+        defaultConfig.put(BDB_CHECKPOINT_INTERVAL_BYTES, 200 * 1024 * 1024);
+        defaultConfig.put(BDB_CHECKPOINT_INTERVAL_MS, 30 * Time.MS_PER_SECOND);
+        defaultConfig.put(BDB_ONE_ENV_PER_STORE, false);
+        defaultConfig.put(BDB_CLEANER_MIN_FILE_UTILIZATION, 0);
+        defaultConfig.put(BDB_CLEANER_MIN_UTILIZATION, 50);
+        defaultConfig.put(BDB_CLEANER_THREADS, 1);
+        // by default, wake up the cleaner everytime we write log file size *
+        // utilization% bytes. So, by default 30MB
+        defaultConfig.put(BDB_CLEANER_INTERVAL_BYTES, 30 * 1024 * 1024);
+        defaultConfig.put(BDB_CLEANER_LOOKAHEAD_CACHE_SIZE, 8192);
+        defaultConfig.put(BDB_LOCK_TIMEOUT_MS, 500);
+        defaultConfig.put(BDB_LOCK_N_LOCK_TABLES, 7);
+        defaultConfig.put(BDB_LOG_FAULT_READ_SIZE, 2048);
+        defaultConfig.put(BDB_LOG_ITERATOR_READ_SIZE, 8192);
+        defaultConfig.put(BDB_FAIR_LATCHES, false);
+        defaultConfig.put(BDB_CHECKPOINTER_HIGH_PRIORITY, false);
+        defaultConfig.put(BDB_CLEANER_MAX_BATCH_FILES, 0);
+        defaultConfig.put(BDB_LOCK_READ_UNCOMMITTED, true);
+        defaultConfig.put(BDB_STATS_CACHE_TTL_MS, 5 * Time.MS_PER_SECOND);
+        defaultConfig.put(BDB_EXPOSE_SPACE_UTILIZATION, true);
+        defaultConfig.put(BDB_MINIMUM_SHARED_CACHE, 0);
+        defaultConfig.put(BDB_CLEANER_LAZY_MIGRATION, false);
+        defaultConfig.put(BDB_CACHE_EVICTLN, true);
+        defaultConfig.put(BDB_MINIMIZE_SCAN_IMPACT, true);
+        defaultConfig.put(BDB_PREFIX_KEYS_WITH_PARTITIONID, true);
+        defaultConfig.put(BDB_EVICT_BY_LEVEL, false);
+        defaultConfig.put(BDB_CHECKPOINTER_OFF_BATCH_WRITES, false);
+        defaultConfig.put(BDB_CLEANER_FETCH_OBSOLETE_SIZE, true);
+        defaultConfig.put(BDB_CLEANER_ADJUST_UTILIZATION, false);
+        defaultConfig.put(BDB_RECOVERY_FORCE_CHECKPOINT, false);
+        defaultConfig.put(BDB_RAW_PROPERTY_STRING, (String) null);
+
+        defaultConfig.put(READONLY_BACKUPS, 1);
+        defaultConfig.put(READONLY_SEARCH_STRATEGY, BinarySearchStrategy.class.getName());
+        defaultConfig.put(READONLY_DELETE_BACKUP_MS, 0);
+        defaultConfig.put(FETCHER_MAX_BYTES_PER_SEC, 0);
+        defaultConfig.put(FETCHER_REPORTING_INTERVAL_BYTES, DEFAULT_REPORTING_INTERVAL_BYTES);
+        defaultConfig.put(FETCHER_THROTTLER_INTERVAL, DEFAULT_FETCHER_THROTTLE_INTERVAL_WINDOW_MS);
+        defaultConfig.put(FETCHER_RETRY_COUNT, 5);
+        defaultConfig.put(FETCHER_RETRY_DELAY_MS, 5000);
+        defaultConfig.put(FETCHER_LOGIN_INTERVAL_MS, -1);
+        defaultConfig.put(DEFAULT_STORAGE_SPACE_QUOTA_IN_KB, DEFAULT_DEFAULT_STORAGE_SPACE_QUOTA_IN_KB);
+        defaultConfig.put(HDFS_FETCHER_BUFFER_SIZE, DEFAULT_FETCHER_BUFFER_SIZE);
+        defaultConfig.put(HDFS_FETCHER_SOCKET_TIMEOUT, DEFAULT_FETCHER_SOCKET_TIMEOUT);
+        defaultConfig.put(READONLY_KERBEROS_USER, "voldemrt");
+        defaultConfig.put(READONLY_KERBEROS_KDC, "");
+        defaultConfig.put(READONLY_KERBEROS_REALM, "");
+        defaultConfig.put(FILE_FETCHER_CLASS, (String) null); // FIXME: Some unit tests fail without this default.
+        defaultConfig.put(READONLY_STATS_FILE_ENABLED, true);
+        defaultConfig.put(READONLY_STATS_FILE_MAX_VERSIONS, 1000);
+        defaultConfig.put(READONLY_MAX_VALUE_BUFFER_ALLOCATION_SIZE, VoldemortConfig.DEFAULT_RO_MAX_VALUE_BUFFER_ALLOCATION_SIZE);
+        // To enable block-level compression over the wire for Read-Only fetches, set this property to "GZIP"
+        defaultConfig.put(READONLY_COMPRESSION_CODEC, "NO_CODEC");
+        defaultConfig.put(READONLY_MODIFY_PROTOCOL, "");
+        defaultConfig.put(READONLY_MODIFY_PORT, -1);
+        defaultConfig.put(USE_BOUNCYCASTLE_FOR_SSL, false);
+        defaultConfig.put(READONLY_BUILD_PRIMARY_REPLICAS_ONLY, true);
+
+        defaultConfig.put(PUSH_HA_CLUSTER_ID, (String) null);
+        defaultConfig.put(PUSH_HA_LOCK_PATH, (String) null);
+        defaultConfig.put(PUSH_HA_LOCK_IMPLEMENTATION, (String) null);
+        defaultConfig.put(PUSH_HA_MAX_NODE_FAILURES, 0);
+        defaultConfig.put(PUSH_HA_ENABLED, false);
+
+        defaultConfig.put(MYSQL_USER, "root");
+        defaultConfig.put(MYSQL_PASSWORD, "");
+        defaultConfig.put(MYSQL_HOST, "localhost");
+        defaultConfig.put(MYSQL_PORT, 3306);
+        defaultConfig.put(MYSQL_DATABASE, "voldemort");
+
+        defaultConfig.put(TESTING_SLOW_QUEUEING_GET_MS, 0);
+        defaultConfig.put(TESTING_SLOW_QUEUEING_GETALL_MS, 0);
+        defaultConfig.put(TESTING_SLOW_QUEUEING_GETVERSIONS_MS,0);
+        defaultConfig.put(TESTING_SLOW_QUEUEING_PUT_MS, 0);
+        defaultConfig.put(TESTING_SLOW_QUEUEING_DELETE_MS, 0);
+
+        defaultConfig.put(TESTING_SLOW_CONCURRENT_GET_MS, 0);
+        defaultConfig.put(TESTING_SLOW_CONCURRENT_GETALL_MS,0);
+        defaultConfig.put(TESTING_SLOW_CONCURRENT_GETVERSIONS_MS,0);
+        defaultConfig.put(TESTING_SLOW_CONCURRENT_PUT_MS, 0);
+        defaultConfig.put(TESTING_SLOW_CONCURRENT_DELETE_MS,0);
+
+        defaultConfig.put(MAX_THREADS, 100);
+
+        // Admin client should have less threads but very high buffer size.
+        defaultConfig.put(ADMIN_MAX_THREADS, 20);
+        defaultConfig.put(ADMIN_STREAMS_BUFFER_SIZE, 10 * 1000 * 1000);
+        defaultConfig.put(ADMIN_CLIENT_CONNECTION_TIMEOUT_SEC, 60);
+        defaultConfig.put(ADMIN_CLIENT_SOCKET_TIMEOUT_SEC, 24 * 60 * 60);
+
+        defaultConfig.put(STREAM_READ_BYTE_PER_SEC, 10 * 1000 * 1000);
+        defaultConfig.put(STREAM_WRITE_BYTE_PER_SEC, 10 * 1000 * 1000);
+        defaultConfig.put(USE_MULTI_VERSION_STREAMING_PUTS, true);
+
+        defaultConfig.put(SOCKET_TIMEOUT_MS, 5000);
+        defaultConfig.put(SOCKET_BUFFER_SIZE, 64 * 1024);
+        defaultConfig.put(SOCKET_KEEPALIVE, false);
+
+        defaultConfig.put(ENABLE_NIO_CONNECTOR, true);
+        defaultConfig.put(NIO_CONNECTOR_KEEPALIVE, false);
+        defaultConfig.put(NIO_CONNECTOR_SELECTORS, Math.max(8, Runtime.getRuntime().availableProcessors()));
+        defaultConfig.put(NIO_ADMIN_CONNECTOR_SELECTORS, Math.max(8, Runtime.getRuntime().availableProcessors()));
+        defaultConfig.put(NIO_ADMIN_CONNECTOR_KEEPALIVE, false);
+        // a value <= 0 forces the default to be used
+        defaultConfig.put(NIO_ACCEPTOR_BACKLOG, 256);
+        defaultConfig.put(NIO_SELECTOR_MAX_HEART_BEAT_TIME_MS, TimeUnit.MILLISECONDS.convert(3, TimeUnit.MINUTES));
+
+        defaultConfig.put(CLIENT_SELECTORS, 4);
+        defaultConfig.put(CLIENT_MAX_CONNECTIONS_PER_NODE, 50);
+        defaultConfig.put(CLIENT_CONNECTION_TIMEOUT_MS, 500);
+        defaultConfig.put(CLIENT_ROUTING_TIMEOUT_MS, 15000);
+        defaultConfig.put(CLIENT_ROUTING_ALLOW_PARTIAL_GETALL, false);
+        defaultConfig.put(CLIENT_MAX_THREADS, 500);
+        defaultConfig.put(CLIENT_THREAD_IDLE_MS, 100000);
+        defaultConfig.put(CLIENT_MAX_QUEUED_REQUESTS, 1000);
+
+        defaultConfig.put(HTTP_ENABLE, false);
+        defaultConfig.put(SOCKET_ENABLE, true);
+        defaultConfig.put(ADMIN_ENABLE, true);
+        defaultConfig.put(JMX_ENABLE, true);
+        defaultConfig.put(SLOP_ENABLE, true);
+        defaultConfig.put(SLOP_PUSHER_ENABLE, true);
+        defaultConfig.put(SLOP_WRITE_BYTE_PER_SEC, 10 * 1000 * 1000);
+        defaultConfig.put(ENABLE_VERBOSE_LOGGING, true);
+        defaultConfig.put(ENABLE_STAT_TRACKING, true);
+        defaultConfig.put(ENABLE_SERVER_ROUTING, false);
+        defaultConfig.put(ENABLE_METADATA_CHECKING, true);
+        defaultConfig.put(ENABLE_GOSSIP, false);
+        defaultConfig.put(ENABLE_REBALANCING, true);
+        defaultConfig.put(ENABLE_REPAIR, true);
+        defaultConfig.put(ENABLE_PRUNEJOB, true);
+        defaultConfig.put(ENABLE_SLOP_PURGE_JOB, true);
+        defaultConfig.put(ENABLE_JMX_CLUSTERNAME, false);
+        defaultConfig.put(ENABLE_QUOTA_LIMITING, true);
+
+        defaultConfig.put(GOSSIP_INTERVAL_MS, 30 * 1000);
+
+        defaultConfig.put(SLOP_WRITE_BYTE_PER_SEC1, 10 * 1000 * 1000);
+        defaultConfig.put(SLOP_READ_BYTE_PER_SEC, 10 * 1000 * 1000);
+        defaultConfig.put(SLOP_STORE_ENGINE, BdbStorageConfiguration.TYPE_NAME);
+        defaultConfig.put(SLOP_FREQUENCY_MS, 5 * 60 * 1000);
+        defaultConfig.put(SLOP_BATCH_SIZE, 100);
+        defaultConfig.put(PUSHER_TYPE, StreamingSlopPusherJob.TYPE_NAME);
+        defaultConfig.put(SLOP_ZONES_TERMINATE, 0);
+        defaultConfig.put(AUTO_PURGE_DEAD_SLOPS, true);
+
+        defaultConfig.put(SCHEDULER_THREADS, 6);
+        defaultConfig.put(SERVICE_INTERRUPTIBLE, true);
+
+        defaultConfig.put(NUM_SCAN_PERMITS, 1);
+
+        defaultConfig.put(STORAGE_CONFIGS, ImmutableList.of(BdbStorageConfiguration.class.getName(),
+                                                            MysqlStorageConfiguration.class.getName(),
+                                                            InMemoryStorageConfiguration.class.getName(),
+                                                            CacheStorageConfiguration.class.getName(),
+                                                            ReadOnlyStorageConfiguration.class.getName(),
+                                                            RocksDbStorageConfiguration.class.getName()));
+
+        // start at midnight (0-23)
+        defaultConfig.put(RETENTION_CLEANUP_FIRST_START_HOUR, 0);
+        // start next day by default (1=SUN, 2=MON, 3=TUE, 4=WED, 5=THU, 6=FRI, 7=SAT)
+        defaultConfig.put(RETENTION_CLEANUP_FIRST_START_DAY, Utils.getDayOfTheWeekFromNow(1));
+        // repeat every 24 hours
+        defaultConfig.put(RETENTION_CLEANUP_PERIOD_HOURS, 24);
+        // should the retention job always start at the 'start time' specified
+        defaultConfig.put(RETENTION_CLEANUP_PIN_START_TIME, true);
+        // should the online reads filter out stale values when reading them ?
+        defaultConfig.put(ENFORCE_RETENTION_POLICY_ON_READ, false);
+        // should the online reads issue deletes to clear out stale values when reading them?
+        defaultConfig.put(DELETE_EXPIRED_VALUES_ON_READ, false);
+
+        defaultConfig.put(REQUEST_FORMAT, RequestFormatType.VOLDEMORT_V1.getCode());
+
+        // rebalancing parameters
+        defaultConfig.put(REBALANCING_TIMEOUT_SECONDS, 10 * 24 * 60 * 60);
+        defaultConfig.put(MAX_PARALLEL_STORES_REBALANCING, 3);
+        defaultConfig.put(USE_PARTITION_SCAN_FOR_REBALANCE, true);
+        defaultConfig.put(MAX_PROXY_PUT_THREADS, Math.max(8, Runtime.getRuntime().availableProcessors()));
+        defaultConfig.put(FAILUREDETECTOR_IMPLEMENTATION, FailureDetectorConfig.DEFAULT_IMPLEMENTATION_CLASS_NAME);
+        defaultConfig.put(FAILUREDETECTOR_BANNAGE_PERIOD, FailureDetectorConfig.DEFAULT_BANNAGE_PERIOD);
+        defaultConfig.put(FAILUREDETECTOR_THRESHOLD, FailureDetectorConfig.DEFAULT_THRESHOLD);
+        defaultConfig.put(FAILUREDETECTOR_THRESHOLD_COUNTMINIMUM, FailureDetectorConfig.DEFAULT_THRESHOLD_COUNT_MINIMUM);
+        defaultConfig.put(FAILUREDETECTOR_THRESHOLD_INTERVAL, FailureDetectorConfig.DEFAULT_THRESHOLD_INTERVAL);
+        defaultConfig.put(FAILUREDETECTOR_ASYNCRECOVERY_INTERVAL, FailureDetectorConfig.DEFAULT_ASYNC_RECOVERY_INTERVAL);
+        defaultConfig.put(FAILUREDETECTOR_CATASTROPHIC_ERROR_TYPES, FailureDetectorConfig.DEFAULT_CATASTROPHIC_ERROR_TYPES);
+
+        // network class loader disable by default.
+        defaultConfig.put(ENABLE_NETWORK_CLASSLOADER, false);
+
+        // TODO: REST-Server decide on the numbers
+        defaultConfig.put(REST_ENABLE, false);
+        defaultConfig.put(NUM_REST_SERVICE_NETTY_SERVER_BACKLOG, 1000);
+        defaultConfig.put(NUM_REST_SERVICE_NETTY_BOSS_THREADS, 1);
+        defaultConfig.put(NUM_REST_SERVICE_NETTY_WORKER_THREADS, 20);
+        defaultConfig.put(NUM_REST_SERVICE_STORAGE_THREADS, 50);
+        defaultConfig.put(MAX_HTTP_AGGREGATED_CONTENT_LENGTH, 1048576);
+
+        defaultConfig.put(REPAIRJOB_MAX_KEYS_SCANNED_PER_SEC, Integer.MAX_VALUE);
+        defaultConfig.put(PRUNEJOB_MAX_KEYS_SCANNED_PER_SEC, Integer.MAX_VALUE);
+        defaultConfig.put(SLOP_PURGEJOB_MAX_KEYS_SCANNED_PER_SEC, 10000);
+
+        // RocksDB config
+        defaultConfig.put(ROCKSDB_PREFIX_KEYS_WITH_PARTITIONID, true);
+        defaultConfig.put(ROCKSDB_ENABLE_READ_LOCKS, false);
+
+        defaultConfig.put(RESTRICTED_CONFIGS, Lists.newArrayList(MYSQL_USER,
+                                                                 MYSQL_PASSWORD,
+                                                                 READONLY_KEYTAB_PATH,
+                                                                 READONLY_KERBEROS_USER,
+                                                                 READONLY_KERBEROS_KDC,
+                                                                 READONLY_KERBEROS_REALM));
+    }
 
     private int nodeId;
     private String voldemortHome;
@@ -147,12 +556,6 @@ public class VoldemortConfig implements Serializable {
     private String rocksdbDataDirectory;
     private boolean rocksdbPrefixKeysWithPartitionId;
     private boolean rocksdbEnableReadLocks;
-    // Options prefixed with the following two values can be used to tune RocksDB performance and are passed directly
-    // to the RocksDB configuration code. See the RocksDB documentation for details:
-    //   https://github.com/facebook/rocksdb/blob/master/include/rocksdb/options.h
-    //   https://github.com/facebook/rocksdb/wiki/RocksDB-Tuning-Guide
-    public static final String ROCKSDB_DB_OPTIONS = "rocksdb.db.options.";
-    public static final String ROCKSDB_CF_OPTIONS = "rocksdb.cf.options.";
 
     private int numReadOnlyVersions;
     private String readOnlyStorageDir;
@@ -167,7 +570,6 @@ public class VoldemortConfig implements Serializable {
     private int fetcherSocketTimeout;
     private String readOnlyKeytabPath;
     private String readOnlyKerberosUser;
-    public static final String HADOOP_CONFIG_PATH = "readonly.hadoop.config.path";
     private String hadoopConfigPath;
     private String readOnlyKerberosKdc;
     private String readOnlykerberosRealm;
@@ -181,16 +583,12 @@ public class VoldemortConfig implements Serializable {
     private String modifiedProtocol;
     private int modifiedPort;
     private boolean bouncyCastleEnabled;
+    private boolean readOnlyBuildPrimaryReplicasOnly;
 
-    public static final String PUSH_HA_ENABLED = "push.ha.enabled";
     private boolean highAvailabilityPushEnabled;
-    public static final String PUSH_HA_CLUSTER_ID = "push.ha.cluster.id";
     private String highAvailabilityPushClusterId;
-    public static final String PUSH_HA_LOCK_PATH = "push.ha.lock.path";
     private String highAvailabilityPushLockPath;
-    public static final String PUSH_HA_LOCK_IMPLEMENTATION = "push.ha.lock.implementation";
     private String highAvailabilityPushLockImplementation;
-    public static final String PUSH_HA_MAX_NODE_FAILURES = "push.ha.max.node.failure";
     private int highAvailabilityPushMaxNodeFailures;
 
     private OpTimeMap testingSlowQueueingDelays;
@@ -285,9 +683,6 @@ public class VoldemortConfig implements Serializable {
     private int maxParallelStoresRebalancing;
     private boolean usePartitionScanForRebalance;
     private int maxProxyPutThreads;
-    @Deprecated
-    // Should be removed once the proxy put implementation is stable.
-    private boolean proxyPutsDuringRebalance;
 
     private boolean enableRestService;
     private int numRestServiceNettyServerBacklog;
@@ -301,388 +696,350 @@ public class VoldemortConfig implements Serializable {
     private int pruneJobMaxKeysScannedPerSec;
     private int slopPurgeJobMaxKeysScannedPerSec;
 
+    private List<String> restrictedConfigs;
+
     public VoldemortConfig(Properties props) {
         this(new Props(props));
     }
 
     public VoldemortConfig(Props props) {
-        try {
-            this.nodeId = props.getInt("node.id");
-        } catch(UndefinedPropertyException e) {
-            this.nodeId = getIntEnvVariable(VOLDEMORT_NODE_ID_VAR_NAME);
-        }
-        this.voldemortHome = props.getString("voldemort.home");
-        this.dataDirectory = props.getString("data.directory", this.voldemortHome + File.separator
-                                                               + "data");
-        this.metadataDirectory = props.getString("metadata.directory", voldemortHome
-                                                                       + File.separator + "config");
-
-        this.bdbCacheSize = props.getBytes("bdb.cache.size", 200 * 1024 * 1024);
-        this.bdbWriteTransactions = props.getBoolean("bdb.write.transactions", false);
-        this.bdbFlushTransactions = props.getBoolean("bdb.flush.transactions", false);
-        this.bdbDataDirectory = props.getString("bdb.data.directory", this.dataDirectory
-                                                                      + File.separator + "bdb");
-        this.bdbMaxLogFileSize = props.getBytes("bdb.max.logfile.size", 60 * 1024 * 1024);
-        this.bdbBtreeFanout = props.getInt("bdb.btree.fanout", 512);
-        this.bdbMaxDelta = props.getInt("bdb.max.delta", 100);
-        this.bdbBinDelta = props.getInt("bdb.bin.delta", 75);
-        this.bdbCheckpointBytes = props.getLong("bdb.checkpoint.interval.bytes", 200 * 1024 * 1024);
-        this.bdbCheckpointMs = props.getLong("bdb.checkpoint.interval.ms", 30 * Time.MS_PER_SECOND);
-        this.bdbOneEnvPerStore = props.getBoolean("bdb.one.env.per.store", false);
-        this.bdbCleanerMinFileUtilization = props.getInt("bdb.cleaner.min.file.utilization", 0);
-        this.bdbCleanerMinUtilization = props.getInt("bdb.cleaner.minUtilization", 50);
-        this.bdbCleanerThreads = props.getInt("bdb.cleaner.threads", 1);
-        // by default, wake up the cleaner everytime we write log file size *
-        // utilization% bytes. So, by default 30MB
-        this.bdbCleanerBytesInterval = props.getLong("bdb.cleaner.interval.bytes", 30 * 1024 * 1024);
-        this.bdbCleanerLookAheadCacheSize = props.getInt("bdb.cleaner.lookahead.cache.size", 8192);
-        this.bdbLockTimeoutMs = props.getLong("bdb.lock.timeout.ms", 500);
-        this.bdbLockNLockTables = props.getInt("bdb.lock.nLockTables", 7);
-        this.bdbLogFaultReadSize = props.getInt("bdb.log.fault.read.size", 2048);
-        this.bdbLogIteratorReadSize = props.getInt("bdb.log.iterator.read.size", 8192);
-        this.bdbFairLatches = props.getBoolean("bdb.fair.latches", false);
-        this.bdbCheckpointerHighPriority = props.getBoolean("bdb.checkpointer.high.priority", false);
-        this.bdbCleanerMaxBatchFiles = props.getInt("bdb.cleaner.max.batch.files", 0);
-        this.bdbReadUncommitted = props.getBoolean("bdb.lock.read_uncommitted", true);
-        this.bdbStatsCacheTtlMs = props.getLong("bdb.stats.cache.ttl.ms", 5 * Time.MS_PER_SECOND);
-        this.bdbExposeSpaceUtilization = props.getBoolean("bdb.expose.space.utilization", true);
-        this.bdbMinimumSharedCache = props.getLong("bdb.minimum.shared.cache", 0);
-        this.bdbCleanerLazyMigration = props.getBoolean("bdb.cleaner.lazy.migration", false);
-        this.bdbCacheModeEvictLN = props.getBoolean("bdb.cache.evictln", true);
-        this.bdbMinimizeScanImpact = props.getBoolean("bdb.minimize.scan.impact", true);
-        this.bdbPrefixKeysWithPartitionId = props.getBoolean("bdb.prefix.keys.with.partitionid",
-                                                             true);
-        this.bdbLevelBasedEviction = props.getBoolean("bdb.evict.by.level", false);
-        this.bdbCheckpointerOffForBatchWrites = props.getBoolean("bdb.checkpointer.off.batch.writes",
-                                                                 false);
-        this.bdbCleanerFetchObsoleteSize = props.getBoolean("bdb.cleaner.fetch.obsolete.size", true);
-        this.bdbCleanerAdjustUtilization = props.getBoolean("bdb.cleaner.adjust.utilization", false);
-        this.bdbRecoveryForceCheckpoint = props.getBoolean("bdb.recovery.force.checkpoint", false);
-        this.bdbRawPropertyString = props.getString("bdb.raw.property.string", null);
-
-        this.numReadOnlyVersions = props.getInt("readonly.backups", 1);
-        this.readOnlySearchStrategy = props.getString("readonly.search.strategy",
-                BinarySearchStrategy.class.getName());
-        this.readOnlyStorageDir = props.getString("readonly.data.directory", this.dataDirectory
-                                                                             + File.separator
-                                                                             + "read-only");
-        this.readOnlyDeleteBackupTimeMs = props.getInt("readonly.delete.backup.ms", 0);
-        this.readOnlyFetcherMaxBytesPerSecond = props.getBytes("fetcher.max.bytes.per.sec", 0);
-        this.readOnlyFetcherReportingIntervalBytes = props.getBytes("fetcher.reporting.interval.bytes",
-                                                                    REPORTING_INTERVAL_BYTES);
-        this.readOnlyFetcherThrottlerInterval = props.getInt("fetcher.throttler.interval",
-                                                             DEFAULT_FETCHER_THROTTLE_INTERVAL_WINDOW_MS);
-        this.readOnlyFetchRetryCount = props.getInt("fetcher.retry.count", 5);
-        this.readOnlyFetchRetryDelayMs = props.getLong("fetcher.retry.delay.ms", 5000);
-        this.readOnlyLoginIntervalMs = props.getLong("fetcher.login.interval.ms", -1);
-        this.defaultStorageSpaceQuotaInKB = props.getLong("default.storage.space.quota.in.kb",
-                                                          DEFAULT_STORAGE_SPACE_QUOTA_IN_KB);
-        this.fetcherBufferSize = (int) props.getBytes("hdfs.fetcher.buffer.size",
-                                                      DEFAULT_FETCHER_BUFFER_SIZE);
-        this.fetcherSocketTimeout = props.getInt("hdfs.fetcher.socket.timeout",
-                                                 DEFAULT_FETCHER_SOCKET_TIMEOUT);
-        this.readOnlyKeytabPath = props.getString("readonly.keytab.path",
-                                                  this.metadataDirectory
-                                                          + VoldemortConfig.DEFAULT_KEYTAB_PATH);
-        this.readOnlyKerberosUser = props.getString("readonly.kerberos.user",
-                                                    VoldemortConfig.DEFAULT_KERBEROS_PRINCIPAL);
-        this.hadoopConfigPath = (props.getString(VoldemortConfig.HADOOP_CONFIG_PATH,
-                                                 this.metadataDirectory + "/hadoop-conf"));
-        this.readOnlyKerberosKdc = props.getString("readonly.kerberos.kdc",
-                                                   VoldemortConfig.DEFAULT_KERBEROS_KDC);
-        this.readOnlykerberosRealm = props.getString("readonly.kerberos.realm",
-                                                     VoldemortConfig.DEFAULT_KERBEROS_REALM);
-        this.fileFetcherClass = props.getString("file.fetcher.class",
-                                                VoldemortConfig.DEFAULT_FILE_FETCHER_CLASS);
-        this.readOnlyStatsFileEnabled = props.getBoolean("readonly.stats.file.enabled", true);
-        this.readOnlyMaxVersionsStatsFile = props.getInt("readonly.stats.file.max.versions", 1000);
-        this.readOnlyMaxValueBufferAllocationSize = props.getInt("readonly.max.value.buffer.allocation.size",
-                                                                 VoldemortConfig.DEFAULT_RO_MAX_VALUE_BUFFER_ALLOCATION_SIZE);
-
-        // To set the Voldemort RO server compression codec to GZIP, explicitly
-        // set this
-        // property "readonly.compression.codec" to "GZIP"
-        this.readOnlyCompressionCodec = props.getString("readonly.compression.codec",
-                                                        VoldemortConfig.DEFAULT_RO_COMPRESSION_CODEC);
-
-        this.modifiedProtocol = props.getString("readonly.modify.protocol", null);
-        this.modifiedPort = props.getInt("readonly.modify.port", -1);
-        this.bouncyCastleEnabled = props.getBoolean("use.bouncycastle.for.ssl", false);
-
-        this.highAvailabilityPushClusterId = props.getString(PUSH_HA_CLUSTER_ID, null);
-        this.highAvailabilityPushLockPath = props.getString(PUSH_HA_LOCK_PATH, null);
-        this.highAvailabilityPushLockImplementation = props.getString(PUSH_HA_LOCK_IMPLEMENTATION, null);
-        this.highAvailabilityPushMaxNodeFailures = props.getInt(PUSH_HA_MAX_NODE_FAILURES, 0);
-        this.highAvailabilityPushEnabled = props.getBoolean(PUSH_HA_ENABLED, false);
-
-        this.mysqlUsername = props.getString("mysql.user", "root");
-        this.mysqlPassword = props.getString("mysql.password", "");
-        this.mysqlHost = props.getString("mysql.host", "localhost");
-        this.mysqlPort = props.getInt("mysql.port", 3306);
-        this.mysqlDatabaseName = props.getString("mysql.database", "voldemort");
-
-        this.testingSlowQueueingDelays = new OpTimeMap(0);
-        this.testingSlowQueueingDelays.setOpTime(VoldemortOpCode.GET_OP_CODE,
-                                                 props.getInt("testing.slow.queueing.get.ms", 0));
-        this.testingSlowQueueingDelays.setOpTime(VoldemortOpCode.GET_ALL_OP_CODE,
-                                                 props.getInt("testing.slow.queueing.getall.ms", 0));
-        this.testingSlowQueueingDelays.setOpTime(VoldemortOpCode.GET_VERSION_OP_CODE,
-                                                 props.getInt("testing.slow.queueing.getversions.ms",
-                                                              0));
-        this.testingSlowQueueingDelays.setOpTime(VoldemortOpCode.PUT_OP_CODE,
-                                                 props.getInt("testing.slow.queueing.put.ms", 0));
-        this.testingSlowQueueingDelays.setOpTime(VoldemortOpCode.DELETE_OP_CODE,
-                                                 props.getInt("testing.slow.queueing.delete.ms", 0));
-
-        this.testingSlowConcurrentDelays = new OpTimeMap(0);
-        this.testingSlowConcurrentDelays.setOpTime(VoldemortOpCode.GET_OP_CODE,
-                                                   props.getInt("testing.slow.concurrent.get.ms", 0));
-        this.testingSlowConcurrentDelays.setOpTime(VoldemortOpCode.GET_ALL_OP_CODE,
-                                                   props.getInt("testing.slow.concurrent.getall.ms",
-                                                                0));
-        this.testingSlowConcurrentDelays.setOpTime(VoldemortOpCode.GET_VERSION_OP_CODE,
-                                                   props.getInt("testing.slow.concurrent.getversions.ms",
-                                                                0));
-        this.testingSlowConcurrentDelays.setOpTime(VoldemortOpCode.PUT_OP_CODE,
-                                                   props.getInt("testing.slow.concurrent.put.ms", 0));
-        this.testingSlowConcurrentDelays.setOpTime(VoldemortOpCode.DELETE_OP_CODE,
-                                                   props.getInt("testing.slow.concurrent.delete.ms",
-                                                                0));
-
-        this.maxThreads = props.getInt("max.threads", 100);
-        this.coreThreads = props.getInt("core.threads", Math.max(1, maxThreads / 2));
-
-        // Admin client should have less threads but very high buffer size.
-        this.adminMaxThreads = props.getInt("admin.max.threads", 20);
-        this.adminCoreThreads = props.getInt("admin.core.threads", Math.max(1, adminMaxThreads / 2));
-        this.adminStreamBufferSize = (int) props.getBytes("admin.streams.buffer.size",
-                                                          10 * 1000 * 1000);
-        this.adminConnectionTimeout = props.getInt("admin.client.connection.timeout.sec", 60);
-        this.adminSocketTimeout = props.getInt("admin.client.socket.timeout.sec", 24 * 60 * 60);
-
-        this.streamMaxReadBytesPerSec = props.getBytes("stream.read.byte.per.sec", 10 * 1000 * 1000);
-        this.streamMaxWriteBytesPerSec = props.getBytes("stream.write.byte.per.sec",
-                                                        10 * 1000 * 1000);
-        this.multiVersionStreamingPutsEnabled = props.getBoolean("use.multi.version.streaming.puts",
-                                                                 true);
-
-        this.socketTimeoutMs = props.getInt("socket.timeout.ms", 5000);
-        this.socketBufferSize = (int) props.getBytes("socket.buffer.size", 64 * 1024);
-        this.socketKeepAlive = props.getBoolean("socket.keepalive", false);
-
-        this.useNioConnector = props.getBoolean("enable.nio.connector", true);
-        this.nioConnectorKeepAlive = props.getBoolean("nio.connector.keepalive", false);
-        this.nioConnectorSelectors = props.getInt("nio.connector.selectors",
-                                                  Math.max(8, Runtime.getRuntime()
-                                                                     .availableProcessors()));
-        this.nioAdminConnectorSelectors = props.getInt("nio.admin.connector.selectors",
-                                                       Math.max(8, Runtime.getRuntime()
-                                                                          .availableProcessors()));
-        this.nioAdminConnectorKeepAlive = props.getBoolean("nio.admin.connector.keepalive", false);
-        // a value <= 0 forces the default to be used
-        this.nioAcceptorBacklog = props.getInt("nio.acceptor.backlog", 256);
-        this.nioSelectorMaxHeartBeatTimeMs = props.getLong("nio.selector.max.heart.beat.time.ms", 
-                                                           TimeUnit.MILLISECONDS.convert(3, TimeUnit.MINUTES));
-
-        this.clientSelectors = props.getInt("client.selectors", 4);
-        this.clientMaxConnectionsPerNode = props.getInt("client.max.connections.per.node", 50);
-        this.clientConnectionTimeoutMs = props.getInt("client.connection.timeout.ms", 500);
-        this.clientRoutingTimeoutMs = props.getInt("client.routing.timeout.ms", 15000);
-        this.clientTimeoutConfig = new TimeoutConfig(this.clientRoutingTimeoutMs, false);
-        this.clientTimeoutConfig.setOperationTimeout(VoldemortOpCode.GET_OP_CODE,
-                                                     props.getInt("client.routing.get.timeout.ms",
-                                                                  this.clientRoutingTimeoutMs));
-        this.clientTimeoutConfig.setOperationTimeout(VoldemortOpCode.GET_ALL_OP_CODE,
-                                                     props.getInt("client.routing.getall.timeout.ms",
-                                                                  this.clientRoutingTimeoutMs));
-        this.clientTimeoutConfig.setOperationTimeout(VoldemortOpCode.PUT_OP_CODE,
-                                                     props.getInt("client.routing.put.timeout.ms",
-                                                                  this.clientRoutingTimeoutMs));
-        this.clientTimeoutConfig.setOperationTimeout(VoldemortOpCode.GET_VERSION_OP_CODE,
-                                                     props.getLong("client.routing.getversions.timeout.ms",
-                                                                   this.clientTimeoutConfig.getOperationTimeout(VoldemortOpCode.PUT_OP_CODE)));
-        this.clientTimeoutConfig.setOperationTimeout(VoldemortOpCode.DELETE_OP_CODE,
-                                                     props.getInt("client.routing.delete.timeout.ms",
-                                                                  this.clientRoutingTimeoutMs));
-        this.clientTimeoutConfig.setPartialGetAllAllowed(props.getBoolean("client.routing.allow.partial.getall",
-                                                                          false));
-        this.clientMaxThreads = props.getInt("client.max.threads", 500);
-        this.clientThreadIdleMs = props.getInt("client.thread.idle.ms", 100000);
-        this.clientMaxQueuedRequests = props.getInt("client.max.queued.requests", 1000);
-
-        this.enableHttpServer = props.getBoolean("http.enable", false);
-        this.enableSocketServer = props.getBoolean("socket.enable", true);
-        this.enableAdminServer = props.getBoolean("admin.enable", true);
-        this.enableJmx = props.getBoolean("jmx.enable", true);
-        this.enableSlop = props.getBoolean("slop.enable", true);
-        this.enableSlopPusherJob = props.getBoolean("slop.pusher.enable", true);
-        this.slopMaxWriteBytesPerSec = props.getBytes("slop.write.byte.per.sec", 10 * 1000 * 1000);
-        this.enableVerboseLogging = props.getBoolean("enable.verbose.logging", true);
-        this.enableStatTracking = props.getBoolean("enable.stat.tracking", true);
-        this.enableServerRouting = props.getBoolean("enable.server.routing", false);
-        this.enableMetadataChecking = props.getBoolean("enable.metadata.checking", true);
-        this.enableGossip = props.getBoolean("enable.gossip", false);
-        this.enableRebalanceService = props.getBoolean("enable.rebalancing", true);
-        this.enableRepair = props.getBoolean("enable.repair", true);
-        this.enablePruneJob = props.getBoolean("enable.prunejob", true);
-        this.enableSlopPurgeJob = props.getBoolean("enable.slop.purge.job", true);
-        this.enableJmxClusterName = props.getBoolean("enable.jmx.clustername", false);
-        this.enableQuotaLimiting = props.getBoolean("enable.quota.limiting", true);
-
-        this.gossipIntervalMs = props.getInt("gossip.interval.ms", 30 * 1000);
-
-        this.slopMaxWriteBytesPerSec = props.getBytes("slop.write.byte.per.sec", 10 * 1000 * 1000);
-        this.slopMaxReadBytesPerSec = props.getBytes("slop.read.byte.per.sec", 10 * 1000 * 1000);
-        this.slopStoreType = props.getString("slop.store.engine", BdbStorageConfiguration.TYPE_NAME);
-        this.slopFrequencyMs = props.getLong("slop.frequency.ms", 5 * 60 * 1000);
-        this.slopBatchSize = props.getInt("slop.batch.size", 100);
-        this.pusherType = props.getString("pusher.type", StreamingSlopPusherJob.TYPE_NAME);
-        this.slopZonesDownToTerminate = props.getInt("slop.zones.terminate", 0);
-        this.autoPurgeDeadSlops = props.getBoolean("auto.purge.dead.slops", true);
-
-        this.schedulerThreads = props.getInt("scheduler.threads", 6);
-        this.mayInterruptService = props.getBoolean("service.interruptible", true);
-
-        this.numScanPermits = props.getInt("num.scan.permits", 1);
-
-        this.storageConfigurations = props.getList("storage.configs",
-                                                   ImmutableList.of(BdbStorageConfiguration.class.getName(),
-                                                                    MysqlStorageConfiguration.class.getName(),
-                                                                    InMemoryStorageConfiguration.class.getName(),
-                                                                    CacheStorageConfiguration.class.getName(),
-                                                                    ReadOnlyStorageConfiguration.class.getName(),
-                                                                    RocksDbStorageConfiguration.class.getName()));
-
-        // start at midnight (0-23)
-        this.retentionCleanupFirstStartTimeInHour = props.getInt("retention.cleanup.first.start.hour",
-                                                                 0);
-        // start next day by default (1=SUN, 2=MON, 3=TUE, 4=WED, 5=THU, 6=FRI,
-        // 7=SAT)
-        this.retentionCleanupFirstStartDayOfWeek = props.getInt("retention.cleanup.first.start.day",
-                                                                Utils.getDayOfTheWeekFromNow(1));
-        // repeat every 24 hours
-        this.retentionCleanupScheduledPeriodInHour = props.getInt("retention.cleanup.period.hours",
-                                                                  24);
-        // should the retention job always start at the 'start time' specified
-        this.retentionCleanupPinStartTime = props.getBoolean("retention.cleanup.pin.start.time",
-                                                             true);
-        // should the online reads filter out stale values when reading them ?
-        this.enforceRetentionPolicyOnRead = props.getBoolean("enforce.retention.policy.on.read",
-                                                             false);
-        // should the online reads issue deletes to clear out stale values when
-        // reading them?
-        this.deleteExpiredValuesOnRead = props.getBoolean("delete.expired.values.on.read", false);
-
-        // save props for access from plugins
-        this.allProps = props;
-
-        String requestFormatName = props.getString("request.format",
-                                                   RequestFormatType.VOLDEMORT_V1.getCode());
-        this.requestFormatType = RequestFormatType.fromCode(requestFormatName);
-
-        // rebalancing parameters
-        this.rebalancingTimeoutSec = props.getLong("rebalancing.timeout.seconds", 10 * 24 * 60 * 60);
-        this.maxParallelStoresRebalancing = props.getInt("max.parallel.stores.rebalancing", 3);
-        this.usePartitionScanForRebalance = props.getBoolean("use.partition.scan.for.rebalance",
-                                                             true);
-        this.maxProxyPutThreads = props.getInt("max.proxy.put.threads",
-                                               Math.max(8, Runtime.getRuntime()
-                                                                  .availableProcessors()));
-        this.failureDetectorImplementation = props.getString("failuredetector.implementation",
-                                                             FailureDetectorConfig.DEFAULT_IMPLEMENTATION_CLASS_NAME);
-
-        // We're changing the property from "client.node.bannage.ms" to
-        // "failuredetector.bannage.period" so if we have the old one, migrate
-        // it over.
-        if(props.containsKey("client.node.bannage.ms")
-           && !props.containsKey("failuredetector.bannage.period")) {
-            props.put("failuredetector.bannage.period", props.get("client.node.bannage.ms"));
-        }
-
-        this.failureDetectorBannagePeriod = props.getLong("failuredetector.bannage.period",
-                                                          FailureDetectorConfig.DEFAULT_BANNAGE_PERIOD);
-        this.failureDetectorThreshold = props.getInt("failuredetector.threshold",
-                                                     FailureDetectorConfig.DEFAULT_THRESHOLD);
-        this.failureDetectorThresholdCountMinimum = props.getInt("failuredetector.threshold.countminimum",
-                                                                 FailureDetectorConfig.DEFAULT_THRESHOLD_COUNT_MINIMUM);
-        this.failureDetectorThresholdInterval = props.getLong("failuredetector.threshold.interval",
-                                                              FailureDetectorConfig.DEFAULT_THRESHOLD_INTERVAL);
-        this.failureDetectorAsyncRecoveryInterval = props.getLong("failuredetector.asyncrecovery.interval",
-                                                                  FailureDetectorConfig.DEFAULT_ASYNC_RECOVERY_INTERVAL);
-        this.failureDetectorCatastrophicErrorTypes = props.getList("failuredetector.catastrophic.error.types",
-                                                                   FailureDetectorConfig.DEFAULT_CATASTROPHIC_ERROR_TYPES);
-        this.failureDetectorRequestLengthThreshold = props.getLong("failuredetector.request.length.threshold",
-                                                                   getSocketTimeoutMs());
-
-        // network class loader disable by default.
-        this.enableNetworkClassLoader = props.getBoolean("enable.network.classloader", false);
-
-        // TODO: REST-Server decide on the numbers
-        this.enableRestService = props.getBoolean("rest.enable", false);
-        this.numRestServiceNettyServerBacklog = props.getInt("num.rest.service.netty.server.backlog",
-                                                             1000);
-        this.numRestServiceNettyBossThreads = props.getInt("num.rest.service.netty.boss.threads", 1);
-        this.numRestServiceNettyWorkerThreads = props.getInt("num.rest.service.netty.worker.threads",
-                                                             20);
-        this.numRestServiceStorageThreads = props.getInt("num.rest.service.storage.threads", 50);
-        this.restServiceStorageThreadPoolQueueSize = props.getInt("rest.service.storage.thread.pool.queue.size",
-                                                                  numRestServiceStorageThreads);
-        this.maxHttpAggregatedContentLength = props.getInt("max.http.aggregated.content.length",
-                                                           1048576);
-
-        this.repairJobMaxKeysScannedPerSec = props.getInt("repairjob.max.keys.scanned.per.sec",
-                                                          Integer.MAX_VALUE);
-        this.pruneJobMaxKeysScannedPerSec = props.getInt("prunejob.max.keys.scanned.per.sec",
-                                                         Integer.MAX_VALUE);
-        this.slopPurgeJobMaxKeysScannedPerSec = props.getInt("slop.purgejob.max.keys.scanned.per.sec",
-                                                             10000);
-
-        // RocksDB config
-        this.rocksdbDataDirectory = props.getString("rocksdb.data.dir", this.dataDirectory
-                                                                    + File.separator + "rocksdb");
-        this.rocksdbPrefixKeysWithPartitionId = props.getBoolean("rocksdb.prefix.keys.with.partitionid",
-                                                                 true);
-        this.rocksdbEnableReadLocks = props.getBoolean("rocksdb.enable.read.locks", false);
-
+        // User-supplied configs are always honored first. Then we fall back on dynamically-defined and
+        // statically-defined defaults for config keys which are not found in the user-supplied config.
+        this.allProps = new Props(props, getDynamicDefaults(props), defaultConfig);
+        initializeStateFromProps();
         validateParams();
     }
 
+    /**
+     * This is only used by tests. Do not use in regular code...
+     *
+     * FIXME: Remove this from here or otherwise restrict accessibility to tests only.
+     */
     public VoldemortConfig(int nodeId, String voldemortHome) {
-        this(new Props().with("node.id", nodeId).with("voldemort.home", voldemortHome));
+        this(new Props().with(NODE_ID, nodeId).with(VOLDEMORT_HOME, voldemortHome));
+    }
+
+    /**
+     * This function returns a set of default configs which cannot be defined statically,
+     * because they (at least potentially) depend on the config values provided by the user.
+     */
+    private Props getDynamicDefaults(Props userSuppliedConfig) {
+        // Combined set of configs made up of user supplied configs first, while falling back
+        // on statically defined defaults when the value is missing from the user supplied ones.
+        Props combinedConfigs = new Props(userSuppliedConfig, defaultConfig);
+
+        // Set of dynamic configs which depend on the combined configs in order to be determined.
+        Props dynamicDefaults = new Props();
+
+        try {
+            combinedConfigs.getInt(NODE_ID);
+        } catch(UndefinedPropertyException e) {
+            // Pull node ID from an environment variable if it's not included in the config
+            dynamicDefaults.put(NODE_ID, getIntEnvVariable(VOLDEMORT_NODE_ID_VAR_NAME));
+        }
+
+        // Define various paths
+        String dataDirectory = combinedConfigs.getString(VOLDEMORT_HOME) + File.separator + "data";
+        dynamicDefaults.put(DATA_DIRECTORY, dataDirectory);
+        dynamicDefaults.put(BDB_DATA_DIRECTORY, dataDirectory + File.separator + "bdb");
+        dynamicDefaults.put(READONLY_DATA_DIRECTORY, dataDirectory + File.separator + "read-only");
+        dynamicDefaults.put(ROCKSDB_DATA_DIR, dataDirectory + File.separator + "rocksdb");
+        String metadataDirectory = combinedConfigs.getString(VOLDEMORT_HOME) + File.separator + "config";
+        dynamicDefaults.put(METADATA_DIRECTORY, metadataDirectory);
+        dynamicDefaults.put(READONLY_KEYTAB_PATH, metadataDirectory + File.separator + "voldemrt.headless.keytab");
+        dynamicDefaults.put(READONLY_HADOOP_CONFIG_PATH, metadataDirectory + File.separator + "hadoop-conf");
+
+        // Other "transitive" config values.
+        dynamicDefaults.put(CORE_THREADS, Math.max(1, combinedConfigs.getInt(MAX_THREADS) / 2));
+        dynamicDefaults.put(ADMIN_CORE_THREADS, Math.max(1, combinedConfigs.getInt(ADMIN_MAX_THREADS) / 2));
+        dynamicDefaults.put(CLIENT_ROUTING_GET_TIMEOUT_MS, combinedConfigs.getInt(CLIENT_ROUTING_TIMEOUT_MS));
+        dynamicDefaults.put(CLIENT_ROUTING_GETALL_TIMEOUT_MS, combinedConfigs.getInt(CLIENT_ROUTING_TIMEOUT_MS));
+        int clientRoutingPutTimeoutMs = combinedConfigs.getInt(CLIENT_ROUTING_TIMEOUT_MS);
+        dynamicDefaults.put(CLIENT_ROUTING_PUT_TIMEOUT_MS, clientRoutingPutTimeoutMs);
+        dynamicDefaults.put(CLIENT_ROUTING_GETVERSIONS_TIMEOUT_MS, combinedConfigs.getInt(CLIENT_ROUTING_PUT_TIMEOUT_MS, clientRoutingPutTimeoutMs));
+        dynamicDefaults.put(CLIENT_ROUTING_DELETE_TIMEOUT_MS, combinedConfigs.getInt(CLIENT_ROUTING_TIMEOUT_MS));
+        dynamicDefaults.put(FAILUREDETECTOR_REQUEST_LENGTH_THRESHOLD, combinedConfigs.getInt(SOCKET_TIMEOUT_MS));
+        dynamicDefaults.put(REST_SERVICE_STORAGE_THREAD_POOL_QUEUE_SIZE, combinedConfigs.getInt(NUM_REST_SERVICE_STORAGE_THREADS));
+
+        // We're changing the property from "client.node.bannage.ms" to
+        // "failuredetector.bannage.period" so if we have the old one, migrate it over.
+        if(userSuppliedConfig.containsKey(CLIENT_NODE_BANNAGE_MS)
+                && !userSuppliedConfig.containsKey(FAILUREDETECTOR_BANNAGE_PERIOD)) {
+            dynamicDefaults.put(FAILUREDETECTOR_BANNAGE_PERIOD, userSuppliedConfig.getInt(CLIENT_NODE_BANNAGE_MS));
+        }
+
+        return dynamicDefaults;
+    }
+
+    /**
+     * This function populates the various strongly-typed variables of this class by
+     * extracting the values from {@link VoldemortConfig#allProps}.
+     *
+     * At this point, all defaults should have been resolved properly, so we can assume
+     * that all properties are present. If that's not the case, the correct behavior is
+     * to bubble up an UndefinedPropertyException.
+     *
+     * This code is isolated into its own function to prevent future code from trying to
+     * extract configurations from anywhere else besides {@link VoldemortConfig#allProps}.
+     *
+     * @throws UndefinedPropertyException if any required property has not been set.
+     */
+    private void initializeStateFromProps() throws UndefinedPropertyException {
+        this.nodeId = this.allProps.getInt(NODE_ID);
+        this.voldemortHome = this.allProps.getString(VOLDEMORT_HOME);
+        this.dataDirectory = this.allProps.getString(DATA_DIRECTORY);
+        this.metadataDirectory = this.allProps.getString(METADATA_DIRECTORY);
+
+        this.bdbCacheSize = this.allProps.getBytes(BDB_CACHE_SIZE);
+        this.bdbWriteTransactions = this.allProps.getBoolean(BDB_WRITE_TRANSACTIONS);
+        this.bdbFlushTransactions = this.allProps.getBoolean(BDB_FLUSH_TRANSACTIONS);
+        this.bdbDataDirectory = this.allProps.getString(BDB_DATA_DIRECTORY);
+        this.bdbMaxLogFileSize = this.allProps.getBytes(BDB_MAX_LOGFILE_SIZE);
+        this.bdbBtreeFanout = this.allProps.getInt(BDB_BTREE_FANOUT);
+        this.bdbMaxDelta = this.allProps.getInt(BDB_MAX_DELTA);
+        this.bdbBinDelta = this.allProps.getInt(BDB_BIN_DELTA);
+        this.bdbCheckpointBytes = this.allProps.getLong(BDB_CHECKPOINT_INTERVAL_BYTES);
+        this.bdbCheckpointMs = this.allProps.getLong(BDB_CHECKPOINT_INTERVAL_MS);
+        this.bdbOneEnvPerStore = this.allProps.getBoolean(BDB_ONE_ENV_PER_STORE);
+        this.bdbCleanerMinFileUtilization = this.allProps.getInt(BDB_CLEANER_MIN_FILE_UTILIZATION);
+        this.bdbCleanerMinUtilization = this.allProps.getInt(BDB_CLEANER_MIN_UTILIZATION);
+        this.bdbCleanerThreads = this.allProps.getInt(BDB_CLEANER_THREADS);
+        this.bdbCleanerBytesInterval = this.allProps.getLong(BDB_CLEANER_INTERVAL_BYTES);
+        this.bdbCleanerLookAheadCacheSize = this.allProps.getInt(BDB_CLEANER_LOOKAHEAD_CACHE_SIZE);
+        this.bdbLockTimeoutMs = this.allProps.getLong(BDB_LOCK_TIMEOUT_MS);
+        this.bdbLockNLockTables = this.allProps.getInt(BDB_LOCK_N_LOCK_TABLES);
+        this.bdbLogFaultReadSize = this.allProps.getInt(BDB_LOG_FAULT_READ_SIZE);
+        this.bdbLogIteratorReadSize = this.allProps.getInt(BDB_LOG_ITERATOR_READ_SIZE);
+        this.bdbFairLatches = this.allProps.getBoolean(BDB_FAIR_LATCHES);
+        this.bdbCheckpointerHighPriority = this.allProps.getBoolean(BDB_CHECKPOINTER_HIGH_PRIORITY);
+        this.bdbCleanerMaxBatchFiles = this.allProps.getInt(BDB_CLEANER_MAX_BATCH_FILES);
+        this.bdbReadUncommitted = this.allProps.getBoolean(BDB_LOCK_READ_UNCOMMITTED);
+        this.bdbStatsCacheTtlMs = this.allProps.getLong(BDB_STATS_CACHE_TTL_MS);
+        this.bdbExposeSpaceUtilization = this.allProps.getBoolean(BDB_EXPOSE_SPACE_UTILIZATION);
+        this.bdbMinimumSharedCache = this.allProps.getLong(BDB_MINIMUM_SHARED_CACHE);
+        this.bdbCleanerLazyMigration = this.allProps.getBoolean(BDB_CLEANER_LAZY_MIGRATION);
+        this.bdbCacheModeEvictLN = this.allProps.getBoolean(BDB_CACHE_EVICTLN);
+        this.bdbMinimizeScanImpact = this.allProps.getBoolean(BDB_MINIMIZE_SCAN_IMPACT);
+        this.bdbPrefixKeysWithPartitionId = this.allProps.getBoolean(BDB_PREFIX_KEYS_WITH_PARTITIONID);
+        this.bdbLevelBasedEviction = this.allProps.getBoolean(BDB_EVICT_BY_LEVEL);
+        this.bdbCheckpointerOffForBatchWrites = this.allProps.getBoolean(BDB_CHECKPOINTER_OFF_BATCH_WRITES);
+        this.bdbCleanerFetchObsoleteSize = this.allProps.getBoolean(BDB_CLEANER_FETCH_OBSOLETE_SIZE);
+        this.bdbCleanerAdjustUtilization = this.allProps.getBoolean(BDB_CLEANER_ADJUST_UTILIZATION);
+        this.bdbRecoveryForceCheckpoint = this.allProps.getBoolean(BDB_RECOVERY_FORCE_CHECKPOINT);
+        this.bdbRawPropertyString = this.allProps.getString(BDB_RAW_PROPERTY_STRING);
+
+        this.numReadOnlyVersions = this.allProps.getInt(READONLY_BACKUPS);
+        this.readOnlySearchStrategy = this.allProps.getString(READONLY_SEARCH_STRATEGY);
+        this.readOnlyStorageDir = this.allProps.getString(READONLY_DATA_DIRECTORY);
+        this.readOnlyDeleteBackupTimeMs = this.allProps.getInt(READONLY_DELETE_BACKUP_MS);
+        this.readOnlyFetcherMaxBytesPerSecond = this.allProps.getBytes(FETCHER_MAX_BYTES_PER_SEC);
+        this.readOnlyFetcherReportingIntervalBytes = this.allProps.getBytes(FETCHER_REPORTING_INTERVAL_BYTES);
+        this.readOnlyFetcherThrottlerInterval = this.allProps.getInt(FETCHER_THROTTLER_INTERVAL);
+        this.readOnlyFetchRetryCount = this.allProps.getInt(FETCHER_RETRY_COUNT);
+        this.readOnlyFetchRetryDelayMs = this.allProps.getLong(FETCHER_RETRY_DELAY_MS);
+        this.readOnlyLoginIntervalMs = this.allProps.getLong(FETCHER_LOGIN_INTERVAL_MS);
+        this.defaultStorageSpaceQuotaInKB = this.allProps.getLong(DEFAULT_STORAGE_SPACE_QUOTA_IN_KB);
+        this.fetcherBufferSize = (int) this.allProps.getBytes(HDFS_FETCHER_BUFFER_SIZE);
+        this.fetcherSocketTimeout = this.allProps.getInt(HDFS_FETCHER_SOCKET_TIMEOUT);
+        this.readOnlyKeytabPath = this.allProps.getString(READONLY_KEYTAB_PATH);
+        this.readOnlyKerberosUser = this.allProps.getString(READONLY_KERBEROS_USER);
+        this.hadoopConfigPath = this.allProps.getString(READONLY_HADOOP_CONFIG_PATH);
+        this.readOnlyKerberosKdc = this.allProps.getString(READONLY_KERBEROS_KDC);
+        this.readOnlykerberosRealm = this.allProps.getString(READONLY_KERBEROS_REALM);
+        this.fileFetcherClass = this.allProps.getString(FILE_FETCHER_CLASS);
+        this.readOnlyStatsFileEnabled = this.allProps.getBoolean(READONLY_STATS_FILE_ENABLED);
+        this.readOnlyMaxVersionsStatsFile = this.allProps.getInt(READONLY_STATS_FILE_MAX_VERSIONS);
+        this.readOnlyMaxValueBufferAllocationSize = this.allProps.getInt(READONLY_MAX_VALUE_BUFFER_ALLOCATION_SIZE);
+        this.readOnlyCompressionCodec = this.allProps.getString(READONLY_COMPRESSION_CODEC);
+        this.modifiedProtocol = this.allProps.getString(READONLY_MODIFY_PROTOCOL);
+        this.modifiedPort = this.allProps.getInt(READONLY_MODIFY_PORT);
+        this.bouncyCastleEnabled = this.allProps.getBoolean(USE_BOUNCYCASTLE_FOR_SSL);
+        this.readOnlyBuildPrimaryReplicasOnly = this.allProps.getBoolean(READONLY_BUILD_PRIMARY_REPLICAS_ONLY);
+
+        this.highAvailabilityPushClusterId = this.allProps.getString(PUSH_HA_CLUSTER_ID);
+        this.highAvailabilityPushLockPath = this.allProps.getString(PUSH_HA_LOCK_PATH);
+        this.highAvailabilityPushLockImplementation = this.allProps.getString(PUSH_HA_LOCK_IMPLEMENTATION);
+        this.highAvailabilityPushMaxNodeFailures = this.allProps.getInt(PUSH_HA_MAX_NODE_FAILURES);
+        this.highAvailabilityPushEnabled = this.allProps.getBoolean(PUSH_HA_ENABLED);
+
+        this.mysqlUsername = this.allProps.getString(MYSQL_USER);
+        this.mysqlPassword = this.allProps.getString(MYSQL_PASSWORD);
+        this.mysqlHost = this.allProps.getString(MYSQL_HOST);
+        this.mysqlPort = this.allProps.getInt(MYSQL_PORT);
+        this.mysqlDatabaseName = this.allProps.getString(MYSQL_DATABASE);
+
+        this.testingSlowQueueingDelays = new OpTimeMap(0);
+        this.testingSlowQueueingDelays.setOpTime(VoldemortOpCode.GET_OP_CODE, this.allProps.getInt(TESTING_SLOW_QUEUEING_GET_MS));
+        this.testingSlowQueueingDelays.setOpTime(VoldemortOpCode.GET_ALL_OP_CODE, this.allProps.getInt(TESTING_SLOW_QUEUEING_GETALL_MS));
+        this.testingSlowQueueingDelays.setOpTime(VoldemortOpCode.GET_VERSION_OP_CODE, this.allProps.getInt(TESTING_SLOW_QUEUEING_GETVERSIONS_MS));
+        this.testingSlowQueueingDelays.setOpTime(VoldemortOpCode.PUT_OP_CODE, this.allProps.getInt(TESTING_SLOW_QUEUEING_PUT_MS));
+        this.testingSlowQueueingDelays.setOpTime(VoldemortOpCode.DELETE_OP_CODE, this.allProps.getInt(TESTING_SLOW_QUEUEING_DELETE_MS));
+
+        this.testingSlowConcurrentDelays = new OpTimeMap(0);
+        this.testingSlowConcurrentDelays.setOpTime(VoldemortOpCode.GET_OP_CODE, this.allProps.getInt(TESTING_SLOW_CONCURRENT_GET_MS));
+        this.testingSlowConcurrentDelays.setOpTime(VoldemortOpCode.GET_ALL_OP_CODE, this.allProps.getInt(TESTING_SLOW_CONCURRENT_GETALL_MS));
+        this.testingSlowConcurrentDelays.setOpTime(VoldemortOpCode.GET_VERSION_OP_CODE, this.allProps.getInt(TESTING_SLOW_CONCURRENT_GETVERSIONS_MS));
+        this.testingSlowConcurrentDelays.setOpTime(VoldemortOpCode.PUT_OP_CODE, this.allProps.getInt(TESTING_SLOW_CONCURRENT_PUT_MS));
+        this.testingSlowConcurrentDelays.setOpTime(VoldemortOpCode.DELETE_OP_CODE, this.allProps.getInt(TESTING_SLOW_CONCURRENT_DELETE_MS));
+
+        this.maxThreads = this.allProps.getInt(MAX_THREADS);
+        this.coreThreads = this.allProps.getInt(CORE_THREADS);
+
+        // Admin client should have less threads but very high buffer size.
+        this.adminMaxThreads = this.allProps.getInt(ADMIN_MAX_THREADS);
+        this.adminCoreThreads = this.allProps.getInt(ADMIN_CORE_THREADS);
+        this.adminStreamBufferSize = (int) this.allProps.getBytes(ADMIN_STREAMS_BUFFER_SIZE);
+        this.adminConnectionTimeout = this.allProps.getInt(ADMIN_CLIENT_CONNECTION_TIMEOUT_SEC);
+        this.adminSocketTimeout = this.allProps.getInt(ADMIN_CLIENT_SOCKET_TIMEOUT_SEC);
+
+        this.streamMaxReadBytesPerSec = this.allProps.getBytes(STREAM_READ_BYTE_PER_SEC);
+        this.streamMaxWriteBytesPerSec = this.allProps.getBytes(STREAM_WRITE_BYTE_PER_SEC);
+        this.multiVersionStreamingPutsEnabled = this.allProps.getBoolean(USE_MULTI_VERSION_STREAMING_PUTS);
+
+        this.socketTimeoutMs = this.allProps.getInt(SOCKET_TIMEOUT_MS);
+        this.socketBufferSize = (int) this.allProps.getBytes(SOCKET_BUFFER_SIZE);
+        this.socketKeepAlive = this.allProps.getBoolean(SOCKET_KEEPALIVE);
+
+        this.useNioConnector = this.allProps.getBoolean(ENABLE_NIO_CONNECTOR);
+        this.nioConnectorKeepAlive = this.allProps.getBoolean(NIO_CONNECTOR_KEEPALIVE);
+        this.nioConnectorSelectors = this.allProps.getInt(NIO_CONNECTOR_SELECTORS);
+        this.nioAdminConnectorSelectors = this.allProps.getInt(NIO_ADMIN_CONNECTOR_SELECTORS);
+        this.nioAdminConnectorKeepAlive = this.allProps.getBoolean(NIO_ADMIN_CONNECTOR_KEEPALIVE);
+        // a value <= 0 forces the default to be used
+        this.nioAcceptorBacklog = this.allProps.getInt(NIO_ACCEPTOR_BACKLOG);
+        this.nioSelectorMaxHeartBeatTimeMs = this.allProps.getLong(NIO_SELECTOR_MAX_HEART_BEAT_TIME_MS);
+
+        this.clientSelectors = this.allProps.getInt(CLIENT_SELECTORS);
+        this.clientMaxConnectionsPerNode = this.allProps.getInt(CLIENT_MAX_CONNECTIONS_PER_NODE);
+        this.clientConnectionTimeoutMs = this.allProps.getInt(CLIENT_CONNECTION_TIMEOUT_MS);
+        this.clientRoutingTimeoutMs = this.allProps.getInt(CLIENT_ROUTING_TIMEOUT_MS);
+        this.clientTimeoutConfig = new TimeoutConfig(this.clientRoutingTimeoutMs, false);
+        this.clientTimeoutConfig.setOperationTimeout(VoldemortOpCode.GET_OP_CODE, this.allProps.getInt(CLIENT_ROUTING_GET_TIMEOUT_MS));
+        this.clientTimeoutConfig.setOperationTimeout(VoldemortOpCode.GET_ALL_OP_CODE, this.allProps.getInt(CLIENT_ROUTING_GETALL_TIMEOUT_MS));
+        this.clientTimeoutConfig.setOperationTimeout(VoldemortOpCode.PUT_OP_CODE, this.allProps.getInt(CLIENT_ROUTING_PUT_TIMEOUT_MS));
+        this.clientTimeoutConfig.setOperationTimeout(VoldemortOpCode.GET_VERSION_OP_CODE, this.allProps.getLong(CLIENT_ROUTING_GETVERSIONS_TIMEOUT_MS));
+        this.clientTimeoutConfig.setOperationTimeout(VoldemortOpCode.DELETE_OP_CODE, this.allProps.getInt(CLIENT_ROUTING_DELETE_TIMEOUT_MS));
+        this.clientTimeoutConfig.setPartialGetAllAllowed(this.allProps.getBoolean(CLIENT_ROUTING_ALLOW_PARTIAL_GETALL));
+        this.clientMaxThreads = this.allProps.getInt(CLIENT_MAX_THREADS);
+        this.clientThreadIdleMs = this.allProps.getInt(CLIENT_THREAD_IDLE_MS);
+        this.clientMaxQueuedRequests = this.allProps.getInt(CLIENT_MAX_QUEUED_REQUESTS);
+
+        this.enableHttpServer = this.allProps.getBoolean(HTTP_ENABLE);
+        this.enableSocketServer = this.allProps.getBoolean(SOCKET_ENABLE);
+        this.enableAdminServer = this.allProps.getBoolean(ADMIN_ENABLE);
+        this.enableJmx = this.allProps.getBoolean(JMX_ENABLE);
+        this.enableSlop = this.allProps.getBoolean(SLOP_ENABLE);
+        this.enableSlopPusherJob = this.allProps.getBoolean(SLOP_PUSHER_ENABLE);
+        this.slopMaxWriteBytesPerSec = this.allProps.getBytes(SLOP_WRITE_BYTE_PER_SEC);
+        this.enableVerboseLogging = this.allProps.getBoolean(ENABLE_VERBOSE_LOGGING);
+        this.enableStatTracking = this.allProps.getBoolean(ENABLE_STAT_TRACKING);
+        this.enableServerRouting = this.allProps.getBoolean(ENABLE_SERVER_ROUTING);
+        this.enableMetadataChecking = this.allProps.getBoolean(ENABLE_METADATA_CHECKING);
+        this.enableGossip = this.allProps.getBoolean(ENABLE_GOSSIP);
+        this.enableRebalanceService = this.allProps.getBoolean(ENABLE_REBALANCING);
+        this.enableRepair = this.allProps.getBoolean(ENABLE_REPAIR);
+        this.enablePruneJob = this.allProps.getBoolean(ENABLE_PRUNEJOB);
+        this.enableSlopPurgeJob = this.allProps.getBoolean(ENABLE_SLOP_PURGE_JOB);
+        this.enableJmxClusterName = this.allProps.getBoolean(ENABLE_JMX_CLUSTERNAME);
+        this.enableQuotaLimiting = this.allProps.getBoolean(ENABLE_QUOTA_LIMITING);
+
+        this.gossipIntervalMs = this.allProps.getInt(GOSSIP_INTERVAL_MS);
+
+        this.slopMaxWriteBytesPerSec = this.allProps.getBytes(SLOP_WRITE_BYTE_PER_SEC1);
+        this.slopMaxReadBytesPerSec = this.allProps.getBytes(SLOP_READ_BYTE_PER_SEC);
+        this.slopStoreType = this.allProps.getString(SLOP_STORE_ENGINE);
+        this.slopFrequencyMs = this.allProps.getLong(SLOP_FREQUENCY_MS);
+        this.slopBatchSize = this.allProps.getInt(SLOP_BATCH_SIZE);
+        this.pusherType = this.allProps.getString(PUSHER_TYPE);
+        this.slopZonesDownToTerminate = this.allProps.getInt(SLOP_ZONES_TERMINATE);
+        this.autoPurgeDeadSlops = this.allProps.getBoolean(AUTO_PURGE_DEAD_SLOPS);
+
+        this.schedulerThreads = this.allProps.getInt(SCHEDULER_THREADS);
+        this.mayInterruptService = this.allProps.getBoolean(SERVICE_INTERRUPTIBLE);
+
+        this.numScanPermits = this.allProps.getInt(NUM_SCAN_PERMITS);
+
+        this.storageConfigurations = this.allProps.getList(STORAGE_CONFIGS);
+
+        this.retentionCleanupFirstStartTimeInHour = this.allProps.getInt(RETENTION_CLEANUP_FIRST_START_HOUR);
+        this.retentionCleanupFirstStartDayOfWeek = this.allProps.getInt(RETENTION_CLEANUP_FIRST_START_DAY);
+        this.retentionCleanupScheduledPeriodInHour = this.allProps.getInt(RETENTION_CLEANUP_PERIOD_HOURS);
+        this.retentionCleanupPinStartTime = this.allProps.getBoolean(RETENTION_CLEANUP_PIN_START_TIME);
+        this.enforceRetentionPolicyOnRead = this.allProps.getBoolean(ENFORCE_RETENTION_POLICY_ON_READ);
+        this.deleteExpiredValuesOnRead = this.allProps.getBoolean(DELETE_EXPIRED_VALUES_ON_READ);
+
+        this.requestFormatType = RequestFormatType.fromCode(this.allProps.getString(REQUEST_FORMAT));
+
+        // rebalancing parameters
+        this.rebalancingTimeoutSec = this.allProps.getLong(REBALANCING_TIMEOUT_SECONDS);
+        this.maxParallelStoresRebalancing = this.allProps.getInt(MAX_PARALLEL_STORES_REBALANCING);
+        this.usePartitionScanForRebalance = this.allProps.getBoolean(USE_PARTITION_SCAN_FOR_REBALANCE);
+        this.maxProxyPutThreads = this.allProps.getInt(MAX_PROXY_PUT_THREADS);
+        this.failureDetectorImplementation = this.allProps.getString(FAILUREDETECTOR_IMPLEMENTATION);
+
+        this.failureDetectorBannagePeriod = this.allProps.getLong(FAILUREDETECTOR_BANNAGE_PERIOD);
+        this.failureDetectorThreshold = this.allProps.getInt(FAILUREDETECTOR_THRESHOLD);
+        this.failureDetectorThresholdCountMinimum = this.allProps.getInt(FAILUREDETECTOR_THRESHOLD_COUNTMINIMUM);
+        this.failureDetectorThresholdInterval = this.allProps.getLong(FAILUREDETECTOR_THRESHOLD_INTERVAL);
+        this.failureDetectorAsyncRecoveryInterval = this.allProps.getLong(FAILUREDETECTOR_ASYNCRECOVERY_INTERVAL);
+        this.failureDetectorCatastrophicErrorTypes = this.allProps.getList(FAILUREDETECTOR_CATASTROPHIC_ERROR_TYPES);
+        this.failureDetectorRequestLengthThreshold = this.allProps.getLong(FAILUREDETECTOR_REQUEST_LENGTH_THRESHOLD);
+
+        // network class loader disable by default.
+        this.enableNetworkClassLoader = this.allProps.getBoolean(ENABLE_NETWORK_CLASSLOADER);
+
+        // TODO: REST-Server decide on the numbers
+        this.enableRestService = this.allProps.getBoolean(REST_ENABLE);
+        this.numRestServiceNettyServerBacklog = this.allProps.getInt(NUM_REST_SERVICE_NETTY_SERVER_BACKLOG);
+        this.numRestServiceNettyBossThreads = this.allProps.getInt(NUM_REST_SERVICE_NETTY_BOSS_THREADS);
+        this.numRestServiceNettyWorkerThreads = this.allProps.getInt(NUM_REST_SERVICE_NETTY_WORKER_THREADS);
+        this.numRestServiceStorageThreads = this.allProps.getInt(NUM_REST_SERVICE_STORAGE_THREADS);
+        this.restServiceStorageThreadPoolQueueSize = this.allProps.getInt(REST_SERVICE_STORAGE_THREAD_POOL_QUEUE_SIZE);
+        this.maxHttpAggregatedContentLength = this.allProps.getInt(MAX_HTTP_AGGREGATED_CONTENT_LENGTH);
+
+        this.repairJobMaxKeysScannedPerSec = this.allProps.getInt(REPAIRJOB_MAX_KEYS_SCANNED_PER_SEC);
+        this.pruneJobMaxKeysScannedPerSec = this.allProps.getInt(PRUNEJOB_MAX_KEYS_SCANNED_PER_SEC);
+        this.slopPurgeJobMaxKeysScannedPerSec = this.allProps.getInt(SLOP_PURGEJOB_MAX_KEYS_SCANNED_PER_SEC);
+
+        // RocksDB config
+        this.rocksdbDataDirectory = this.allProps.getString(ROCKSDB_DATA_DIR);
+        this.rocksdbPrefixKeysWithPartitionId = this.allProps.getBoolean(ROCKSDB_PREFIX_KEYS_WITH_PARTITIONID);
+        this.rocksdbEnableReadLocks = this.allProps.getBoolean(ROCKSDB_ENABLE_READ_LOCKS);
+
+        this.restrictedConfigs = this.allProps.getList(RESTRICTED_CONFIGS);
     }
 
     private void validateParams() {
         if(coreThreads < 0)
-            throw new IllegalArgumentException("core.threads cannot be less than 1");
+            throw new IllegalArgumentException(CORE_THREADS + " cannot be less than 1");
         else if(coreThreads > maxThreads)
-            throw new IllegalArgumentException("core.threads cannot be greater than max.threads.");
+            throw new IllegalArgumentException(CORE_THREADS + " cannot be greater than " + MAX_THREADS);
         if(maxThreads < 1)
-            throw new ConfigurationException("max.threads cannot be less than 1.");
+            throw new ConfigurationException(MAX_THREADS + " cannot be less than 1.");
         if(slopFrequencyMs < 1)
-            throw new ConfigurationException("slop.frequency.ms cannot be less than 1.");
+            throw new ConfigurationException(SLOP_FREQUENCY_MS + " cannot be less than 1.");
         if(socketTimeoutMs < 0)
-            throw new ConfigurationException("socket.timeout.ms must be 0 or more ms.");
+            throw new ConfigurationException(SOCKET_TIMEOUT_MS + " must be 0 or more ms.");
         if(clientSelectors < 1)
-            throw new ConfigurationException("client.selectors must be 1 or more.");
+            throw new ConfigurationException(CLIENT_SELECTORS + " must be 1 or more.");
         if(clientRoutingTimeoutMs < 0)
-            throw new ConfigurationException("routing.timeout.ms must be 0 or more ms.");
+            throw new ConfigurationException(CLIENT_ROUTING_TIMEOUT_MS + " must be 0 or more ms.");
         if(schedulerThreads < 1)
-            throw new ConfigurationException("Must have at least 1 scheduler thread, "
-                                             + this.schedulerThreads + " set.");
+            throw new ConfigurationException("Must have at least 1 scheduler thread, " + this.schedulerThreads + " set.");
         if(enableServerRouting && !enableSocketServer)
             throw new ConfigurationException("Server-side routing is enabled, this requires the socket server to also be enabled.");
         if(numRestServiceNettyBossThreads < 1)
-            throw new ConfigurationException("num.rest.service.netty.boss.threads cannot be less than 1");
+            throw new ConfigurationException(NUM_REST_SERVICE_NETTY_BOSS_THREADS + " cannot be less than 1");
         if(numRestServiceNettyWorkerThreads < 1)
-            throw new ConfigurationException("num.rest.service.netty.worker.threads cannot be less than 1");
+            throw new ConfigurationException(NUM_REST_SERVICE_NETTY_WORKER_THREADS + " cannot be less than 1");
         if(numRestServiceStorageThreads < 1)
-            throw new ConfigurationException("num.rest.service.storage.threads cannot be less than 1");
+            throw new ConfigurationException(NUM_REST_SERVICE_STORAGE_THREADS + " cannot be less than 1");
         if(numRestServiceNettyServerBacklog < 0)
-            throw new ConfigurationException("num.rest.service.netty.server.backlog cannot be negative");
+            throw new ConfigurationException(NUM_REST_SERVICE_NETTY_SERVER_BACKLOG + " cannot be negative");
         if(restServiceStorageThreadPoolQueueSize < 0)
-            throw new ConfigurationException("rest.service.storage.thread.pool.queue.size cannot be negative.");
+            throw new ConfigurationException(REST_SERVICE_STORAGE_THREAD_POOL_QUEUE_SIZE + " cannot be negative.");
         if(maxHttpAggregatedContentLength <= 0)
-            throw new ConfigurationException("max.http.aggregated.content.length must be positive");
+            throw new ConfigurationException(MAX_HTTP_AGGREGATED_CONTENT_LENGTH + " must be positive");
         if (this.highAvailabilityPushEnabled) {
             if (this.highAvailabilityPushClusterId == null)
                 throw new ConfigurationException(PUSH_HA_CLUSTER_ID + " must be set if " + PUSH_HA_ENABLED + "=true");
@@ -749,13 +1106,38 @@ public class VoldemortConfig implements Serializable {
         Props properties = null;
         try {
             properties = new Props(new File(propertiesFile));
-            properties.put("voldemort.home", voldemortHome);
-            properties.put("metadata.directory", voldemortConfigDir);
+            properties.put(VOLDEMORT_HOME, voldemortHome);
+            properties.put(METADATA_DIRECTORY, voldemortConfigDir);
         } catch(IOException e) {
             throw new ConfigurationException(e);
         }
 
         return new VoldemortConfig(properties);
+    }
+
+    /**
+     * This is a generic function for retrieving any config value. The returned value
+     * is the one the server is operating with, no matter whether it comes from defaults
+     * or from the user-supplied configuration.
+     *
+     * This function only provides access to configs which are deemed safe to share
+     * publicly (i.e.: not security-related configs). The list of configs which are
+     * considered off-limit can itself be configured via '{@value #RESTRICTED_CONFIGS}'.
+     *
+     * @param key config key for which to retrieve the value.
+     * @return the value for the requested config key, in String format.
+     *         May return null if the key exists and its value is explicitly set to null.
+     * @throws UndefinedPropertyException if the requested key does not exist in the config.
+     * @throws ConfigurationException if the requested key is not publicly available.
+     */
+    public String getPublicConfigValue(String key) throws ConfigurationException {
+        if (!allProps.containsKey(key)) {
+            throw new UndefinedPropertyException("The requested config key does not exist.");
+        }
+        if (restrictedConfigs.contains(key)) {
+            throw new ConfigurationException("The requested config key is not publicly available!");
+        }
+        return allProps.get(key);
     }
 
     public int getNodeId() {
@@ -767,8 +1149,8 @@ public class VoldemortConfig implements Serializable {
      * the information in cluster.xml to determine what partitions belong to it
      * 
      * <ul>
-     * <li>Property : "node.id"</li>
-     * <li>Default : VOLDEMORT_NODE_ID env variable</li>
+     * <li>Property : "{@value #NODE_ID}"</li>
+     * <li>Default : {@value #VOLDEMORT_NODE_ID_VAR_NAME} env variable</li>
      * </ul>
      */
     public void setNodeId(int nodeId) {
@@ -781,8 +1163,8 @@ public class VoldemortConfig implements Serializable {
 
     /**
      * <ul>
-     * <li>Property : "voldemort.home"</li>
-     * <li>Default : VOLDEMORT_HOME environment variable</li>
+     * <li>Property : "{@value #VOLDEMORT_HOME}"</li>
+     * <li>Default : {@value #VOLDEMORT_HOME_VAR_NAME} environment variable</li>
      * </ul>
      */
     public void setVoldemortHome(String voldemortHome) {
@@ -794,10 +1176,10 @@ public class VoldemortConfig implements Serializable {
     }
 
     /**
-     * The directory name given by "data.directory" default: voldemort.home/data
+     * Root directory for Voldemort's data
      * 
      * <ul>
-     * <li>Property : "data.directory"</li>
+     * <li>Property : "{@value #DATA_DIRECTORY}"</li>
      * <li>Default : VOLDEMORT_HOME/data</li>
      * </ul>
      */
@@ -810,11 +1192,10 @@ public class VoldemortConfig implements Serializable {
     }
 
     /**
-     * The directory name given by "metadata.directory" default:
-     * voldemort.home/config
+     * Root directory for Voldemort's configuration
      * 
      * <ul>
-     * <li>Property : "metadata.directory"</li>
+     * <li>Property : "{@value #METADATA_DIRECTORY}"</li>
      * <li>Default : VOLDEMORT_HOME/config</li>
      * </ul>
      */
@@ -830,7 +1211,7 @@ public class VoldemortConfig implements Serializable {
      * The size of BDB Cache to hold portions of the BTree.
      * 
      * <ul>
-     * <li>Property : "bdb.cache.size"</li>
+     * <li>Property : "{@value #BDB_CACHE_SIZE}"</li>
      * <li>Default : 200MB</li>
      * </ul>
      */
@@ -847,7 +1228,7 @@ public class VoldemortConfig implements Serializable {
      * set to false, stat will always return 0;
      * 
      * <ul>
-     * <li>Property : "bdb.expose.space.utilization"</li>
+     * <li>Property : "{@value #BDB_EXPOSE_SPACE_UTILIZATION}"</li>
      * <li>Default : true</li>
      * </ul>
      */
@@ -863,7 +1244,7 @@ public class VoldemortConfig implements Serializable {
      * If true then sync transactions to disk immediately.
      * 
      * <ul>
-     * <li>Property : "bdb.flush.transactions"</li>
+     * <li>Property : "{@value #BDB_FLUSH_TRANSACTIONS}"</li>
      * <li>Default : false</li>
      * </ul>
      * 
@@ -880,7 +1261,7 @@ public class VoldemortConfig implements Serializable {
      * The directory in which bdb data is stored.
      * 
      * <ul>
-     * <li>Property : "bdb.data.directory"</li>
+     * <li>Property : "{@value #BDB_DATA_DIRECTORY}"</li>
      * <li>Default : data.directory/bdb</li>
      * </ul>
      */
@@ -905,7 +1286,7 @@ public class VoldemortConfig implements Serializable {
      * again.
      * 
      * <ul>
-     * <li>Property : "bdb.raw.property.string"</li>
+     * <li>Property : "{@value #BDB_RAW_PROPERTY_STRING}"</li>
      * <li>Default : null</li>
      * </ul>
      */
@@ -921,7 +1302,7 @@ public class VoldemortConfig implements Serializable {
      * The maximum size of a single .jdb log file in bytes.
      * 
      * <ul>
-     * <li>Property : "bdb.max.logfile.size"</li>
+     * <li>Property : "{@value #BDB_MAX_LOGFILE_SIZE}"</li>
      * <li>Default : 60MB</li>
      * </ul>
      */
@@ -941,7 +1322,7 @@ public class VoldemortConfig implements Serializable {
      * jdb files
      * 
      * <ul>
-     * <li>property: "bdb.cleaner.minFileUtilization"</li>
+     * <li>Property : "{@value #BDB_CLEANER_MIN_FILE_UTILIZATION}"</li>
      * <li>default: 0</li>
      * <li>minimum: 0</li>
      * <li>maximum: 50</li>
@@ -962,7 +1343,7 @@ public class VoldemortConfig implements Serializable {
      * checkpoint in a shorter time interval.
      * 
      * <ul>
-     * <li>property: "bdb.checkpointer.high.priority"</li>
+     * <li>Property : "{@value #BDB_CHECKPOINTER_HIGH_PRIORITY}"</li>
      * <li>default: false</li>
      * </ul>
      */
@@ -979,7 +1360,7 @@ public class VoldemortConfig implements Serializable {
      * there is no limit
      * 
      * <ul>
-     * <li>property: "bdb.cleaner.max.batch.files"</li>
+     * <li>Property : "{@value #BDB_CLEANER_MAX_BATCH_FILES}"</li>
      * <li>default: 0</li>
      * <li>minimum: 0</li>
      * <li>maximum: 100000</li>
@@ -1000,7 +1381,7 @@ public class VoldemortConfig implements Serializable {
      * The number of cleaner threads
      * 
      * <ul>
-     * <li>property: "bdb.cleaner.threads"</li>
+     * <li>Property : "{@value #BDB_CLEANER_THREADS}"</li>
      * <li>default: 1</li>
      * <li>minimum: 1</li>
      * </ul>
@@ -1021,7 +1402,7 @@ public class VoldemortConfig implements Serializable {
      * utilization
      * 
      * <ul>
-     * <li>property: "bdb.cleaner.interval.bytes"</li>
+     * <li>Property : "{@value #BDB_CLEANER_INTERVAL_BYTES}"</li>
      * <li>default: 30MB</li>
      * </ul>
      */
@@ -1037,7 +1418,7 @@ public class VoldemortConfig implements Serializable {
      * Buffer size used by cleaner to fetch BTree nodes during cleaning.
      * 
      * <ul>
-     * <li>property: "bdb.cleaner.lookahead.cache.size"</li>
+     * <li>Property : "{@value #BDB_CLEANER_LOOKAHEAD_CACHE_SIZE}"</li>
      * <li>default: 8192</li>
      * </ul>
      * 
@@ -1060,7 +1441,7 @@ public class VoldemortConfig implements Serializable {
      * might have adverse impact on latency for all stores
      * 
      * <ul>
-     * <li>property: "bdb.lock.timeout.ms"</li>
+     * <li>Property : "{@value #BDB_LOCK_TIMEOUT_MS}"</li>
      * <li>default: 500</li>
      * <li>minimum: 0</li>
      * <li>maximum: 75 * 60 * 1000</li>
@@ -1080,7 +1461,7 @@ public class VoldemortConfig implements Serializable {
      * The size of the lock table used by BDB JE
      * 
      * <ul>
-     * <li>Property : bdb.lock.nLockTables"</li>
+     * <li>Property : "{@value #BDB_LOCK_N_LOCK_TABLES}"</li>
      * <li>Default : 7</li>
      * </ul>
      * 
@@ -1100,7 +1481,7 @@ public class VoldemortConfig implements Serializable {
      * Buffer for faulting in objects from disk
      * 
      * <ul>
-     * <li>Property : "bdb.log.fault.read.size"</li>
+     * <li>Property : "{@value #BDB_LOG_FAULT_READ_SIZE}"</li>
      * <li>Default : 2048</li>
      * </ul>
      */
@@ -1116,7 +1497,7 @@ public class VoldemortConfig implements Serializable {
      * Buffer size used by BDB JE for reading the log eg: Cleaning.
      * 
      * <ul>
-     * <li>Property : "bdb.log.iterator.read.size"</li>
+     * <li>Property : "{@value #BDB_LOG_ITERATOR_READ_SIZE}"</li>
      * <li>Default : 8192</li>
      * </ul>
      * 
@@ -1133,7 +1514,7 @@ public class VoldemortConfig implements Serializable {
      * Controls whether BDB JE should use latches instead of synchronized blocks
      * 
      * <ul>
-     * <li>Property : "bdb.fair.latches"</li>
+     * <li>Property : "{@value #BDB_FAIR_LATCHES}"</li>
      * <li>Default : false</li>
      * </ul>
      * 
@@ -1150,7 +1531,7 @@ public class VoldemortConfig implements Serializable {
      * If true, BDB JE get() will not be blocked by put()
      * 
      * <ul>
-     * <li>Property : "bdb.lock.read_uncommitted"</li>
+     * <li>Property : "{@value #BDB_LOCK_READ_UNCOMMITTED}"</li>
      * <li>Default : true</li>
      * </ul>
      * 
@@ -1169,7 +1550,7 @@ public class VoldemortConfig implements Serializable {
      * this value.
      * 
      * <ul>
-     * <li>property: "bdb.cleaner.minUtilization"</li>
+     * <li>Property : "{@value #BDB_CLEANER_MIN_UTILIZATION}"</li>
      * <li>default: 50</li>
      * <li>minimum: 0</li>
      * <li>maximum: 90</li>
@@ -1189,7 +1570,7 @@ public class VoldemortConfig implements Serializable {
      * The btree node fanout. Given by "". default: 512
      * 
      * <ul>
-     * <li>property: "bdb.btree.fanout"</li>
+     * <li>Property : "{@value #BDB_BTREE_FANOUT}"</li>
      * <li>default: 512</li>
      * </ul>
      */
@@ -1201,7 +1582,7 @@ public class VoldemortConfig implements Serializable {
      * Exposes BDB JE EnvironmentConfig.TREE_MAX_DELTA.
      * 
      * <ul>
-     * <li>Property : "bdb.max.delta"</li>
+     * <li>Property : "{@value #BDB_MAX_DELTA}"</li>
      * <li>Default : 100</li>
      * </ul>
      * 
@@ -1218,7 +1599,7 @@ public class VoldemortConfig implements Serializable {
      * Exposes BDB JE EnvironmentConfig.TREE_BIN_DELTA.
      * 
      * <ul>
-     * <li>Property : "bdb.bin.delta"</li>
+     * <li>Property : "{@value #BDB_BIN_DELTA}"</li>
      * <li>Default : 75</li>
      * </ul>
      * 
@@ -1242,7 +1623,7 @@ public class VoldemortConfig implements Serializable {
      * depending on your use case)
      * 
      * <ul>
-     * <li>property: "bdb.cleaner.fetch.obsolete.size"</li>
+     * <li>Property : "{@value #BDB_CLEANER_FETCH_OBSOLETE_SIZE}"</li>
      * <li>default : true</li>
      * </ul>
      * 
@@ -1260,7 +1641,7 @@ public class VoldemortConfig implements Serializable {
      * internally computed utilization values
      * 
      * <ul>
-     * <li>property: "bdb.cleaner.adjust.utilization"</li>
+     * <li>Property : "{@value #BDB_CLEANER_ADJUST_UTILIZATION}"</li>
      * <li>default : false</li>
      * </ul>
      * 
@@ -1280,7 +1661,7 @@ public class VoldemortConfig implements Serializable {
      * incremental backup, this parameter must be true.
      * 
      * <ul>
-     * <li>property: "bdb.recovery.force.checkpoint"</li>
+     * <li>Property : "{@value #BDB_RECOVERY_FORCE_CHECKPOINT}"</li>
      * <li>default : false</li>
      * </ul>
      * 
@@ -1301,7 +1682,7 @@ public class VoldemortConfig implements Serializable {
      * threads/IOPS
      * 
      * <ul>
-     * <li>property: "bdb.cleaner.lazy.migration"</li>
+     * <li>Property : "{@value #BDB_CLEANER_LAZY_MIGRATION}"</li>
      * <li>default : false</li>
      * </ul>
      * 
@@ -1320,7 +1701,7 @@ public class VoldemortConfig implements Serializable {
      * reducing constant CMS activity
      * 
      * <ul>
-     * <li>Property : "bdb.cache.evictln"</li>
+     * <li>Property : "{@value #BDB_CACHE_EVICTLN}"</li>
      * <li>Default : true</li>
      * </ul>
      * 
@@ -1338,7 +1719,7 @@ public class VoldemortConfig implements Serializable {
      * jobs
      * 
      * <ul>
-     * <li>Property : "bdb.minimize.scan.impact"</li>
+     * <li>Property : "{@value #BDB_MINIMIZE_SCAN_IMPACT}"</li>
      * <li>Default : true</li>
      * </ul>
      * 
@@ -1356,7 +1737,7 @@ public class VoldemortConfig implements Serializable {
      * the checkpointer to flush the writes
      * 
      * <ul>
-     * <li>Property : "bdb.write.transactions"</li>
+     * <li>Property : "{@value #BDB_WRITE_TRANSACTIONS}"</li>
      * <li>Default : false</li>
      * </ul>
      * 
@@ -1369,7 +1750,7 @@ public class VoldemortConfig implements Serializable {
      * If true, use separate BDB JE environment per store
      * 
      * <ul>
-     * <li>Property : "bdb.one.env.per.store"</li>
+     * <li>Property : "{@value #BDB_ONE_ENV_PER_STORE}"</li>
      * <li>Default : false</li>
      * </ul>
      * 
@@ -1392,7 +1773,7 @@ public class VoldemortConfig implements Serializable {
      * bytes of extra storage per key
      * 
      * <ul>
-     * <li>Property : "bdb.prefix.keys.with.partitionid"</li>
+     * <li>Property : "{@value #BDB_PREFIX_KEYS_WITH_PARTITIONID}"</li>
      * <li>Default : true</li>
      * </ul>
      * 
@@ -1410,7 +1791,7 @@ public class VoldemortConfig implements Serializable {
      * have been logged
      * 
      * <ul>
-     * <li>Property : "bdb.checkpoint.interval.bytes"</li>
+     * <li>Property : "{@value #BDB_CHECKPOINT_INTERVAL_BYTES}"</li>
      * <li>Default : 200MB</li>
      * </ul>
      * 
@@ -1429,7 +1810,7 @@ public class VoldemortConfig implements Serializable {
      * updates
      * 
      * <ul>
-     * <li>Property : "bdb.checkpointer.off.batch.writes"</li>
+     * <li>Property : "{@value #BDB_CHECKPOINTER_OFF_BATCH_WRITES}"</li>
      * <li>Default : false</li>
      * </ul>
      * 
@@ -1446,7 +1827,7 @@ public class VoldemortConfig implements Serializable {
      * BDB JE Checkpointer wakes up whenever this time period elapses
      * 
      * <ul>
-     * <li>Property : "bdb.checkpoint.interval.ms"</li>
+     * <li>Property : "{@value #BDB_CHECKPOINT_INTERVAL_MS}"</li>
      * <li>Default : 30s or 30000 ms</li>
      * </ul>
      * 
@@ -1464,7 +1845,7 @@ public class VoldemortConfig implements Serializable {
      * expires, a fresh call will be made
      * 
      * <ul>
-     * <li>Property : "bdb.stats.cache.ttl.ms"</li>
+     * <li>Property : "{@value #BDB_STATS_CACHE_TTL_MS}"</li>
      * <li>Default : 5s</li>
      * </ul>
      * 
@@ -1483,7 +1864,7 @@ public class VoldemortConfig implements Serializable {
      * that will break this guarantee will fail.
      * 
      * <ul>
-     * <li>Property : "bdb.minimum.shared.cache"</li>
+     * <li>Property : "{@value #{@VALUE #BDB_MINIMUM_SHARED_CACHE}}"</li>
      * <li>Default : 0</li>
      * </ul>
      * 
@@ -1500,7 +1881,7 @@ public class VoldemortConfig implements Serializable {
      * Controls if BDB JE cache eviction happens based on LRU or by BTree level.
      * 
      * <ul>
-     * <li>Property : "bdb.evict.by.level"</li>
+     * <li>Property : "{@value #BDB_EVICT_BY_LEVEL}"</li>
      * <li>Default : false</li>
      * </ul>
      * 
@@ -1519,7 +1900,7 @@ public class VoldemortConfig implements Serializable {
      * supported anymore
      * 
      * <ul>
-     * <li>Property : "core.threads"</li>
+     * <li>Property : "{@value #CORE_THREADS}"</li>
      * <li>Default : max(1, floor(0.5 * max.threads)</li>
      * </ul>
      * 
@@ -1538,7 +1919,7 @@ public class VoldemortConfig implements Serializable {
      * with enable.nio.connector=true. Not officially supported anymore
      * 
      * <ul>
-     * <li>Property : "max.threads"</li>
+     * <li>Property : "{@value #MAX_THREADS}"</li>
      * <li>Default : 100</li>
      * </ul>
      * 
@@ -1557,7 +1938,7 @@ public class VoldemortConfig implements Serializable {
      * around. Not applicable with enable.nio.connector=true
      * 
      * <ul>
-     * <li>Property : "admin.core.threads"</li>
+     * <li>Property : "{@value #ADMIN_CORE_THREADS}"</li>
      * <li>Default : max(1, adminMaxThreads/2)</li>
      * </ul>
      * 
@@ -1575,7 +1956,7 @@ public class VoldemortConfig implements Serializable {
      * applicable with enable.nio=true
      * 
      * <ul>
-     * <li>Property : "admin.max.threads"</li>
+     * <li>Property : "{@value #ADMIN_MAX_THREADS}"</li>
      * <li>Default : 20</li>
      * </ul>
      * 
@@ -1593,7 +1974,7 @@ public class VoldemortConfig implements Serializable {
      * requests. This is recommended over using old style BIO.
      * 
      * <ul>
-     * <li>Property : "enable.nio.connector"</li>
+     * <li>Property : "{@value #ENABLE_NIO_CONNECTOR}"</li>
      * <li>Default : true</li>
      * </ul>
      * 
@@ -1610,7 +1991,7 @@ public class VoldemortConfig implements Serializable {
      * Number of NIO server threads to use to process client requests
      * 
      * <ul>
-     * <li>Property : nio.connector.selectors</li>
+     * <li>Property : "{@value #NIO_CONNECTOR_SELECTORS}"</li>
      * <li>Default : max(8, number of available processors)</li>
      * </ul>
      * 
@@ -1628,7 +2009,7 @@ public class VoldemortConfig implements Serializable {
      * Number of admin NIO server threads to spin up.
      * 
      * <ul>
-     * <li>Property : nio.admin.connector.selectors</li>
+     * <li>Property : "{@value #NIO_ADMIN_CONNECTOR_SELECTORS}"</li>
      * <li>Default : max(8, number of available processors)</li>
      * </ul>
      * 
@@ -1646,7 +2027,7 @@ public class VoldemortConfig implements Serializable {
     /**
      * Whether or not the {@link HttpService} is enabled
      * <ul>
-     * <li>Property :"http.enable"</li>
+     * <li>Property : "{@value #HTTP_ENABLE}"</li>
      * <li>Default :false</li>
      * </ul>
      * 
@@ -1661,7 +2042,7 @@ public class VoldemortConfig implements Serializable {
      * handling
      * 
      * <ul>
-     * <li>Property :"socket.enable"</li>
+     * <li>Property : "{@value #SOCKET_ENABLE}"</li>
      * <li>Default :true</li>
      * </ul>
      * 
@@ -1679,7 +2060,7 @@ public class VoldemortConfig implements Serializable {
      * maintenance operations on the server
      * 
      * <ul>
-     * <li>Property : "admin.enable"</li>
+     * <li>Property : "{@value #ADMIN_ENABLE}"</li>
      * <li>Default : true</li>
      * </ul>
      */
@@ -1695,7 +2076,7 @@ public class VoldemortConfig implements Serializable {
      * Maximum amount of data read out of the server by streaming operations
      * 
      * <ul>
-     * <li>Property : "stream.read.byte.per.sec"</li>
+     * <li>Property : "{@value #STREAM_READ_BYTE_PER_SEC}"</li>
      * <li>Default : 10MB</li>
      * </ul>
      * 
@@ -1713,7 +2094,7 @@ public class VoldemortConfig implements Serializable {
      * operations
      * 
      * <ul>
-     * <li>Property : "stream.write.byte.per.sec"</li>
+     * <li>Property : "{@value #STREAM_WRITE_BYTE_PER_SEC}"</li>
      * <li>Default : 10MB</li>
      * </ul>
      * 
@@ -1732,7 +2113,7 @@ public class VoldemortConfig implements Serializable {
      * MySqlStorageEngine
      * 
      * <ul>
-     * <li>Property : "use.multi.version.streaming.puts"</li>
+     * <li>Property : "{@value #USE_MULTI_VERSION_STREAMING_PUTS}"</li>
      * <li>Default : true</li>
      * </ul>
      * 
@@ -1750,7 +2131,7 @@ public class VoldemortConfig implements Serializable {
      * slop writes over the wire
      * 
      * <ul>
-     * <li>Property :"slop.write.byte.per.sec"</li>
+     * <li>Property : "{@value #SLOP_WRITE_BYTE_PER_SEC}"</li>
      * <li>Default :10MB</li>
      * </ul>
      * 
@@ -1768,7 +2149,7 @@ public class VoldemortConfig implements Serializable {
      * 'slop' store and drains it off to another server
      * 
      * <ul>
-     * <li>Property :"slop.read.byte.per.sec"</li>
+     * <li>Property : "{@value #SLOP_READ_BYTE_PER_SEC}"</li>
      * <li>Default :10MB</li>
      * </ul>
      * 
@@ -1785,7 +2166,7 @@ public class VoldemortConfig implements Serializable {
      * Is JMX monitoring enabled on the server?
      * 
      * <ul>
-     * <li>Property :"jmx.enable"</li>
+     * <li>Property : "{@value #JMX_ENABLE}"</li>
      * <li>Default : true</li>
      * </ul>
      * 
@@ -1802,7 +2183,7 @@ public class VoldemortConfig implements Serializable {
      * user name to use with MySQL storage engine
      * 
      * <ul>
-     * <li>Property : "mysql.user"</li>
+     * <li>Property : "{@value #MYSQL_USER}"</li>
      * <li>Default : "root"</li>
      * </ul>
      */
@@ -1818,7 +2199,7 @@ public class VoldemortConfig implements Serializable {
      * Password to use with MySQL storage engine
      * 
      * <ul>
-     * <li>Property :"mysql.password"</li>
+     * <li>Property : "{@value #MYSQL_PASSWORD}"</li>
      * <li>Default :""</li>
      * </ul>
      */
@@ -1850,7 +2231,7 @@ public class VoldemortConfig implements Serializable {
      * Hostname of the database server for MySQL storage engine
      * 
      * <ul>
-     * <li>Property :"mysql.host"</li>
+     * <li>Property : "{@value #MYSQL_HOST}"</li>
      * <li>Default :"localhost"</li>
      * </ul>
      */
@@ -1866,7 +2247,7 @@ public class VoldemortConfig implements Serializable {
      * Port number for the MySQL database server
      * 
      * <ul>
-     * <li>Property :"mysql.port"</li>
+     * <li>Property : "{@value #MYSQL_PORT}"</li>
      * <li>Default :3306</li>
      * </ul>
      */
@@ -1883,7 +2264,7 @@ public class VoldemortConfig implements Serializable {
      * Bdb torageConfiguration.class.getName())
      * 
      * <ul>
-     * <li>Property :"slop.store.engine"</li>
+     * <li>Property : "{@value #SLOP_STORE_ENGINE}"</li>
      * <li>Default :BdbStorageConfiguration.TYPE_NAME</li>
      * </ul>
      */
@@ -1899,7 +2280,7 @@ public class VoldemortConfig implements Serializable {
      * The type of streaming job we would want to use to send hints. Defaults to
      * 
      * <ul>
-     * <li>Property :"pusher.type"</li>
+     * <li>Property : "{@value #PUSHER_TYPE}"</li>
      * <li>Default :StreamingSlopPusherJob.TYPE_NAME</li>
      * </ul>
      */
@@ -1915,7 +2296,7 @@ public class VoldemortConfig implements Serializable {
      * Number of zones declared down before we terminate the pusher job
      * 
      * <ul>
-     * <li>Property :"slop.zones.terminate"</li>
+     * <li>Property : "{@value #SLOP_ZONES_TERMINATE}"</li>
      * <li>Default :0</li>
      * </ul>
      */
@@ -1933,7 +2314,7 @@ public class VoldemortConfig implements Serializable {
      * runs. If false, they will be ignored.
      * 
      * <ul>
-     * <li>Property :"auto.purge.dead.slops"</li>
+     * <li>Property : "{@value #AUTO_PURGE_DEAD_SLOPS}"</li>
      * <li>Default :true</li>
      * </ul>
      */
@@ -1949,7 +2330,7 @@ public class VoldemortConfig implements Serializable {
      * Returns the size of the batch used while streaming slops
      * 
      * <ul>
-     * <li>Property :"slop.batch.size"</li>
+     * <li>Property : "{@value #SLOP_BATCH_SIZE}"</li>
      * <li>Default :100</li>
      * </ul>
      */
@@ -1969,7 +2350,7 @@ public class VoldemortConfig implements Serializable {
      * Frequency at which the slop pusher attempts to push slops
      * 
      * <ul>
-     * <li>Property :"slop.frequency.ms"</li>
+     * <li>Property : "{@value #SLOP_FREQUENCY_MS}"</li>
      * <li>Default :300 seconds</li>
      * </ul>
      */
@@ -1981,7 +2362,7 @@ public class VoldemortConfig implements Serializable {
      * {@link ClientConfig#setSocketTimeout(int, java.util.concurrent.TimeUnit)}
      * 
      * <ul>
-     * <li>Property :"socket.timeout.ms"</li>
+     * <li>Property : "{@value #SOCKET_TIMEOUT_MS}"</li>
      * <li>Default :5000</li>
      * </ul>
      */
@@ -1997,7 +2378,7 @@ public class VoldemortConfig implements Serializable {
      * {@link ClientConfig#setSelectors(int)}
      * 
      * <ul>
-     * <li>Property :"client.selectors"</li>
+     * <li>Property : "{@value #CLIENT_SELECTORS}"</li>
      * <li>Default :4</li>
      * </ul>
      */
@@ -2013,7 +2394,7 @@ public class VoldemortConfig implements Serializable {
      * {@link ClientConfig#setRoutingTimeout(int, java.util.concurrent.TimeUnit)}
      * 
      * <ul>
-     * <li>Property :"client.routing.timeout.ms"</li>
+     * <li>Property : "{@value #CLIENT_ROUTING_TIMEOUT_MS}"</li>
      * <li>Default :15000</li>
      * </ul>
      */
@@ -2037,7 +2418,7 @@ public class VoldemortConfig implements Serializable {
      * {@link ClientConfig#setMaxConnectionsPerNode(int)}
      * 
      * <ul>
-     * <li>Property :"client.max.connections.per.node"</li>
+     * <li>Property : "{@value #CLIENT_MAX_CONNECTIONS_PER_NODE}"</li>
      * <li>Default :50</li>
      * </ul>
      */
@@ -2053,7 +2434,7 @@ public class VoldemortConfig implements Serializable {
      * {@link ClientConfig#setConnectionTimeout(int, java.util.concurrent.TimeUnit)}
      * 
      * <ul>
-     * <li>Property :"client.connection.timeout.ms"</li>
+     * <li>Property : "{@value #CLIENT_CONNECTION_TIMEOUT_MS}"</li>
      * <li>Default :500</li>
      * </ul>
      */
@@ -2087,7 +2468,7 @@ public class VoldemortConfig implements Serializable {
      * {@link ClientConfig#setMaxThreads(int)}
      * 
      * <ul>
-     * <li>Property :"client.max.threads"</li>
+     * <li>Property : "{@value #CLIENT_MAX_THREADS}"</li>
      * <li>Default :500</li>
      * </ul>
      */
@@ -2103,7 +2484,7 @@ public class VoldemortConfig implements Serializable {
      * {@link ClientConfig#setThreadIdleTime(long, java.util.concurrent.TimeUnit)}
      * 
      * <ul>
-     * <li>Property :"client.thread.idle.ms"</li>
+     * <li>Property : "{@value #CLIENT_THREAD_IDLE_MS}"</li>
      * <li>Default :100000</li>
      * </ul>
      */
@@ -2134,7 +2515,7 @@ public class VoldemortConfig implements Serializable {
      * Whether or not slop store should be created on the server.
      * 
      * <ul>
-     * <li>Property :"slop.enable"</li>
+     * <li>Property : "{@value #SLOP_ENABLE}"</li>
      * <li>Default :true</li>
      * </ul>
      */
@@ -2152,7 +2533,7 @@ public class VoldemortConfig implements Serializable {
      * slops to failed servers
      * 
      * <ul>
-     * <li>Property :"slop.pusher.enable"</li>
+     * <li>Property : "{@value #SLOP_PUSHER_ENABLE}"</li>
      * <li>Default :true</li>
      * </ul>
      */
@@ -2168,7 +2549,7 @@ public class VoldemortConfig implements Serializable {
      * Whether {@link RepairJob} will be enabled
      * 
      * <ul>
-     * <li>Property :"enable.repair"</li>
+     * <li>Property : "{@value #ENABLE_REPAIR}"</li>
      * <li>Default :true</li>
      * </ul>
      */
@@ -2184,7 +2565,7 @@ public class VoldemortConfig implements Serializable {
      * Whether {@link VersionedPutPruneJob} will be enabled
      * 
      * <ul>
-     * <li>Property :"enable.prunejob"</li>
+     * <li>Property : "{@value #ENABLE_PRUNEJOB}"</li>
      * <li>Default :true</li>
      * </ul>
      */
@@ -2200,7 +2581,7 @@ public class VoldemortConfig implements Serializable {
      * Whether will {@link SlopPurgeJob} be enabled
      * 
      * <ul>
-     * <li>Property :"enable.slop.purge.job"</li>
+     * <li>Property : "{@value #ENABLE_SLOP_PURGE_JOB}"</li>
      * <li>Default :true</li>
      * </ul>
      */
@@ -2217,7 +2598,7 @@ public class VoldemortConfig implements Serializable {
      * trace debugging if needed
      * 
      * <ul>
-     * <li>Property :"enable.verbose.logging"</li>
+     * <li>Property : "{@value #ENABLE_VERBOSE_LOGGING}"</li>
      * <li>Default :true</li>
      * </ul>
      */
@@ -2234,7 +2615,7 @@ public class VoldemortConfig implements Serializable {
      * performance statistics
      * 
      * <ul>
-     * <li>Property :"enable.stat.tracking"</li>
+     * <li>Property : "{@value #ENABLE_STAT_TRACKING}"</li>
      * <li>Default :true</li>
      * </ul>
      */
@@ -2251,7 +2632,7 @@ public class VoldemortConfig implements Serializable {
      * does not belong to this server with a {@link InvalidMetadataException}
      * 
      * <ul>
-     * <li>Property :"enable.metadata.checking"</li>
+     * <li>Property : "{@value #ENABLE_METADATA_CHECKING}"</li>
      * <li>Default :true</li>
      * </ul>
      */
@@ -2268,7 +2649,7 @@ public class VoldemortConfig implements Serializable {
      * background async jobs
      * 
      * <ul>
-     * <li>Property :"client.max.queued.requests"</li>
+     * <li>Property : "{@value #CLIENT_MAX_QUEUED_REQUESTS}"</li>
      * <li>Default :1000</li>
      * </ul>
      */
@@ -2285,7 +2666,7 @@ public class VoldemortConfig implements Serializable {
      * {@link AsyncOperation}, when terminating the job
      * 
      * <ul>
-     * <li>Property :"service.interruptible"</li>
+     * <li>Property : "{@value #SERVICE_INTERRUPTIBLE}"</li>
      * <li>Default :true</li>
      * </ul>
      */
@@ -2301,7 +2682,7 @@ public class VoldemortConfig implements Serializable {
      * Directory to store the read-only data and index files in
      * 
      * <ul>
-     * <li>Property :"readonly.data.directory"</li>
+     * <li>Property : "{@value #READONLY_DATA_DIRECTORY}"</li>
      * <li>Default : DATA_DIR/read-only</li>
      * </ul>
      */
@@ -2318,7 +2699,7 @@ public class VoldemortConfig implements Serializable {
      * {@link ReadOnlyStorageEngine}
      * 
      * <ul>
-     * <li>Property :"readonly.backups"</li>
+     * <li>Property : "{@value #READONLY_BACKUPS}"</li>
      * <li>Default :1</li>
      * </ul>
      */
@@ -2335,7 +2716,7 @@ public class VoldemortConfig implements Serializable {
      * happens during swaps when old backups need to be deleted. Some delay is
      * 
      * <ul>
-     * <li>Property :"readonly.delete.backup.ms"</li>
+     * <li>Property : "{@value #READONLY_DELETE_BACKUP_MS}"</li>
      * <li>Default :0</li>
      * </ul>
      */
@@ -2351,7 +2732,7 @@ public class VoldemortConfig implements Serializable {
      * Path to keytab for principal used for kerberized Hadoop grids
      * 
      * <ul>
-     * <li>Property :"readonly.keytab.path"</li>
+     * <li>Property : "{@value #READONLY_KEYTAB_PATH}"</li>
      * <li>Default :METADATA_DIR/voldemrt.headless.keytab</li>
      * </ul>
      */
@@ -2367,7 +2748,7 @@ public class VoldemortConfig implements Serializable {
      * Principal used in kerberized Hadoop grids
      * 
      * <ul>
-     * <li>Property :"readonly.kerberos.user"</li>
+     * <li>Property : "{@value #READONLY_KERBEROS_USER}"</li>
      * <li>Default :"voldemrt"</li>
      * </ul>
      */
@@ -2383,7 +2764,7 @@ public class VoldemortConfig implements Serializable {
      * Path to the hadoop config
      * 
      * <ul>
-     * <li>Property :"readonly.hadoop.config.path"</li>
+     * <li>Property : "{@value #READONLY_HADOOP_CONFIG_PATH}"</li>
      * <li>Default : METADATA_DIR/hadoop-conf</li>
      * </ul>
      */
@@ -2399,7 +2780,7 @@ public class VoldemortConfig implements Serializable {
      * {@link ClientConfig#setSocketBufferSize(int)}
      * 
      * <ul>
-     * <li>Property :"socket.buffer.size"</li>
+     * <li>Property : "{@value #SOCKET_BUFFER_SIZE}"</li>
      * <li>Default :64kb</li>
      * </ul>
      */
@@ -2415,7 +2796,7 @@ public class VoldemortConfig implements Serializable {
      * {@link ClientConfig#setSocketKeepAlive(boolean)}
      * 
      * <ul>
-     * <li>Property :"socket.keepalive"</li>
+     * <li>Property : "{@value #SOCKET_KEEPALIVE}"</li>
      * <li>Default :false</li>
      * </ul>
      */
@@ -2441,7 +2822,7 @@ public class VoldemortConfig implements Serializable {
      * dropped during connection bursts
      * 
      * <ul>
-     * <li>Property :"nio.acceptor.backlog"</li>
+     * <li>Property : "{@value #NIO_ACCEPTOR_BACKLOG}"</li>
      * <li>Default : 256</li>
      * </ul>
      */
@@ -2457,7 +2838,7 @@ public class VoldemortConfig implements Serializable {
      * {@link ClientConfig#setSocketBufferSize(int)} to use for network
      * operations during admin operations
      * <ul>
-     * <li>Property :"admin.streams.buffer.size"</li>
+     * <li>Property : "{@value #ADMIN_STREAMS_BUFFER_SIZE}"</li>
      * <li>Default :10MB</li>
      * </ul>
      */
@@ -2474,7 +2855,7 @@ public class VoldemortConfig implements Serializable {
      * enable on the server
      * 
      * <ul>
-     * <li>Property :"storage.configs"</li>
+     * <li>Property : "{@value #STORAGE_CONFIGS}"</li>
      * <li>Default : {@link BdbStorageConfiguration}
      * {@link MysqlStorageConfiguration} {@link InMemoryStorageConfiguration}
      * {@link CacheStorageConfiguration} {@link ReadOnlyStorageConfiguration}</li>
@@ -2492,7 +2873,7 @@ public class VoldemortConfig implements Serializable {
      * {@link ClientConfig#setRequestFormatType(RequestFormatType)}
      * 
      * <ul>
-     * <li>Property :"request.format"</li>
+     * <li>Property : "{@value #REQUEST_FORMAT}"</li>
      * <li>Default :"vp1"</li>
      * </ul>
      */
@@ -2514,7 +2895,7 @@ public class VoldemortConfig implements Serializable {
      * support this yet.
      * 
      * <ul>
-     * <li>Property :"enable.server.routing"</li>
+     * <li>Property : "{@value #ENABLE_SERVER_ROUTING}"</li>
      * <li>Default : true</li>
      * </ul>
      */
@@ -2533,7 +2914,7 @@ public class VoldemortConfig implements Serializable {
      * {@link StreamingSlopPusherJob}
      * 
      * <ul>
-     * <li>Property :"num.scan.permits"</li>
+     * <li>Property : "{@value #NUM_SCAN_PERMITS}"</li>
      * <li>Default :1</li>
      * </ul>
      */
@@ -2549,7 +2930,7 @@ public class VoldemortConfig implements Serializable {
      * {@link ClientConfig#setFailureDetectorImplementation(String)}
      * 
      * <ul>
-     * <li>Property :"failuredetector.implementation"</li>
+     * <li>Property : "{@value #FAILUREDETECTOR_IMPLEMENTATION}"</li>
      * <li>Default :FailureDetectorConfig.DEFAULT_IMPLEMENTATION_CLASS_NAME</li>
      * </ul>
      */
@@ -2565,7 +2946,7 @@ public class VoldemortConfig implements Serializable {
      * {@link ClientConfig#setFailureDetectorBannagePeriod(long)}
      * 
      * <ul>
-     * <li>Property :"failuredetector.bannage.period"</li>
+     * <li>Property : "{@value #FAILUREDETECTOR_BANNAGE_PERIOD}"</li>
      * <li>Default :FailureDetectorConfig.DEFAULT_BANNAGE_PERIOD</li>
      * </ul>
      */
@@ -2581,7 +2962,7 @@ public class VoldemortConfig implements Serializable {
      * {@link ClientConfig#setFailureDetectorThreshold(int)}
      * 
      * <ul>
-     * <li>Property :"failuredetector.threshold"</li>
+     * <li>Property : "{@value #FAILUREDETECTOR_THRESHOLD}"</li>
      * <li>Default :FailureDetectorConfig.DEFAULT_THRESHOLD</li>
      * </ul>
      */
@@ -2597,7 +2978,7 @@ public class VoldemortConfig implements Serializable {
      * {@link ClientConfig#setFailureDetectorThresholdCountMinimum(int)}
      * 
      * <ul>
-     * <li>Property :"failuredetector.threshold.countminimum"</li>
+     * <li>Property : "{@value #FAILUREDETECTOR_THRESHOLD_COUNTMINIMUM}"</li>
      * <li>Default :FailureDetectorConfig.DEFAULT_THRESHOLD_COUNT_MINIMUM</li>
      * </ul>
      */
@@ -2613,7 +2994,7 @@ public class VoldemortConfig implements Serializable {
      * {@link ClientConfig#setFailureDetectorThresholdInterval(long)}
      * 
      * <ul>
-     * <li>Property :"failuredetector.threshold.interval"</li>
+     * <li>Property : "{@value #FAILUREDETECTOR_THRESHOLD_INTERVAL}"</li>
      * <li>Default :FailureDetectorConfig.DEFAULT_THRESHOLD_INTERVAL</li>
      * </ul>
      */
@@ -2629,7 +3010,7 @@ public class VoldemortConfig implements Serializable {
      * {@link ClientConfig#setFailureDetectorAsyncRecoveryInterval(long)}
      * 
      * <ul>
-     * <li>Property :"failuredetector.asyncrecovery.interval"</li>
+     * <li>Property : "{@value #FAILUREDETECTOR_ASYNCRECOVERY_INTERVAL}"</li>
      * <li>Default :FailureDetectorConfig.DEFAULT_ASYNC_RECOVERY_INTERVAL</li>
      * </ul>
      */
@@ -2645,7 +3026,7 @@ public class VoldemortConfig implements Serializable {
      * {@link ClientConfig#setFailureDetectorCatastrophicErrorTypes(List)}
      * 
      * <ul>
-     * <li>Property :"failuredetector.catastrophic.error.types"</li>
+     * <li>Property : "{@value #FAILUREDETECTOR_CATASTROPHIC_ERROR_TYPES}"</li>
      * <li>Default :FailureDetectorConfig.DEFAULT_CATASTROPHIC_ERROR_TYPES</li>
      * </ul>
      */
@@ -2661,7 +3042,7 @@ public class VoldemortConfig implements Serializable {
      * {@link ClientConfig#setFailureDetectorRequestLengthThreshold(long)}
      * 
      * <ul>
-     * <li>Property :"failuredetector.request.length.threshold"</li>
+     * <li>Property : "{@value #FAILUREDETECTOR_REQUEST_LENGTH_THRESHOLD}"</li>
      * <li>Default :same as socket timeout</li>
      * </ul>
      */
@@ -2676,7 +3057,7 @@ public class VoldemortConfig implements Serializable {
     /**
      * The first hour in the day, when the {@link DataCleanupJob} will start
      * <ul>
-     * <li>Property :"retention.cleanup.first.start.hour"</li>
+     * <li>Property : "{@value #RETENTION_CLEANUP_FIRST_START_HOUR}"</li>
      * <li>Default :0</li>
      * </ul>
      */
@@ -2694,7 +3075,7 @@ public class VoldemortConfig implements Serializable {
      * 2=MON, 3=TUE, 4=WED, 5=THU, 6=FRI,7=SAT
      * 
      * <ul>
-     * <li>Property :"retention.cleanup.first.start.day"</li>
+     * <li>Property : "{@value #RETENTION_CLEANUP_FIRST_START_DAY}"</li>
      * <li>Default :tomorrow</li>
      * </ul>
      */
@@ -2729,7 +3110,7 @@ public class VoldemortConfig implements Serializable {
      * {@link Timer#scheduleAtFixedRate(TimerTask, java.util.Date, long)}
      * 
      * <ul>
-     * <li>Property :"retention.cleanup.pin.start.time"</li>
+     * <li>Property : "{@value #RETENTION_CLEANUP_PIN_START_TIME}"</li>
      * <li>Default :true</li>
      * </ul>
      */
@@ -2746,7 +3127,7 @@ public class VoldemortConfig implements Serializable {
      * and will not return stale entries
      * 
      * <ul>
-     * <li>Property :"enforce.retention.policy.on.read"</li>
+     * <li>Property : "{@value #ENFORCE_RETENTION_POLICY_ON_READ}"</li>
      * <li>Default :false</li>
      * </ul>
      */
@@ -2763,7 +3144,7 @@ public class VoldemortConfig implements Serializable {
      * delete the stale value
      * 
      * <ul>
-     * <li>Property :"delete.expired.values.on.read"</li>
+     * <li>Property : "{@value #DELETE_EXPIRED_VALUES_ON_READ}"</li>
      * <li>Default :false</li>
      * </ul>
      */
@@ -2780,7 +3161,7 @@ public class VoldemortConfig implements Serializable {
      * to use in AdminService
      * 
      * <ul>
-     * <li>Property :"admin.client.socket.timeout.sec"</li>
+     * <li>Property : "{@value #ADMIN_CLIENT_SOCKET_TIMEOUT_SEC}"</li>
      * <li>Default :24 * 60 * 60</li>
      * </ul>
      */
@@ -2798,7 +3179,7 @@ public class VoldemortConfig implements Serializable {
      * to use in AdminService
      * 
      * <ul>
-     * <li>Property :"admin.client.connection.timeout.sec"</li>
+     * <li>Property : "{@value #ADMIN_CLIENT_CONNECTION_TIMEOUT_SEC}"</li>
      * <li>Default :60</li>
      * </ul>
      */
@@ -2815,7 +3196,7 @@ public class VoldemortConfig implements Serializable {
      * rebalancing tasks to finish.
      * 
      * <ul>
-     * <li>Property :"rebalancing.timeout.seconds"</li>
+     * <li>Property : "{@value #REBALANCING_TIMEOUT_SECONDS}"</li>
      * <li>Default :10 * 24 * 60 * 60</li>
      * </ul>
      */
@@ -2831,7 +3212,7 @@ public class VoldemortConfig implements Serializable {
      * Enabled gossip between servers, in server side routing.. Has no effect
      * when using client side routing, as in {@link DefaultStoreClient}
      * <ul>
-     * <li>Property :"enable.gossip"</li>
+     * <li>Property : "{@value #ENABLE_GOSSIP}"</li>
      * <li>Default :false</li>
      * </ul>
      */
@@ -2853,7 +3234,7 @@ public class VoldemortConfig implements Serializable {
      * times.
      *
      * <ul>
-     * <li>Property :"fetcher.max.bytes.per.sec"</li>
+     * <li>Property : "{@value #FETCHER_MAX_BYTES_PER_SEC}"</li>
      * <li>Default :0, No throttling</li>
      * </ul>
      */
@@ -2871,7 +3252,7 @@ public class VoldemortConfig implements Serializable {
      * implementation detail which should typically not require any change.
      *
      * <ul>
-     * <li>Property :"fetcher.throttler.interval"</li>
+     * <li>Property : "{@value #FETCHER_THROTTLER_INTERVAL}"</li>
      * <li>Default : 1000 ms</li>
      * </ul>
      */
@@ -2887,7 +3268,7 @@ public class VoldemortConfig implements Serializable {
      * Interval to report statistics for HDFS fetches
      * 
      * <ul>
-     * <li>Property :"fetcher.reporting.interval.bytes"</li>
+     * <li>Property : "{@value #FETCHER_REPORTING_INTERVAL_BYTES}"</li>
      * <li>Default :25MB</li>
      * </ul>
      */
@@ -2904,7 +3285,7 @@ public class VoldemortConfig implements Serializable {
      * failed fetch from Hadoop
      * 
      * <ul>
-     * <li>Property :"fetcher.retry.count"</li>
+     * <li>Property : "{@value #FETCHER_RETRY_COUNT}"</li>
      * <li>Default :5</li>
      * </ul>
      */
@@ -2921,7 +3302,7 @@ public class VoldemortConfig implements Serializable {
      * from Hadoop. The maximum delay is 2x this amount, determined randomly.
      *
      * <ul>
-     * <li>Property :"fetcher.retry.delay.ms"</li>
+     * <li>Property : "{@value #FETCHER_RETRY_DELAY_MS}"</li>
      * <li>Default :5000 (5 seconds)</li>
      * </ul>
      */
@@ -2944,7 +3325,7 @@ public class VoldemortConfig implements Serializable {
      *        which prevents the later fetch from completing successfully.
      *
      * <ul>
-     * <li>Property :"fetcher.login.interval.ms"</li>
+     * <li>Property : "{@value #FETCHER_LOGIN_INTERVAL_MS}"</li>
      * <li>Default : -1</li>
      * </ul>
      */
@@ -2965,7 +3346,7 @@ public class VoldemortConfig implements Serializable {
      * storage space quota.
      *  
      * <ul>
-     * <li>Property :"default.storage.space.quota.in.kb"</li>
+     * <li>Property : "{@value #DEFAULT_STORAGE_SPACE_QUOTA_IN_KB}"</li>
      * <li>Default : -1</li>
      * </ul>
      */
@@ -2982,7 +3363,7 @@ public class VoldemortConfig implements Serializable {
      * to WebHDFS fetches.
      * 
      * <ul>
-     * <li>Property :"hdfs.fetcher.buffer.size"</li>
+     * <li>Property : "{@value #HDFS_FETCHER_BUFFER_SIZE}"</li>
      * <li>Default :64kb</li>
      * </ul>
      */
@@ -3000,7 +3381,7 @@ public class VoldemortConfig implements Serializable {
      * in the HdfsFetcher. Note that this does not apply to WebHDFS fetches.
      *
      * <ul>
-     * <li>Property :"hdfs.fetcher.socket.timeout"</li>
+     * <li>Property : "{@value #HDFS_FETCHER_SOCKET_TIMEOUT}"</li>
      * <li>Default : 30 minutes</li>
      * </ul>
      */
@@ -3013,7 +3394,7 @@ public class VoldemortConfig implements Serializable {
      * {@link BinarySearchStrategy} or {@link InterpolationSearchStrategy}
      * 
      * <ul>
-     * <li>Property :"readonly.search.strategy"</li>
+     * <li>Property : "{@value #READONLY_SEARCH_STRATEGY}"</li>
      * <li>Default :BinarySearchStrategy.class.getName()</li>
      * </ul>
      */
@@ -3026,11 +3407,12 @@ public class VoldemortConfig implements Serializable {
     }
 
     /**
-     * Set modified protocol used to fetch file.
+     * Set modified protocol used to fetch files. If empty, protocol will
+     * not be modified.
      *
      * <ul>
-     * <li>Property : "readonly.modify.protocol"</li>
-     * <li>Default : null</li>
+     * <li>Property : "{@value #READONLY_MODIFY_PROTOCOL}"</li>
+     * <li>Default : ""</li>
      * </ul>
      */
     public void setModifiedProtocol(String modifiedProtocol) {
@@ -3042,15 +3424,32 @@ public class VoldemortConfig implements Serializable {
     }
 
     /**
-     * Set modifed port used to fetch file.
+     * Set modified port used to fetch file.
      *
      * <ul>
-     * <li>Property : "readonly.modify.port"</li>
+     * <li>Property : "{@value #READONLY_MODIFY_PORT}"</li>
      * <li>Default : -1</li>
      * </ul>
      */
     public void setModifiedPort(int modifiedPort) {
         this.modifiedPort = modifiedPort;
+    }
+
+    public boolean isReadOnlyBuildPrimaryReplicasOnly() {
+        return this.readOnlyBuildPrimaryReplicasOnly;
+    }
+
+    /**
+     * Whether the server should advertise itself as capable of handling
+     * the BuildAndPushJob's "build.primary.replicas.only" mode.
+     *
+     * <ul>
+     * <li>Property : "{@value #READONLY_BUILD_PRIMARY_REPLICAS_ONLY}"</li>
+     * <li>Default : true</li>
+     * </ul>
+     */
+    public void setReadOnlyBuildPrimaryReplicasOnly(boolean readOnlyBuildPrimaryReplicasOnly) {
+        this.readOnlyBuildPrimaryReplicasOnly = readOnlyBuildPrimaryReplicasOnly;
     }
 
     public boolean isBouncyCastleEnabled () {
@@ -3077,7 +3476,7 @@ public class VoldemortConfig implements Serializable {
      * data sets (such as when bulk loading Read-Only stores).
      *
      * <ul>
-     * <li>Property : "push.ha.enabled"</li>
+     * <li>Property : "{@value #PUSH_HA_ENABLED}"</li>
      * <li>Default : false</li>
      * </ul>
      */
@@ -3097,7 +3496,7 @@ public class VoldemortConfig implements Serializable {
      * should have different cluster IDs.
      *
      * <ul>
-     * <li>Property : "push.ha.cluster.id"</li>
+     * <li>Property : "{@value #PUSH_HA_CLUSTER_ID}"</li>
      * <li>Default : null</li>
      * </ul>
      */
@@ -3118,7 +3517,7 @@ public class VoldemortConfig implements Serializable {
      * factor across all stores hosted in the cluster.
      *
      * <ul>
-     * <li>Property : "push.ha.max.node.failure"</li>
+     * <li>Property : "{@value #PUSH_HA_MAX_NODE_FAILURES}"</li>
      * <li>Default : 0</li>
      * </ul>
      */
@@ -3139,7 +3538,7 @@ public class VoldemortConfig implements Serializable {
      * support a ZK path, or maybe a shared mounted file-system path.
      *
      * <ul>
-     * <li>Property : "push.ha.lock.path"</li>
+     * <li>Property : "{@value #PUSH_HA_LOCK_PATH}"</li>
      * <li>Default : null</li>
      * </ul>
      */
@@ -3160,7 +3559,7 @@ public class VoldemortConfig implements Serializable {
      * extended to support ZK, or maybe a shared mounted file-system.
      *
      * <ul>
-     * <li>Property : "push.ha.lock.implementation"</li>
+     * <li>Property : "{@value #PUSH_HA_LOCK_IMPLEMENTATION}"</li>
      * <li>Default : null</li>
      * </ul>
      */
@@ -3177,7 +3576,7 @@ public class VoldemortConfig implements Serializable {
      * not officially supported
      * 
      * <ul>
-     * <li>Property :"enable.network.classloader"</li>
+     * <li>Property : "{@value #ENABLE_NETWORK_CLASSLOADER}"</li>
      * <li>Default :false</li>
      * </ul>
      */
@@ -3189,7 +3588,7 @@ public class VoldemortConfig implements Serializable {
      * If enabled, Rebalancing is enabled on the server
      * 
      * <ul>
-     * <li>Property :"enable.rebalancing"</li>
+     * <li>Property : "{@value #ENABLE_REBALANCING}"</li>
      * <li>Default : true</li>
      * </ul>
      */
@@ -3211,7 +3610,7 @@ public class VoldemortConfig implements Serializable {
      * and impact to online traffic
      * 
      * <ul>
-     * <li>Property :"max.parallel.stores.rebalancing"</li>
+     * <li>Property : "{@value #MAX_PARALLEL_STORES_REBALANCING}"</li>
      * <li>Default :3</li>
      * </ul>
      */
@@ -3227,7 +3626,7 @@ public class VoldemortConfig implements Serializable {
      * Total number of threads needed to issue proxy puts during rebalancing
      * 
      * <ul>
-     * <li>Property :"max.proxy.put.threads"</li>
+     * <li>Property : "{@value #MAX_PROXY_PUT_THREADS}"</li>
      * <li>Default : 1</li>
      * </ul>
      */
@@ -3246,7 +3645,7 @@ public class VoldemortConfig implements Serializable {
      * {@link StorageEngine#isPartitionScanSupported()}
      * 
      * <ul>
-     * <li>Property :"use.partition.scan.for.rebalance"</li>
+     * <li>Property : "{@value #USE_PARTITION_SCAN_FOR_REBALANCE}"</li>
      * <li>Default :true</li>
      * </ul>
      */
@@ -3262,7 +3661,7 @@ public class VoldemortConfig implements Serializable {
      * If enabled, the cluster name will be used as a part of the Mbeans
      * created.
      * <ul>
-     * <li>Property :"enable.jmx.clustername"</li>
+     * <li>Property : "{@value #ENABLE_JMX_CLUSTERNAME}"</li>
      * <li>Default :false</li>
      * </ul>
      */
@@ -3279,7 +3678,7 @@ public class VoldemortConfig implements Serializable {
      * store on the server, via Admin tool. Also needs stat tracking enabled
      * 
      * <ul>
-     * <li>Property :"enable.quota.limit"</li>
+     * <li>Property : "{@value #ENABLE_QUOTA_LIMITING}"</li>
      * <li>Default :true</li>
      * </ul>
      */
@@ -3303,7 +3702,7 @@ public class VoldemortConfig implements Serializable {
      * When Gossip is enabled, time interval to exchange gossip messages between
      * servers
      * <ul>
-     * <li>Property :"gossip.interval.ms"</li>
+     * <li>Property : "{@value #GOSSIP_INTERVAL_MS}"</li>
      * <li>Default :30000</li>
      * </ul>
      */
@@ -3318,7 +3717,7 @@ public class VoldemortConfig implements Serializable {
     /**
      * Whether or not the {@link RestService} is enabled
      * <ul>
-     * <li>Property :"rest.enable"</li>
+     * <li>Property : "{@value #REST_ENABLE}"</li>
      * <li>Default :false</li>
      * </ul>
      * 
@@ -3334,7 +3733,7 @@ public class VoldemortConfig implements Serializable {
     /**
      * The capacity of the REST service Netty server backlog.
      * <ul>
-     * <li>Property :"num.rest.service.netty.server.backlog"</li>
+     * <li>Property : "{@value #NUM_REST_SERVICE_NETTY_SERVER_BACKLOG}"</li>
      * <li>Default : 1000</li>
      * </ul>
      */
@@ -3349,7 +3748,7 @@ public class VoldemortConfig implements Serializable {
     /**
      * The number of threads in the REST server Netty Boss thread pool.
      * <ul>
-     * <li>Property :"num.rest.service.boss.threads"</li>
+     * <li>Property : "{@value #NUM_REST_SERVICE_NETTY_BOSS_THREADS}"</li>
      * <li>Default :1</li>
      * </ul>
      */
@@ -3365,7 +3764,7 @@ public class VoldemortConfig implements Serializable {
     /**
      * The number of threads in the REST server Netty worker thread pool.
      * <ul>
-     * <li>Property :"num.rest.service.worker.threads"</li>
+     * <li>Property : "{@value #NUM_REST_SERVICE_NETTY_WORKER_THREADS}"</li>
      * <li>Default :10</li>
      * </ul>
      */
@@ -3380,7 +3779,7 @@ public class VoldemortConfig implements Serializable {
     /**
      * The number of threads in the REST server storage thread pool.
      * <ul>
-     * <li>Property :"num.rest.service.storage.threads"</li>
+     * <li>Property : "{@value #NUM_REST_SERVICE_STORAGE_THREADS}"</li>
      * <li>Default :50</li>
      * </ul>
      */
@@ -3395,7 +3794,7 @@ public class VoldemortConfig implements Serializable {
     /**
      * The capacity of the REST server storage thread pool queue.
      * <ul>
-     * <li>Property :"rest.service.storage.thread.pool.queue.size"</li>
+     * <li>Property : "{@value #REST_SERVICE_STORAGE_THREAD_POOL_QUEUE_SIZE}"</li>
      * <li>Default :numRestServiceStorageThreads</li>
      * </ul>
      */
@@ -3411,7 +3810,7 @@ public class VoldemortConfig implements Serializable {
     /**
      * The maximum length of the aggregated Http content.
      * <ul>
-     * <li>Property :"max.http.content.length"</li>
+     * <li>Property : "{@value #MAX_HTTP_AGGREGATED_CONTENT_LENGTH}"</li>
      * <li>Default : 1048576</li>
      * </ul>
      */
@@ -3428,7 +3827,7 @@ public class VoldemortConfig implements Serializable {
      * Global throttle limit for repair jobs
      * 
      * <ul>
-     * <li>Property :"repairjob.max.keys.scanned.per.sec"</li>
+     * <li>Property : "{@value #REPAIRJOB_MAX_KEYS_SCANNED_PER_SEC}"</li>
      * <li>Default : Integer.MAX_VALUE (unthrottled)</li>
      * </ul>
      */
@@ -3444,7 +3843,7 @@ public class VoldemortConfig implements Serializable {
      * Global throttle limit for versioned put prune jobs
      * 
      * <ul>
-     * <li>Property :"prunejob.max.keys.scanned.per.sec"</li>
+     * <li>Property : "{@value #PRUNEJOB_MAX_KEYS_SCANNED_PER_SEC}"</li>
      * <li>Default : Integer.MAX_VALUE (unthrottled)</li>
      * </ul>
      */
@@ -3460,7 +3859,7 @@ public class VoldemortConfig implements Serializable {
      * Global throttle limit for slop purge jobs
      * 
      * <ul>
-     * <li>Property :"slop.purgejob.max.keys.scanned.per.sec"</li>
+     * <li>Property : "{@value #SLOP_PURGEJOB_MAX_KEYS_SCANNED_PER_SEC}"</li>
      * <li>Default : 10k</li>
      * </ul>
      */
@@ -3472,7 +3871,7 @@ public class VoldemortConfig implements Serializable {
      * Kdc for kerberized Hadoop grids
      * 
      * <ul>
-     * <li>Property :"readonly.kerberos.kdc"</li>
+     * <li>Property : "{@value #READONLY_KERBEROS_KDC}"</li>
      * <li>Default :""</li>
      * </ul>
      */
@@ -3488,7 +3887,7 @@ public class VoldemortConfig implements Serializable {
      * kerberized hadoop realm
      * 
      * <ul>
-     * <li>Property :"readonly.kerberos.realm"</li>
+     * <li>Property : "{@value #READONLY_KERBEROS_REALM}"</li>
      * <li>Default : ""</li>
      * </ul>
      * 
@@ -3506,8 +3905,8 @@ public class VoldemortConfig implements Serializable {
      * Read-only file fetcher class
      * 
      * <ul>
-     * <li>Property :"file.fetcher.class"</li>
-     * <li>Default : "voldemort.store.readonly.fetcher.HdfsFetcher"</li>
+     * <li>Property : "{@value #FILE_FETCHER_CLASS}"</li>
+     * <li>Default : "null"</li>
      * </ul>
      * 
      * @return
@@ -3550,7 +3949,7 @@ public class VoldemortConfig implements Serializable {
      * into play. The default config value is already absurdly high, and should thus never need to be raised.
      *
      * <ul>
-     * <li>Property : "readonly.max.value.buffer.allocation.size"</li>
+     * <li>Property : "{@value #READONLY_MAX_VALUE_BUFFER_ALLOCATION_SIZE}"</li>
      * <li>Default : 25 MB</li>
      * </ul>
      *
@@ -3570,7 +3969,7 @@ public class VoldemortConfig implements Serializable {
      * @param readOnlyCompressionCodec
      * 
      *        <ul>
-     *        <li>Property :"readonly.compression.codec"</li>
+     *        <li>Property : "{@value #READONLY_COMPRESSION_CODEC}"</li>
      *        <li>Default : "NO_CODEC"</li>
      *        </ul>
      */
@@ -3586,7 +3985,7 @@ public class VoldemortConfig implements Serializable {
      * Where RocksDB should put its data directories
      * 
      * <ul>
-     * <li>Property :"rocksdb.data.dir"</li>
+     * <li>Property : "{@value #ROCKSDB_DATA_DIR}"</li>
      * <li>Default : "/tmp/rdb_data_dir"</li>
      * </ul>
      * 
@@ -3629,7 +4028,7 @@ public class VoldemortConfig implements Serializable {
      * If set to true client connections to the nio admin server will have SO_KEEPALIVE on,
      * to tell OS to close dead client connections
      * <ul>
-     * <li>Property :"nio.admin.connector.keepalive"</li>
+     * <li>Property : "{@value #NIO_ADMIN_CONNECTOR_KEEPALIVE}"</li>
      * <li>Default : "false"</li>
      * </ul>
      * @param nioAdminConnectorKeepAlive
@@ -3645,7 +4044,7 @@ public class VoldemortConfig implements Serializable {
      * If set to true client connections to the server will have SO_KEEPALIVE on,
      * to tell OS to close dead client connections
      * <ul>
-     * <li>Property :"nio.connector.keepalive"</li>
+     * <li>Property : "{@value #NIO_CONNECTOR_KEEPALIVE}"</li>
      * <li>Default : "false"</li>
      * </ul>
      *
@@ -3658,5 +4057,4 @@ public class VoldemortConfig implements Serializable {
     public boolean isNioConnectorKeepAlive() {
         return nioConnectorKeepAlive;
     }
-
 }

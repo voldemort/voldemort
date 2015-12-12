@@ -1676,6 +1676,101 @@ public class AdminClient implements Closeable {
                                              .next();
             return getRemoteStoreDefList(nodeId);
         }
+
+        /**
+         * Interrogates a remote server to get the values of some of its configuration parameters.
+         *
+         * @param nodeId of the server we wish to interrogate.
+         * @param configKeys for which we want to retrieve the values.
+         * @return a {@link Map<String,String>} of the requested config key/value pairs.
+         */
+        public Map<String, String> getServerConfig(int nodeId, Set<String> configKeys) {
+            VAdminProto.VoldemortAdminRequest request = VAdminProto.VoldemortAdminRequest
+                                                                   .newBuilder()
+                                                                   .setType(VAdminProto.AdminRequestType.GET_CONFIG)
+                                                                   .setGetConfig(VAdminProto.GetConfigRequest
+                                                                                            .newBuilder()
+                                                                                            .addAllConfigKey(configKeys))
+                                                                   .build();
+            VAdminProto.GetConfigResponse.Builder response = rpcOps.sendAndReceive(nodeId,
+                                                                                   request,
+                                                                                   VAdminProto.GetConfigResponse.newBuilder());
+
+            if (response.getInvalidConfigMapCount() > 0) {
+                String nodeName = currentCluster.getNodeById(nodeId).briefToString();
+                for (VAdminProto.MapFieldEntry entry: response.getInvalidConfigMapList()) {
+                    logger.error(nodeName + " responded with an error to our GetConfigRequest for key '" +
+                                 entry.getKey() + "': " + entry.getValue());
+                }
+            }
+
+            Map<String, String> serverConfig = Maps.newHashMap();
+            for (VAdminProto.MapFieldEntry entry: response.getConfigMapList()) {
+                serverConfig.put(entry.getKey(), entry.getValue());
+            }
+
+            return serverConfig;
+        }
+
+        /**
+         * Interrogates all remote servers in a cluster, and validates that they all contain the
+         * expected values for a set of config keys. For any server, if an expected config is
+         * missing, or if it has a value which does not equal the expected one, then the function
+         * returns false. Otherwise, if all configs are as expected on all servers, it returns true.
+         *
+         * This is intended to be a generic way to manage the graceful negotiation of whether or not
+         * to enable new features for which there is a requirement that the whole cluster needs to be
+         * upgraded before it can be used.
+         *
+         * @param expectedConfigMap a map of expected key/value configs.
+         * @param maxAmountOfUnreachableNodes This parameter controls what the threshold is for the
+         *                                    maximum amount of unreachable node. If that number
+         *                                    exceeds the specified number, then this function will
+         *                                    bubble up an {@link UnreachableStoreException}.
+         * @return true if all configs are present and as expected, false otherwise.
+         * @throws UnreachableStoreException if the max amount of unreachable nodes is exceeded.
+         */
+        public boolean validateServerConfig(Map<String, String> expectedConfigMap, int maxAmountOfUnreachableNodes)
+                throws UnreachableStoreException {
+            Set<String> configKeysToRequest = expectedConfigMap.keySet();
+            boolean configIsValid = true;
+            int currentAmountOfUnreachableNodes = 0;
+
+            for (Node node: currentCluster.getNodes()) {
+                try {
+                    Map<String, String> serverConfigs = getServerConfig(node.getId(), configKeysToRequest);
+                    for (Entry expectedConfig: expectedConfigMap.entrySet()) {
+                        String serverConfigValue = serverConfigs.get(expectedConfig.getKey());
+                        if (serverConfigValue == null) {
+                            logger.error(node.briefToString() + " does not contain config key '" +
+                                         expectedConfig.getKey() + "'.");
+                            configIsValid = false;
+                        } else if (!serverConfigValue.equals(expectedConfig.getValue())) {
+                            logger.error(node.briefToString() + " contains the wrong value for config key '" +
+                                         expectedConfig.getKey() + "'. Expected: '" + expectedConfig.getValue() +
+                                         "'. Actual: '" + serverConfigValue + "'.");
+                            configIsValid = false;
+                        } // else, we're good, moving on to the next config to validate on that node!
+                    }
+                } catch (UnreachableStoreException e) {
+                    currentAmountOfUnreachableNodes++;
+                    logger.error(node.briefToString() + " is unreachable!", e);
+                } catch (Exception e) {
+                    // TODO: Might want to refine this error handling further...
+                    logger.error("Got an exception when trying to validateServerConfig() against " +
+                                 node.briefToString() + ". The server may be running an old version.", e);
+                    return false;
+                }
+            }
+
+            if (currentAmountOfUnreachableNodes > maxAmountOfUnreachableNodes) {
+                throw new UnreachableStoreException("As part of validateServerConfig(), " + currentAmountOfUnreachableNodes +
+                                                    " nodes were unreachable which exceeds the maximum (" +
+                                                    maxAmountOfUnreachableNodes + ").");
+            }
+
+            return configIsValid;
+        }
     }
 
     /**

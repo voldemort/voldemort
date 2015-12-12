@@ -20,10 +20,6 @@ import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.IOException;
-import java.io.InputStream;
-import java.io.StringReader;
-import java.net.URI;
-import java.net.URISyntaxException;
 import java.net.URL;
 import java.net.URLDecoder;
 import java.util.ArrayList;
@@ -36,10 +32,8 @@ import java.util.Properties;
 import java.util.TreeMap;
 import java.util.regex.Pattern;
 
-import org.apache.commons.io.IOUtils;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.*;
-import org.apache.hadoop.hdfs.DistributedFileSystem;
 import org.apache.hadoop.io.SequenceFile;
 import org.apache.hadoop.io.Text;
 import org.apache.hadoop.mapred.FileInputFormat;
@@ -49,13 +43,11 @@ import org.apache.hadoop.security.authentication.client.AuthenticationException;
 import org.apache.log4j.Logger;
 
 import voldemort.VoldemortException;
-import voldemort.cluster.Cluster;
 import voldemort.serialization.json.JsonTypeDefinition;
 import voldemort.server.VoldemortConfig;
 import voldemort.store.readonly.fetcher.ConfigurableSocketFactory;
 import voldemort.utils.ExceptionUtils;
 import voldemort.utils.UndefinedPropertyException;
-import voldemort.xml.ClusterMapper;
 import voldemort.utils.Props;
 
 /**
@@ -356,7 +348,7 @@ public class HadoopUtils {
             } else {
                 throw new VoldemortException("Error in getting a valid Hadoop Configuration. " +
                                                      "Make sure the Hadoop config directory path is correct via" +
-                                                     VoldemortConfig.HADOOP_CONFIG_PATH + " and that the " +
+                                                     VoldemortConfig.READONLY_HADOOP_CONFIG_PATH + " and that the " +
                                                      CommonConfigurationKeys.HADOOP_SECURITY_AUTHENTICATION +
                                                      " property in the Hadoop config is set to either 'kerberos' or 'simple'. " +
                                                      "That property is currently set to '" + security + "'.");

@@ -53,6 +53,7 @@ public class ChunkedFileSet {
     private final List<FileChannel> dataFiles;
     private final HashMap<Object, Integer> chunkIdToChunkStart;
     private final HashMap<Object, Integer> chunkIdToNumChunks;
+    /** Primary partition IDs hosted by the current node */
     private ArrayList<Integer> nodePartitionIds;
     private RoutingStrategy routingStrategy;
     private ReadOnlyStorageFormat storageFormat;
@@ -244,97 +245,184 @@ public class ChunkedFileSet {
         }
     }
 
+    /**
+     * Given a partition ID, determine which replica of this partition is hosted by the
+     * current node, if any.
+     *
+     * Note: This is an implementation detail of the READONLY_V2 naming scheme, and should
+     * not be used outside of that scope.
+     *
+     * @param partitionId for which we want to know the replica type
+     * @return the requested partition's replica type (which ranges from 0 to replication
+     *         factor -1) if the partition is hosted on the current node, or -1 if the
+     *         requested partition is not hosted on this node.
+     */
+    private int getReplicaTypeForPartition(int partitionId) {
+        List<Integer> routingPartitionList = routingStrategy.getReplicatingPartitionList(partitionId);
+
+        // Determine if we should host this partition, and if so, whether we are a primary,
+        // secondary or n-ary replica for it
+        int correctReplicaType = -1;
+        for (int replica = 0; replica < routingPartitionList.size(); replica++) {
+            if(nodePartitionIds.contains(routingPartitionList.get(replica))) {
+                // This means the partitionId currently being iterated on should be hosted
+                // by this node. Let's remember its replica type in order to make sure the
+                // files we have are properly named.
+                correctReplicaType = replica;
+                break;
+            }
+        }
+
+        return correctReplicaType;
+    }
+
+    /**
+     * This function looks for files with the "wrong" replica type in their name, and
+     * if it finds any, renames them.
+     *
+     * Those files may have ended up on this server either because:
+     *  - 1. We restored them from another server, where they were named according to
+     *       another replica type. Or,
+     *  - 2. The {@link voldemort.store.readonly.mr.azkaban.VoldemortBuildAndPushJob}
+     *       and the {@link voldemort.store.readonly.fetcher.HdfsFetcher} are
+     *       operating in 'build.primary.replicas.only' mode, so they only ever built
+     *       and fetched replica 0 of any given file.
+     *
+     * Note: This is an implementation detail of the READONLY_V2 naming scheme, and should
+     * not be used outside of that scope.
+     *
+     * @param masterPartitionId partition ID of the "primary replica"
+     * @param correctReplicaType replica number which should be found on the current
+     *                           node for the provided masterPartitionId.
+     */
+    private void renameReadOnlyV2Files(int masterPartitionId, int correctReplicaType) {
+        for (int replica = 0; replica < routingStrategy.getNumReplicas(); replica++) {
+            if (replica != correctReplicaType) {
+                int chunkId = 0;
+                while (true) {
+                    String fileName = Integer.toString(masterPartitionId) + "_"
+                                      + Integer.toString(replica) + "_"
+                                      + Integer.toString(chunkId);
+                    File index = getIndexFile(fileName);
+                    File data = getDataFile(fileName);
+
+                    if(index.exists() && data.exists()) {
+                        // We found files with the "wrong" replica type, so let's rename them
+
+                        String correctFileName = Integer.toString(masterPartitionId) + "_"
+                                                 + Integer.toString(correctReplicaType) + "_"
+                                                 + Integer.toString(chunkId);
+                        File indexWithCorrectReplicaType = getIndexFile(correctFileName);
+                        File dataWithCorrectReplicaType = getDataFile(correctFileName);
+
+                        Utils.move(index, indexWithCorrectReplicaType);
+                        Utils.move(data, dataWithCorrectReplicaType);
+
+                        // Maybe change this to DEBUG?
+                        logger.info("Renamed files with wrong replica type: "
+                                    + index.getAbsolutePath() + "|data -> "
+                                    + indexWithCorrectReplicaType.getName() + "|data");
+                    } else if(index.exists() ^ data.exists()) {
+                        throw new VoldemortException("One of the following does not exist: "
+                                                     + index.toString()
+                                                     + " or "
+                                                     + data.toString() + ".");
+                    } else {
+                        // The files don't exist, or we've gone over all available chunks,
+                        // so let's move on.
+                        break;
+                    }
+                    chunkId++;
+                }
+            }
+        }
+    }
+
     public void initVersion2() {
         int globalChunkId = 0;
-        if(this.nodePartitionIds != null) {
+        if (this.nodePartitionIds != null) {
+            // Go over every node in the cluster
+            for (Node node: routingStrategy.getNodes()) {
+                // For each node, go over every partition mastered by that node
+                for (int masterPartitionId: node.getPartitionIds()) {
+                    // For each master partition, determine whether one of its replicas needs to be
+                    // hosted by the current node, and if yes, take care of its index/data files.
 
-            // Go over every partition and find out all buckets ( pair of master
-            // partition id and replica type )
-            for(Node node: routingStrategy.getNodes()) {
-                for(int partitionId: node.getPartitionIds()) {
-
-                    List<Integer> routingPartitionList = routingStrategy.getReplicatingPartitionList(partitionId);
-
-                    // Find intersection with nodes partition ids
-                    Pair<Integer, Integer> bucket = null;
-                    for(int replicatingPartition = 0; replicatingPartition < routingPartitionList.size(); replicatingPartition++) {
-
-                        if(nodePartitionIds.contains(routingPartitionList.get(replicatingPartition))) {
-                            if(bucket == null) {
-
-                                // Generate bucket information
-                                bucket = Pair.create(routingPartitionList.get(0),
-                                                     replicatingPartition);
-
-                                int chunkId = 0;
-                                while(true) {
-                                    String fileName = Integer.toString(bucket.getFirst()) + "_"
-                                                      + Integer.toString(bucket.getSecond()) + "_"
-                                                      + Integer.toString(chunkId);
-                                    File index = getIndexFile(fileName);
-                                    File data = getDataFile(fileName);
-
-                                    if(!index.exists() && !data.exists()) {
-                                        if(chunkId == 0) {
-                                            // create empty files for this
-                                            // partition
-                                            try {
-                                                index.createNewFile();
-                                                data.createNewFile();
-                                                logger.info("No index or data files found, creating empty files for partition "
-                                                            + routingPartitionList.get(0)
-                                                            + " and replicating partition "
-                                                            + replicatingPartition);
-                                            } catch(IOException e) {
-                                                throw new VoldemortException("Error creating empty read-only files for partition "
-                                                                                     + routingPartitionList.get(0)
-                                                                                     + " and replicating partition "
-                                                                                     + replicatingPartition,
-                                                                             e);
-                                            }
-                                        } else {
-                                            break;
-                                        }
-                                    } else if(index.exists() ^ data.exists()) {
-                                        throw new VoldemortException("One of the following does not exist: "
-                                                                     + index.toString()
-                                                                     + " or "
-                                                                     + data.toString() + ".");
-                                    }
-
-                                    if(chunkId == 0) {
-                                        chunkIdToChunkStart.put(bucket, globalChunkId);
-                                    }
-
-                                    /* Deal with file sizes */
-                                    long indexLength = index.length();
-                                    long dataLength = data.length();
-                                    validateFileSizes(indexLength, dataLength);
-                                    indexFileSizes.add((int) indexLength);
-                                    dataFileSizes.add((int) dataLength);
-                                    fileNames.add(fileName);
-
-                                    /* Add the file channel for data */
-                                    dataFiles.add(openChannel(data));
-
-                                    mapAndRememberIndexFile(index);
-
-                                    chunkId++;
-                                    globalChunkId++;
-                                }
-                                chunkIdToNumChunks.put(bucket, chunkId);
-                            } else {
-                                throw new VoldemortException("Found a collision for master partition for bucket named "
-                                                             + bucket);
-                            }
-                        }
+                    int correctReplicaType = getReplicaTypeForPartition(masterPartitionId);
+                    if (correctReplicaType == -1) {
+                        // Then the partitionId currently being iterated on does not belong on this
+                        // node at all (i.e.: we host none of its replicas), so we skip to the next one.
+                        break;
                     }
+
+                    renameReadOnlyV2Files(masterPartitionId, correctReplicaType);
+
+                    // Generate bucket information for <master partition ID, replica type>
+                    Pair<Integer, Integer> bucket = Pair.create(masterPartitionId, correctReplicaType);
+
+                    int chunkId = 0;
+                    while (true) {
+                        // Loop over all the chunks in this bucket
+                        String fileName = Integer.toString(bucket.getFirst()) + "_"
+                                          + Integer.toString(bucket.getSecond()) + "_"
+                                          + Integer.toString(chunkId);
+                        File index = getIndexFile(fileName);
+                        File data = getDataFile(fileName);
+
+                        if (!index.exists() && !data.exists()) {
+                            if (chunkId == 0) {
+                                // create empty files for this
+                                // partition
+                                try {
+                                    index.createNewFile();
+                                    data.createNewFile();
+                                    logger.info("No index or data files found, creating empty files for partition "
+                                                + masterPartitionId
+                                                + " and replicating partition "
+                                                + correctReplicaType);
+                                } catch(IOException e) {
+                                    throw new VoldemortException("Error creating empty read-only files for partition "
+                                                                 + masterPartitionId
+                                                                 + " and replicating partition "
+                                                                 + correctReplicaType,
+                                                                 e);
+                                }
+                            } else {
+                                break;
+                            }
+                        } else if (index.exists() ^ data.exists()) {
+                            throw new VoldemortException("One of the following does not exist: "
+                                                         + index.toString()
+                                                         + " or "
+                                                         + data.toString() + ".");
+                        }
+
+                        if (chunkId == 0) {
+                            chunkIdToChunkStart.put(bucket, globalChunkId);
+                        }
+
+                        /* Deal with file sizes */
+                        long indexLength = index.length();
+                        long dataLength = data.length();
+                        validateFileSizes(indexLength, dataLength);
+                        indexFileSizes.add((int) indexLength);
+                        dataFileSizes.add((int) dataLength);
+                        fileNames.add(fileName);
+
+                        /* Add the file channel for data */
+                        dataFiles.add(openChannel(data));
+
+                        mapAndRememberIndexFile(index);
+
+                        chunkId++;
+                        globalChunkId++;
+                    }
+                    chunkIdToNumChunks.put(bucket, chunkId);
                 }
             }
 
-            if(indexFileSizes.size() == 0)
-                throw new VoldemortException("No chunk files found in directory "
-                                             + baseDir.toString());
+            if (indexFileSizes.size() == 0)
+                throw new VoldemortException("No chunk files found in directory " + baseDir.toString());
         }
     }
 

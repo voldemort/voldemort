@@ -241,7 +241,8 @@ public class HadoopStoreBuilderCollisionTest {
                                                             1024 * 1024 * 1024,
                                                             -1,
                                                             false,
-                                                            null);
+                                                            null,
+                                                            false);
         builder.build();
 
         File nodeFile = new File(outputDir, "node-0");

@@ -337,6 +337,10 @@ public class AdminServiceRequestHandler implements RequestHandler {
                 ProtoUtils.writeMessage(outputStream,
                                         handleFetchFailure(request.getHandleFetchFailure()));
                 break;
+            case GET_CONFIG:
+                ProtoUtils.writeMessage(outputStream,
+                                        handleGetConfigRequest(request.getGetConfig()));
+                break;
             default:
                 throw new VoldemortException("Unknown operation: " + request.getType());
         }
@@ -1043,6 +1047,7 @@ public class AdminServiceRequestHandler implements RequestHandler {
             final ReadOnlyStorageEngine store = getReadOnlyStorageEngine(metadataStore,
                                                                          storeRepository,
                                                                          storeName);
+            final long currentVersion = store.getCurrentVersionId();
             final long pushVersion;
             if(request.hasPushVersion()) {
                 pushVersion = request.getPushVersion();
@@ -2153,4 +2158,23 @@ public class AdminServiceRequestHandler implements RequestHandler {
         return response.build();
     }
 
+
+    private VAdminProto.GetConfigResponse handleGetConfigRequest(VAdminProto.GetConfigRequest getConfig) {
+        VAdminProto.GetConfigResponse.Builder response = VAdminProto.GetConfigResponse.newBuilder();
+
+        for (String configKey: getConfig.getConfigKeyList()) {
+            VAdminProto.MapFieldEntry.Builder mapFieldEntryBuilder = VAdminProto.MapFieldEntry
+                                                                                .newBuilder()
+                                                                                .setKey(configKey);
+            try {
+                String configValue = voldemortConfig.getPublicConfigValue(configKey);
+                response.addConfigMap(mapFieldEntryBuilder.setValue(configValue));
+            } catch (ConfigurationException e) {
+                logger.error("Received GetConfigRequest asking for forbidden or missing config key: " + configKey, e);
+                String errorMessage = e.getMessage();
+                response.addInvalidConfigMap(mapFieldEntryBuilder.setValue(errorMessage));
+            }
+        }
+        return response.build();
+    }
 }
