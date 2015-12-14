@@ -21,14 +21,12 @@ import static voldemort.utils.Utils.croak;
 import java.io.File;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
-import java.security.Security;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 
 import org.apache.log4j.Logger;
 
-import org.bouncycastle.jce.provider.BouncyCastleProvider;
 import voldemort.VoldemortException;
 import voldemort.annotations.jmx.JmxOperation;
 import voldemort.client.protocol.RequestFormatType;
@@ -92,7 +90,7 @@ public class VoldemortServer extends AbstractService {
     public VoldemortServer(VoldemortConfig config) {
         super(ServiceType.VOLDEMORT);
         this.voldemortConfig = config;
-        this.enableBouncyCastleForSSL();
+        this.setupSSLProvider();
         this.storeRepository = new StoreRepository(config.isJmxEnabled());
         this.metadata = MetadataStore.readFromDirectory(new File(this.voldemortConfig.getMetadataDirectory()),
                                                         voldemortConfig.getNodeId());
@@ -113,7 +111,7 @@ public class VoldemortServer extends AbstractService {
     public VoldemortServer(VoldemortConfig config, Cluster cluster) {
         super(ServiceType.VOLDEMORT);
         this.voldemortConfig = config;
-        this.enableBouncyCastleForSSL();
+        this.setupSSLProvider();
         this.identityNode = cluster.getNodeById(voldemortConfig.getNodeId());
 
         this.checkHostName();
@@ -144,13 +142,17 @@ public class VoldemortServer extends AbstractService {
         createOnlineServices();
     }
 
-    private void enableBouncyCastleForSSL() {
+    private void setupSSLProvider() {
         if (voldemortConfig.isBouncyCastleEnabled()) {
-            // Use BouncySastleProvider as first choice. If BouncyCastleProvider had been inserted, it will not be
-            // inserted again.
-            Security.insertProviderAt(new BouncyCastleProvider(), 1);
+            // This is just a one line method, but using a separate class to
+            // avoid loading the BouncyCastle. This will enable the
+            // VoldemortServer to run without BouncyCastle in the class path
+            // unless enabled explicitly.
+            SetupSSLProvider.useBouncyCastle();
         }
     }
+
+
 
     public AsyncOperationService getAsyncRunner() {
         return asyncService;
