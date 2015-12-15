@@ -42,6 +42,8 @@ import voldemort.VoldemortException;
 import voldemort.client.protocol.admin.AdminClient;
 import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
+import voldemort.routing.RoutingStrategy;
+import voldemort.routing.RoutingStrategyFactory;
 import voldemort.server.rebalance.RebalancerState;
 import voldemort.store.StoreDefinition;
 import voldemort.store.metadata.MetadataStore;
@@ -228,8 +230,10 @@ public class AdminCommandMeta extends AbstractAdminCommand {
             metaKeys = (List<String>) options.valuesOf(OPT_HEAD_META_CHECK);
             url = (String) options.valueOf(AdminParserUtils.OPT_URL);
 
+
             // execute command
-            if(metaKeys.size() == 1 && metaKeys.get(0).equals(METAKEY_ALL)) {
+            if(metaKeys.size() == 0
+               || (metaKeys.size() == 1 && metaKeys.get(0).equals(METAKEY_ALL))) {
                 metaKeys = Lists.newArrayList();
                 metaKeys.add(MetadataStore.CLUSTER_KEY);
                 metaKeys.add(MetadataStore.STORES_KEY);
@@ -295,6 +299,40 @@ public class AdminCommandMeta extends AbstractAdminCommand {
             return checkResult;
         }
 
+        private static byte[] toBytes(int i) {
+            byte[] result = new byte[4];
+
+            result[0] = (byte) (i >> 24);
+            result[1] = (byte) (i >> 16);
+            result[2] = (byte) (i >> 8);
+            result[3] = (byte) (i /*>> 0*/);
+
+            return result;
+        }
+
+        private static ByteArray generateByteArrayKey(AdminClient adminClient,
+                                               StoreDefinition storeDef,
+                                               int nodeId) {
+
+            Cluster cluster = adminClient.getAdminClientCluster();
+            RoutingStrategy routingStrategy = new RoutingStrategyFactory().updateRoutingStrategy(storeDef,
+                                                                                                 cluster);
+            
+            final int MAX_NUM_TO_SEARCH = 10000000;
+            for(int i = 0; i < MAX_NUM_TO_SEARCH ; i ++) {
+                byte[] serializedKey = toBytes(i);
+                List<Node> nodesServingKey = routingStrategy.routeRequest(serializedKey);
+                for(Node node: nodesServingKey) {
+                    if(node.getId() == nodeId) {
+                        return new ByteArray(serializedKey);
+                    }
+                }
+            }
+            
+            throw new VoldemortException("Could not find a key that maps to the node in the range 0.."
+                                         + MAX_NUM_TO_SEARCH);
+        }
+
         /**
          * Checks if metadata is consistent across all nodes.
          * 
@@ -332,10 +370,10 @@ public class AdminCommandMeta extends AbstractAdminCommand {
                             Map<Object, List<String>> storeDefMap = storeNodeValueMap.get(storeName);
                             addMetadataValue(storeDefMap, storeDef, nodeName);
                             try {
-                            // Just do a random get of the String 
-                            adminClient.storeOps.getNodeKey(storeName,
-                                                            node.getId(),
-                                                            new ByteArray((byte) 0));
+                                ByteArray randomKey = generateByteArrayKey(adminClient,
+                                                                           storeDef,
+                                                                           node.getId());
+                                adminClient.storeOps.getNodeKey(storeName, node.getId(), randomKey);
                             } catch(Exception e) {
                                 System.out.println(" Error doing sample key get from Store "
                                                    + storeName + " Node " + nodeName + " Error "
