@@ -1160,7 +1160,7 @@ public class AdminServiceRequestHandler implements RequestHandler {
 
                 @Override
                 public void stop() {
-                    status.setException(new VoldemortException("Fetcher interrupted"));
+                    status.setException(new AsyncOperationStoppedException("Fetcher interrupted"));
                 }
             });
 

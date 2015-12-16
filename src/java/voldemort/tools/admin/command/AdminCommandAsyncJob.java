@@ -24,6 +24,7 @@ import joptsimple.OptionParser;
 import joptsimple.OptionSet;
 import voldemort.VoldemortException;
 import voldemort.client.protocol.admin.AdminClient;
+import voldemort.server.protocol.admin.AsyncOperationStatus;
 import voldemort.tools.admin.AdminParserUtils;
 import voldemort.tools.admin.AdminToolUtils;
 
@@ -182,12 +183,18 @@ public class AdminCommandAsyncJob extends AbstractAdminCommand {
         public static void doAsyncJobList(AdminClient adminClient, List<Integer> nodeIds) {
             // Print the job information
             for(Integer nodeId: nodeIds) {
-                System.out.println("Retrieving async jobs from node " + nodeId);
+                System.out.print("Retrieving async jobs from node " + nodeId);
                 List<Integer> asyncIds = adminClient.rpcOps.getAsyncRequestList(nodeId);
-                System.out.println("Async Job Ids on node " + nodeId + " : " + asyncIds);
+                System.out.println(" : " + asyncIds);
                 for(int asyncId: asyncIds) {
-                    System.out.println("Async Job Id " + asyncId + " ] "
-                                       + adminClient.rpcOps.getAsyncRequestStatus(nodeId, asyncId));
+                    System.out.print("\tAsync Job Id " + asyncId + " : ");
+                    try {
+                        AsyncOperationStatus status = adminClient.rpcOps.getAsyncRequestStatus(nodeId, asyncId);
+                        System.out.println(status);
+                    } catch (Exception e) {
+                        System.out.println("threw " + e.getClass().getSimpleName() + "!");
+                        e.printStackTrace(System.err);
+                    }
                 }
                 System.out.println();
             }
