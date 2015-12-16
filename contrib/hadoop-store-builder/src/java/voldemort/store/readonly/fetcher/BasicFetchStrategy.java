@@ -122,7 +122,7 @@ public class BasicFetchStrategy implements FetchStrategy {
                 int read;
 
                 while (true) {
-                    if (status.hasException()) {
+                    if (status != null && status.hasException()) {
                         Exception ex = status.getException();
                         if (ex instanceof AsyncOperationStoppedException) {
                             // Then stop() has been called, so let's bubble up the exception
