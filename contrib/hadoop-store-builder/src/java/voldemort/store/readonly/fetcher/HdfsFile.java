@@ -2,16 +2,11 @@ package voldemort.store.readonly.fetcher;
 
 import org.apache.hadoop.fs.FileStatus;
 import org.apache.hadoop.fs.Path;
+
+import voldemort.store.readonly.FileType;
 import voldemort.store.readonly.ReadOnlyUtils;
 
 public class HdfsFile implements Comparable<HdfsFile> {
-
-    public enum FileType {
-        METADATA,
-        OTHER,
-        DATA,
-        INDEX
-    }
 
     private final FileStatus fs;
     private final FileType type;

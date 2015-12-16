@@ -45,6 +45,7 @@ public class ChunkedFileSet {
     private final int maxValueBufferAllocationSize;
     private File baseDir;
     private final List<Integer> indexFileSizes;
+
     private final List<Integer> dataFileSizes;
     private final List<String> fileNames;
     private final List<MappedByteBuffer> indexFiles;
@@ -905,6 +906,14 @@ public class ChunkedFileSet {
 
     public List<String> getFileNames() {
         return this.fileNames;
+    }
+
+    public List<Integer> getIndexFileSizes() {
+        return indexFileSizes;
+    }
+
+    public List<Integer> getDataFileSizes() {
+        return dataFileSizes;
     }
 
     public String fileNameFor(int chunk) {

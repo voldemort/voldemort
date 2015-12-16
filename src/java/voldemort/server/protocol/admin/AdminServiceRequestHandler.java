@@ -82,7 +82,17 @@ import voldemort.store.readonly.swapper.FailedFetchLock;
 import voldemort.store.slop.SlopStorageEngine;
 import voldemort.store.stats.StreamingStats;
 import voldemort.store.stats.StreamingStats.Operation;
-import voldemort.utils.*;
+import voldemort.utils.ByteArray;
+import voldemort.utils.ByteUtils;
+import voldemort.utils.ClosableIterator;
+import voldemort.utils.ConfigurationException;
+import voldemort.utils.EventThrottler;
+import voldemort.utils.ExceptionUtils;
+import voldemort.utils.NetworkClassLoader;
+import voldemort.utils.Pair;
+import voldemort.utils.Props;
+import voldemort.utils.ReflectUtils;
+import voldemort.utils.Utils;
 import voldemort.versioning.ObsoleteVersionException;
 import voldemort.versioning.VectorClock;
 import voldemort.versioning.Versioned;
@@ -610,6 +620,8 @@ public class AdminServiceRequestHandler implements RequestHandler {
                                                                    storeName);
             ChunkedFileSet chunkedFileSet = store.getChunkedFileSet();
             response.addAllFileName(chunkedFileSet.getFileNames());
+            response.addAllIndexFileSize(chunkedFileSet.getIndexFileSizes());
+            response.addAllDataFileSize(chunkedFileSet.getDataFileSizes());
         } catch(VoldemortException e) {
             response.setError(ProtoUtils.encodeError(errorCodeMapper, e));
             logger.error("handleGetROStorageFileList failed for request(" + request.toString()

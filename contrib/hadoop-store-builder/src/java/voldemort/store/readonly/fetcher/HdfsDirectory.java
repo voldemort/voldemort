@@ -15,11 +15,11 @@ import org.apache.hadoop.fs.Path;
 import org.apache.log4j.Logger;
 
 import voldemort.VoldemortApplicationException;
+import voldemort.store.readonly.FileType;
 import voldemort.store.readonly.ReadOnlyStorageMetadata;
 import voldemort.store.readonly.ReadOnlyUtils;
 import voldemort.store.readonly.checksum.CheckSum;
 import voldemort.store.readonly.checksum.CheckSum.CheckSumType;
-import voldemort.store.readonly.fetcher.HdfsFile.FileType;
 import voldemort.utils.ByteUtils;
 
 

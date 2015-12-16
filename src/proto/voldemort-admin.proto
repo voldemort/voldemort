@@ -342,6 +342,8 @@ message GetROStorageFileListRequest {
 message GetROStorageFileListResponse {
   repeated string file_name = 1;
   optional Error error = 2;
+  repeated int32 data_file_size=3;
+  repeated int32 index_file_size=4;
 }
 
 message GetROStorageCompressionCodecListRequest {
