@@ -1,3 +1,13 @@
+Release 1.10.7 on 12/15/2015
+* Introduced 'build.primary.replicas.only' mode in BnP.
+* Performance tool can now load custom workloads from external files.
+* Fixed a bug where the server would fail to start if Bouncy Castle is
+  absent from the classpath.
+* Admin operations improvements:
+  * Better error message when server receives unknown admin operation.
+  * Improved the Meta Check operation's default behavior.
+  * BnP fetches now abort immediately when their async operation is killed.
+
 Release 1.10.6 on 12/08/2015
 * BnP loggin improvements
 * Option to use BouncyCastle for encryption/decryption, instead of JCE
