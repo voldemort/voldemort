@@ -16,8 +16,10 @@ import org.apache.hadoop.fs.FileSystem;
 import org.apache.log4j.Logger;
 
 import voldemort.server.protocol.admin.AsyncOperationStatus;
+import voldemort.server.protocol.admin.AsyncOperationStoppedException;
 import voldemort.store.readonly.checksum.CheckSum;
 import voldemort.store.readonly.checksum.CheckSum.CheckSumType;
+import voldemort.utils.ExceptionUtils;
 
 
 public class BasicFetchStrategy implements FetchStrategy {
@@ -120,6 +122,14 @@ public class BasicFetchStrategy implements FetchStrategy {
                 int read;
 
                 while (true) {
+                    if (status.hasException()) {
+                        Exception ex = status.getException();
+                        if (ex instanceof AsyncOperationStoppedException) {
+                            // Then stop() has been called, so let's bubble up the exception
+                            throw (AsyncOperationStoppedException) ex;
+                        }
+                    }
+
                     read = input.read(buffer);
                     if (read < 0) {
                         break;
