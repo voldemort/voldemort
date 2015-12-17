@@ -2036,67 +2036,79 @@ public class AdminClient implements Closeable {
 
         /**
          * Delete a store from all active nodes in the cluster
-         * <p>
          *
          * @param storeName name of the store to delete
+         * @throws VoldemortException of the first node which failed (note, there might be more)
+         * @see {@link #deleteStore(String, java.util.List)} for more visibility into specific failures.
          */
         public void deleteStore(String storeName) {
-            for(Node node: currentCluster.getNodes()) {
-                deleteStore(storeName, node.getId());
+            List<Integer> nodeIds = Lists.newArrayList(currentCluster.getNodeIds());
+            Map<Integer, VoldemortException> exceptionMap = deleteStore(storeName, nodeIds);
+            if (!exceptionMap.isEmpty()) {
+                throw exceptionMap.values().iterator().next();
             }
         }
 
         /**
          * Delete a store from a particular node
-         * <p>
          * 
          * @param storeName name of the store to delete
          * @param nodeId Node on which we want to delete a store
+         * @throws VoldemortException if it fails to delete
          */
         public void deleteStore(String storeName, int nodeId) {
-            VAdminProto.DeleteStoreRequest.Builder deleteStoreRequest = VAdminProto.DeleteStoreRequest.newBuilder()
-                                                                                                      .setStoreName(storeName);
-            VAdminProto.VoldemortAdminRequest request = VAdminProto.VoldemortAdminRequest.newBuilder()
-                                                                                         .setType(VAdminProto.AdminRequestType.DELETE_STORE)
-                                                                                         .setDeleteStore(deleteStoreRequest)
-                                                                                         .build();
-            Node node = currentCluster.getNodeById(nodeId);
-            if(null == node)
-                throw new VoldemortException("Invalid node id (" + nodeId + ") specified");
-
-            logger.info("Deleting " + storeName + " on node " + node.getHost() + ":" + node.getId());
-            VAdminProto.DeleteStoreResponse.Builder response = rpcOps.sendAndReceive(node.getId(),
-                                                                                     request,
-                                                                                     VAdminProto.DeleteStoreResponse.newBuilder());
-            if(response.hasError())
-                helperOps.throwException(response.getError());
-            logger.info("Successfully deleted " + storeName + " on node " + node.getHost() + ":"
-                        + node.getId());
+            List<Integer> nodeIds = Lists.newArrayList(nodeId);
+            Map<Integer, VoldemortException> exceptionMap = deleteStore(storeName, nodeIds);
+            if (exceptionMap.containsKey(nodeId)) {
+                throw exceptionMap.get(nodeId);
+            }
         }
 
-        public void deleteStore(String storeName, List<Integer> nodeIds) {
+        /**
+         * Delete a store from all specified nodes
+         *
+         * @param storeName name of the store to delete
+         * @param nodeIds list of node IDs on which we want to delete the store
+         * @return {@link java.util.Map<Integer, VoldemortException>} mapping each node ID to the
+         *         exception it threw. If the map is empty, then the operation succeeded on all nodes.
+         */
+        public Map<Integer, VoldemortException> deleteStore(String storeName, List<Integer> nodeIds) {
             VAdminProto.DeleteStoreRequest.Builder deleteStoreRequest = VAdminProto.DeleteStoreRequest.newBuilder()
                                                                                                       .setStoreName(storeName);
             VAdminProto.VoldemortAdminRequest request = VAdminProto.VoldemortAdminRequest.newBuilder()
                                                                                          .setType(VAdminProto.AdminRequestType.DELETE_STORE)
                                                                                          .setDeleteStore(deleteStoreRequest)
                                                                                          .build();
+            Map<Integer, VoldemortException> exceptionMap = Maps.newHashMap();
+
             for(Integer nodeId: nodeIds) {
                 Node node = currentCluster.getNodeById(nodeId);
                 if(node == null) {
                     throw new VoldemortException("Invalid node id (" + nodeId + ") specified");
                 }
 
-                logger.info("Deleting " + storeName + " on node " + node.getHost() + ":" + nodeId);
-                VAdminProto.DeleteStoreResponse.Builder response = rpcOps.sendAndReceive(nodeId,
-                                                                                         request,
-                                                                                         VAdminProto.DeleteStoreResponse.newBuilder());
-                if(response.hasError()) {
-                    helperOps.throwException(response.getError());
+                logger.info("Deleting '" + storeName + "' on " + node.briefToString());
+                VoldemortException ex = null;
+                try {
+                    VAdminProto.DeleteStoreResponse.Builder response = rpcOps.sendAndReceive(nodeId,
+                                                                                             request,
+                                                                                             VAdminProto.DeleteStoreResponse.newBuilder());
+                    if(response.hasError()) {
+                        VProto.Error error = response.getError();
+                        ex = AdminClient.this.errorMapper.getError((short) error.getErrorCode(),
+                                                                                      error.getErrorMessage());
+                    }
+                } catch (UnreachableStoreException e) {
+                    ex = e;
                 }
-                logger.info("Successfully deleted " + storeName + " on node " + node.getHost()
-                            + ":" + nodeId);
+                if (ex == null) {
+                    logger.info("Successfully deleted '" + storeName + "' on " + node.briefToString());
+                } else {
+                    exceptionMap.put(nodeId, ex);
+                }
             }
+
+            return exceptionMap;
         }
     }
 

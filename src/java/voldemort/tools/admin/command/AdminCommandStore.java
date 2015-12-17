@@ -20,10 +20,13 @@ import java.io.File;
 import java.io.IOException;
 import java.io.PrintStream;
 import java.util.List;
+import java.util.Map;
 
 import joptsimple.OptionParser;
 import joptsimple.OptionSet;
+import voldemort.VoldemortException;
 import voldemort.client.protocol.admin.AdminClient;
+import voldemort.cluster.Node;
 import voldemort.store.StoreDefinition;
 import voldemort.store.StoreOperationFailureException;
 import voldemort.tools.admin.AdminParserUtils;
@@ -468,13 +471,16 @@ public class AdminCommandStore extends AbstractAdminCommand {
                                          List<Integer> nodeIds,
                                          List<String> storeNames) {
             for(String storeName: storeNames) {
-                for(Integer nodeId: nodeIds) {
-                    System.out.println("Deleting " + storeName + " on node " + nodeId);
-                    try {
-                        adminClient.storeMgmtOps.deleteStore(storeName, nodeId);
-                    } catch(StoreOperationFailureException e) {
-                        System.out.println("Store deletion failed on node " + nodeId);
-                        e.printStackTrace();
+                System.out.print("Deleting store '" + storeName + "'... ");
+                Map<Integer, VoldemortException> exceptionMap = adminClient.storeMgmtOps.deleteStore(storeName, nodeIds);
+                if (exceptionMap.isEmpty()) {
+                    System.out.println("Succeeded on all nodes!");
+                } else {
+                    System.out.println("Failed on " + exceptionMap.size() + "/" + nodeIds.size() + " nodes. Details below:");
+                    for (Map.Entry<Integer, VoldemortException> entry: exceptionMap.entrySet()) {
+                        String nodeName = adminClient.getAdminClientCluster().getNodeById(entry.getKey()).briefToString();
+                        System.err.println("Deletion failed on " + nodeName);
+                        entry.getValue().printStackTrace(System.err);
                     }
                 }
             }
