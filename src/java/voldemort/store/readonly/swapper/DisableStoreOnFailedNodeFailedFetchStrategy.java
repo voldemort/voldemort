@@ -8,6 +8,7 @@ import java.util.Map;
 
 import voldemort.client.protocol.admin.AdminClient;
 import voldemort.cluster.Node;
+import voldemort.server.protocol.admin.ReadOnlyFetchDisabledException;
 import voldemort.store.UnreachableStoreException;
 import voldemort.store.readonly.swapper.AdminStoreSwapper.Response;
 import voldemort.utils.ExceptionUtils;
@@ -31,30 +32,35 @@ public class DisableStoreOnFailedNodeFailedFetchStrategy extends FailedFetchStra
                                  long pushVersion,
                                  Map<Node, AdminStoreSwapper.Response> fetchResponseMap)
             throws Exception {
-        List<String> nonConnectionErrors = new ArrayList<String>();
+        List<String> hardFailures = new ArrayList<String>();
         List<Integer> failedNodes = Lists.newArrayList();
         for(Map.Entry<Node, AdminStoreSwapper.Response> entry: fetchResponseMap.entrySet()) {
-            // Only consider non Quota related exceptions as Failures.
             Response response = entry.getValue();
             if(!response.isSuccessful()) {
-                // Check if there are any exceptions due to Quota
                 Exception ex = response.getException();
-                boolean connectionFailure = ExceptionUtils.recursiveClassEquals(ex, UnreachableStoreException.class);
-                boolean ioError = ExceptionUtils.recursiveClassEquals(ex, IOException.class);
+                Class[] softErrors = {UnreachableStoreException.class , IOException.class , ReadOnlyFetchDisabledException.class };
+                boolean isSoftError = false;
+                for(Class softError : softErrors) {
+                    if(ExceptionUtils.recursiveClassEquals(ex, softError)) {
+                        isSoftError = true;
+                        break;
+                    }
+                }
+
                 Node node = entry.getKey();
-                if(connectionFailure || ioError) {
+                if(isSoftError) {
                     int nodeId = node.getId();
                     failedNodes.add(nodeId);
                 } else {
                     String nodeErrorMessage = node.briefToString() + " threw exception "
                                               + ex.getClass().getName() + ". ";
-                    nonConnectionErrors.add(nodeErrorMessage);
+                    hardFailures.add(nodeErrorMessage);
                 }
             }
         }
 
-        if(nonConnectionErrors.size() > 0) {
-            String errorMessage = Arrays.toString(nonConnectionErrors.toArray());
+        if(hardFailures.size() > 0) {
+            String errorMessage = Arrays.toString(hardFailures.toArray());
             logger.error("There were non connection related errors. Details " + errorMessage);
             return false;
         }
