@@ -2,7 +2,26 @@ package voldemort.store.readonly;
 
 import voldemort.VoldemortApplicationException;
 
-public class ReadOnlyFileEntry {
+public class ReadOnlyFileEntry implements Comparable<ReadOnlyFileEntry> {
+
+    @Override
+    public int compareTo(ReadOnlyFileEntry other) {
+        if(partitionId != other.partitionId) {
+            return partitionId - other.partitionId;
+        }
+        if(chunkId != other.chunkId) {
+            return chunkId - other.chunkId;
+        }
+        if(type != other.type) {
+            return type.compareTo(other.type);
+        }
+
+        if(size != -1 && other.size != -1) {
+            return size - other.size;
+        }
+
+        return 0;
+    }
 
     private final int partitionId;
     private final int chunkId;
@@ -10,8 +29,11 @@ public class ReadOnlyFileEntry {
 
     private final FileType type;
     private final int size;
+    private final String name;
 
     public ReadOnlyFileEntry(String name, FileType type, int size) {
+        this.name = name;
+
         String[] ids = name.split("_", 3);
         if(ids == null || ids.length < 2 || ids.length > 3) {
             throw new VoldemortApplicationException("Could not parse the file name " + name);
@@ -53,16 +75,16 @@ public class ReadOnlyFileEntry {
         if(getClass() != obj.getClass())
             return false;
         ReadOnlyFileEntry other = (ReadOnlyFileEntry) obj;
-        if(chunkId != other.chunkId)
-            return false;
-        if(partitionId != other.partitionId)
-            return false;
-        if(type != other.type)
-            return false;
-        // Size will be -1, for older servers. If any of them is older servers, ignore the size check.
-        if(size != -1 && other.size != -1 && size != other.size)
-            return false;
-        return true;
+        return this.compareTo(other) == 0;
+    }
+
+    private String getFileName() {
+        return name + "." + type.toString().toLowerCase();
+    }
+
+    @Override
+    public String toString() {
+        return "ReadOnlyFile [name=" + getFileName() + ", size=" + size + "]";
     }
 
 }

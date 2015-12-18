@@ -32,6 +32,7 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Properties;
 import java.util.Set;
+import java.util.TreeMap;
 
 import joptsimple.OptionParser;
 import joptsimple.OptionSet;
@@ -48,6 +49,8 @@ import voldemort.server.rebalance.RebalancerState;
 import voldemort.store.StoreDefinition;
 import voldemort.store.metadata.MetadataStore;
 import voldemort.store.metadata.MetadataStore.VoldemortState;
+import voldemort.store.readonly.ReadOnlyFileEntry;
+import voldemort.store.readonly.ReadOnlyStorageConfiguration;
 import voldemort.store.system.SystemStoreConstants;
 import voldemort.tools.admin.AdminParserUtils;
 import voldemort.tools.admin.AdminToolUtils;
@@ -293,7 +296,7 @@ public class AdminCommandMeta extends AbstractAdminCommand {
             if(nodesDiff.size() > 0) {
                 checkResult = false;
                 for(String nodeName: nodesDiff) {
-                    System.err.println("key " + keyName + " is missing in the Node " + nodeName);
+                    System.err.println(keyName + " is missing in the Node " + nodeName);
                 }
             }
             return checkResult;
@@ -333,6 +336,82 @@ public class AdminCommandMeta extends AbstractAdminCommand {
                                          + MAX_NUM_TO_SEARCH);
         }
 
+        private static boolean checkGetStore(AdminClient adminClient,
+                                         StoreDefinition storeDef,
+                                         Node node) {
+            String storeName = storeDef.getName();
+            try {
+                ByteArray randomKey = generateByteArrayKey(adminClient, storeDef, node.getId());
+                adminClient.storeOps.getNodeKey(storeName, node.getId(), randomKey);
+            } catch(Exception e) {
+                System.out.println(" Error doing sample key get from Store " + storeName
+                                   + node.briefToString() + " Error " + e.getMessage());
+                e.printStackTrace();
+                return false;
+            }
+            return true;
+        }
+
+        private static void validateROFiles(AdminClient adminClient,
+                                            Collection<Node> allNodes,
+                                            Map<String, Integer> roStoreToReplicationFactorMap) {
+            if(roStoreToReplicationFactorMap.size() == 0)
+                return;
+
+            boolean checkResult = true;
+            for(Map.Entry<String, Integer> storeAndReplicationFactor: roStoreToReplicationFactorMap.entrySet()) {
+                String storeName = storeAndReplicationFactor.getKey();
+                Integer replicationFactor = storeAndReplicationFactor.getValue();
+                if(replicationFactor == 1) {
+                    System.out.println(" Store "
+                                       + storeName
+                                       + " has replication factor of 1, skipping consistency check across nodes");
+                    continue;
+                }
+                Map<ReadOnlyFileEntry, List<String>> fileToNodesMap = new TreeMap<ReadOnlyFileEntry, List<String>>();
+                for(Node node: allNodes) {
+                    List<ReadOnlyFileEntry> fileEntries = null;
+                    try {
+                        fileEntries = adminClient.readonlyOps.getROStorageFileMetadata(node.getId(),
+                                                                                       storeName);
+                    } catch(Exception e) {
+                        System.out.println(" Error retrieving files for ReadOnly Store "
+                                           + storeName + node.briefToString()
+                                           + " Error " + e.getMessage());
+                        e.printStackTrace();
+                        checkResult = false;
+                        // Once one node throws an exception, it is going to
+                        // spew lots of missing files
+                        break;
+                    }
+
+                    for(ReadOnlyFileEntry entry: fileEntries) {
+                        if(fileToNodesMap.containsKey(entry) == false) {
+                            fileToNodesMap.put(entry, new ArrayList<String>());
+                        }
+                        fileToNodesMap.get(entry).add(node.briefToString());
+                    }
+                }
+
+                for(Map.Entry<ReadOnlyFileEntry, List<String>> fileToNodes: fileToNodesMap.entrySet()) {
+                    ReadOnlyFileEntry entry = fileToNodes.getKey();
+                    List<String> nodes = fileToNodes.getValue();
+                    if(nodes.size() == replicationFactor) {
+                        // The file has the required replication factor.
+                        continue;
+                    } else {
+                        System.out.println("    Store " + storeName + " File " + entry
+                                           + " is expected in " + replicationFactor
+                                           + " nodes, but present only in "
+                                           + Arrays.toString(nodes.toArray()));
+                        checkResult = false;
+                    }
+                }
+            }
+            
+            System.out.println("RO File Validation check : " + (checkResult ? "PASSED" : "FAILED"));
+        }
+
         /**
          * Checks if metadata is consistent across all nodes.
          * 
@@ -341,18 +420,19 @@ public class AdminCommandMeta extends AbstractAdminCommand {
          * 
          */
         public static void doMetaCheck(AdminClient adminClient, List<String> metaKeys) {
+            Map<String, Integer> roStoreToReplicationFactorMap = new HashMap<String, Integer>();
+            Collection<Node> allNodes = adminClient.getAdminClientCluster().getNodes();
+
             for(String key: metaKeys) {
-                Map<String, Map<Object, List<String>>> storeNodeValueMap = new HashMap<String, Map<Object, List<String>>>();
+                Map<String, Map<Object, List<String>>> storeDefToNodeMap = new HashMap<String, Map<Object, List<String>>>();
                 Map<Object, List<String>> metadataNodeValueMap = new HashMap<Object, List<String>>();
-                Collection<Node> allNodes = adminClient.getAdminClientCluster().getNodes();
+                
                 Collection<String> allNodeNames = new ArrayList<String>();
 
                 Boolean checkResult = true;
                 for(Node node: allNodes) {
                     String nodeName = "Host '" + node.getHost() + "' : ID " + node.getId();
                     allNodeNames.add(nodeName);
-
-                    System.out.println("processing " + nodeName);
 
                     Versioned<String> versioned = adminClient.metadataMgmtOps.getRemoteMetadata(node.getId(),
                                                                                                 key);
@@ -363,24 +443,20 @@ public class AdminCommandMeta extends AbstractAdminCommand {
                         List<StoreDefinition> storeDefinitions = new StoreDefinitionsMapper().readStoreList(new StringReader(versioned.getValue()));
                         for(StoreDefinition storeDef: storeDefinitions) {
                             String storeName = storeDef.getName();
-                            if(storeNodeValueMap.containsKey(storeName) == false) {
-                                storeNodeValueMap.put(storeName,
+
+                            if(storeDef.getType().compareTo(ReadOnlyStorageConfiguration.TYPE_NAME) == 0) {
+                                roStoreToReplicationFactorMap.put(storeName, storeDef.getReplicationFactor());
+                            }
+
+                            if(storeDefToNodeMap.containsKey(storeName) == false) {
+                                storeDefToNodeMap.put(storeName,
                                                       new HashMap<Object, List<String>>());
                             }
-                            Map<Object, List<String>> storeDefMap = storeNodeValueMap.get(storeName);
+                            Map<Object, List<String>> storeDefMap = storeDefToNodeMap.get(storeName);
                             addMetadataValue(storeDefMap, storeDef, nodeName);
-                            try {
-                                ByteArray randomKey = generateByteArrayKey(adminClient,
-                                                                           storeDef,
-                                                                           node.getId());
-                                adminClient.storeOps.getNodeKey(storeName, node.getId(), randomKey);
-                            } catch(Exception e) {
-                                System.out.println(" Error doing sample key get from Store "
-                                                   + storeName + " Node " + nodeName + " Error "
-                                                   + e.getMessage());
-                                e.printStackTrace();
-                                checkResult = false;
-                            }
+                            
+                            // Try a random Get against one key for store/Node
+                            checkGetStore(adminClient, storeDef, node);
                         }
                     } else {
                         if(key.compareTo(MetadataStore.CLUSTER_KEY) == 0
@@ -398,20 +474,27 @@ public class AdminCommandMeta extends AbstractAdminCommand {
                 }
 
                 if(metadataNodeValueMap.size() > 0) {
-                    checkResult &= checkDiagnostics(key, metadataNodeValueMap, allNodeNames);
+                    checkResult &= checkDiagnostics("Key " + key,
+                                                    metadataNodeValueMap,
+                                                    allNodeNames);
                 }
 
-                if(storeNodeValueMap.size() > 0) {
-                    for(Map.Entry<String, Map<Object, List<String>>> storeNodeValueEntry: storeNodeValueMap.entrySet()) {
+                if(storeDefToNodeMap.size() > 0) {
+                    for(Map.Entry<String, Map<Object, List<String>>> storeNodeValueEntry: storeDefToNodeMap.entrySet()) {
                         String storeName = storeNodeValueEntry.getKey();
                         Map<Object, List<String>> storeDefMap = storeNodeValueEntry.getValue();
-                        checkResult &= checkDiagnostics(storeName, storeDefMap, allNodeNames);
+                        checkResult &= checkDiagnostics("Store " + storeName,
+                                                        storeDefMap,
+                                                        allNodeNames);
                     }
                 }
 
                 System.out.println(key + " metadata check : " + (checkResult ? "PASSED" : "FAILED"));
             }
+
+            validateROFiles(adminClient, allNodes, roStoreToReplicationFactorMap);
         }
+
     }
 
     /**

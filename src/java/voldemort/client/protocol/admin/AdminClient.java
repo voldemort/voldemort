@@ -91,6 +91,8 @@ import voldemort.store.metadata.MetadataStore;
 import voldemort.store.metadata.MetadataStore.VoldemortState;
 import voldemort.store.quota.QuotaType;
 import voldemort.store.quota.QuotaUtils;
+import voldemort.store.readonly.FileType;
+import voldemort.store.readonly.ReadOnlyFileEntry;
 import voldemort.store.readonly.ReadOnlyStorageConfiguration;
 import voldemort.store.readonly.ReadOnlyStorageFormat;
 import voldemort.store.readonly.ReadOnlyStorageMetadata;
@@ -4365,6 +4367,64 @@ public class AdminClient implements Closeable {
          */
 
         public List<String> getROStorageFileList(int nodeId, String storeName) {
+            VAdminProto.GetROStorageFileListResponse.Builder response = getROMetadata(nodeId,
+                                                                                      storeName);
+            return response.getFileNameList();
+        }
+
+        public List<ReadOnlyFileEntry> getROStorageFileMetadata(int nodeId, String storeName) {
+            VAdminProto.GetROStorageFileListResponse.Builder response = getROMetadata(nodeId,
+                                                                                      storeName);
+
+            List<String> fileNames = response.getFileNameList();
+            List<Integer> indexSizes = response.getIndexFileSizeList();
+            List<Integer> dataSizes = response.getDataFileSizeList();
+
+            List<ReadOnlyFileEntry> files = Lists.newArrayList();
+            if(indexSizes.size() != dataSizes.size()) {
+                String errorMessage = " Node returned different counts for data and index" + nodeId
+                                      + " dataSize count " + dataSizes.size() + " indexSize count "
+                                      + indexSizes.size();
+                logger.error(errorMessage);
+                throw new VoldemortApplicationException(errorMessage);
+            }
+            // Server running older version of the Code, which does not have sizes;
+            if(indexSizes.size() == 0) {
+                for(String file: fileNames) {
+                    ReadOnlyFileEntry dataFile = new ReadOnlyFileEntry(file, FileType.DATA);
+                    ReadOnlyFileEntry indexFile = new ReadOnlyFileEntry(file, FileType.INDEX);
+                    files.add(dataFile);
+                    files.add(indexFile);
+                }
+            } else {
+                if(indexSizes.size() != fileNames.size()) {
+                    String errorMessage = " Node returned different counts for fileNames and fileSize"
+                                          + nodeId + " fileNames count " + fileNames.size()
+                                          + " fileSizes count " + indexSizes.size();
+                    logger.error(errorMessage);
+                    throw new VoldemortApplicationException(errorMessage);
+                }
+                for(int i = 0; i < fileNames.size(); i++) {
+                    String fileName = fileNames.get(i);
+                    int dataFileSize = dataSizes.get(i);
+                    int indexFileSize = indexSizes.get(i);
+
+                    ReadOnlyFileEntry dataFile = new ReadOnlyFileEntry(fileName,
+                                                                       FileType.DATA,
+                                                                       dataFileSize);
+                    ReadOnlyFileEntry indexFile = new ReadOnlyFileEntry(fileName,
+                                                                        FileType.INDEX,
+                                                                        indexFileSize);
+                    files.add(dataFile);
+                    files.add(indexFile);
+                }
+            }
+
+            return files;
+        }
+
+        private VAdminProto.GetROStorageFileListResponse.Builder getROMetadata(int nodeId,
+                                                                               String storeName) {
             VAdminProto.GetROStorageFileListRequest.Builder getRORequest = VAdminProto.GetROStorageFileListRequest.newBuilder()
                                                                                                                   .setStoreName(storeName);
             VAdminProto.VoldemortAdminRequest adminRequest = VAdminProto.VoldemortAdminRequest.newBuilder()
@@ -4378,7 +4438,8 @@ public class AdminClient implements Closeable {
                 helperOps.throwException(response.getError());
             }
 
-            return response.getFileNameList();
+            return response;
+
         }
 
         public List<String> getSupportedROStorageCompressionCodecs() {
