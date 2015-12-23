@@ -111,6 +111,11 @@ public class SchedulerService extends AbstractService {
     @Override
     public void stopInner() {
         this.scheduler.shutdownNow();
+        try {
+            this.scheduler.awaitTermination(5, TimeUnit.SECONDS);
+        } catch(Exception e) {
+            logger.info("Error waiting for termination of scheduler service", e);
+        }
     }
 
     @JmxOperation(description = "Disable a particular scheduled job", impact = MBeanOperationInfo.ACTION)
