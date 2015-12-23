@@ -17,13 +17,6 @@
 package voldemort.store.readonly;
 
 import java.io.File;
-import java.lang.management.ManagementFactory;
-import java.util.Collections;
-import java.util.HashSet;
-import java.util.Set;
-
-import javax.management.MBeanServer;
-import javax.management.ObjectName;
 
 import voldemort.VoldemortException;
 import voldemort.routing.RoutingStrategy;
@@ -32,7 +25,6 @@ import voldemort.store.StorageConfiguration;
 import voldemort.store.StorageEngine;
 import voldemort.store.StoreDefinition;
 import voldemort.utils.ByteArray;
-import voldemort.utils.JmxUtils;
 import voldemort.utils.ReflectUtils;
 
 public class ReadOnlyStorageConfiguration implements StorageConfiguration {
@@ -41,7 +33,6 @@ public class ReadOnlyStorageConfiguration implements StorageConfiguration {
 
     private final int numBackups;
     private final File storageDir;
-    private final Set<ObjectName> registeredBeans;
     private final SearchStrategy searcher;
     private final int nodeId;
     private RoutingStrategy routingStrategy = null;
@@ -52,7 +43,6 @@ public class ReadOnlyStorageConfiguration implements StorageConfiguration {
     public ReadOnlyStorageConfiguration(VoldemortConfig config) {
         this.storageDir = new File(config.getReadOnlyDataStorageDirectory());
         this.numBackups = config.getNumReadOnlyVersions();
-        this.registeredBeans = Collections.synchronizedSet(new HashSet<ObjectName>());
         this.searcher = (SearchStrategy) ReflectUtils.callConstructor(ReflectUtils.loadClass(config.getReadOnlySearchStrategy()
                                                                                                    .trim()));
         this.nodeId = config.getNodeId();
@@ -62,9 +52,7 @@ public class ReadOnlyStorageConfiguration implements StorageConfiguration {
     }
 
     public void close() {
-        MBeanServer server = ManagementFactory.getPlatformMBeanServer();
-        for(ObjectName name: registeredBeans)
-            JmxUtils.unregisterMbean(server, name);
+
     }
 
     public void setRoutingStrategy(RoutingStrategy routingStrategy) {
@@ -83,13 +71,6 @@ public class ReadOnlyStorageConfiguration implements StorageConfiguration {
                                                                 numBackups,
                                                                 deleteBackupMs,
                                                                 maxValueBufferAllocationSize);
-        ObjectName objName = JmxUtils.createObjectName(JmxUtils.getPackageName(store.getClass()),
-                                                       storeDef.getName() );
-        JmxUtils.registerMbean(ManagementFactory.getPlatformMBeanServer(),
-                               JmxUtils.createModelMBean(store),
-                               objName);
-        registeredBeans.add(objName);
-
         return store;
     }
 
@@ -107,12 +88,5 @@ public class ReadOnlyStorageConfiguration implements StorageConfiguration {
      */
     @Override
     public void removeStorageEngine(StorageEngine<ByteArray, byte[], byte[]> engine) {
-        ReadOnlyStorageEngine store = (ReadOnlyStorageEngine) engine;
-
-        if(this.voldConfig.isJmxEnabled()) {
-            ObjectName objName = JmxUtils.createObjectName(JmxUtils.getPackageName(store.getClass()),
-                                                           store.getName() + nodeId);
-            JmxUtils.unregisterMbean(ManagementFactory.getPlatformMBeanServer(), objName);
-        }
     }
 }
