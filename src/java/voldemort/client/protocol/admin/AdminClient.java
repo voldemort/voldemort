@@ -121,6 +121,7 @@ import voldemort.versioning.Versioned;
 import voldemort.xml.ClusterMapper;
 import voldemort.xml.StoreDefinitionsMapper;
 
+import com.google.common.base.Objects;
 import com.google.common.collect.AbstractIterator;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
@@ -1832,6 +1833,23 @@ public class AdminClient implements Closeable {
         }
 
         /**
+         * Ideally this function should be in the SerializerDefinition class,
+         * but that class already has different way of comparing Serializers.
+         * Not sure what will be the impact of refactoring that code.
+         * 
+         * @param oldDef
+         * @param newDef
+         * @return
+         */
+        private boolean seriailizerMetadataEquals(SerializerDefinition oldDef,
+                                                 SerializerDefinition newDef) {
+            if(!oldDef.getName().equals(newDef.getName())) {
+                return false;
+            }
+            return Objects.equal(oldDef.getCompression(), newDef.getCompression());
+        }
+
+        /**
          * This function ensures that a StoreDefinition exists on all online Voldemort Servers.
          *
          * These are the steps this function goes through:
@@ -1894,10 +1912,10 @@ public class AdminClient implements Closeable {
                             SerializerDefinition newValueSerializerDef = newStoreDef.getValueSerializer();
                             SerializerDefinition remoteKeySerializerDef = remoteStoreDef.getKeySerializer();
                             SerializerDefinition remoteValueSerializerDef = remoteStoreDef.getValueSerializer();
-                            String newKeySerDeName = newKeySerializerDef.getName();
                             String newValSerDeName = newValueSerializerDef.getName();
-                            if(remoteKeySerializerDef.getName().equals(newKeySerDeName)
-                                    && remoteValueSerializerDef.getName().equals(newValSerDeName)) {
+
+                            if(seriailizerMetadataEquals(remoteKeySerializerDef,newKeySerializerDef)
+                               && seriailizerMetadataEquals(remoteValueSerializerDef,newValueSerializerDef)) {
 
                                 Object remoteKeyDef, remoteValDef, localKeyDef, localValDef;
                                 if (newValSerDeName.equals(DefaultSerializerFactory.AVRO_GENERIC_VERSIONED_TYPE_NAME) ||
