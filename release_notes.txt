@@ -1,3 +1,8 @@
+Release 1.10.9 on 1/5/2016
+* Fixed a regression affecting Read-Only servers introduced in 1.10.7.
+* Fixed a unit test which failed on Java 8.
+* Made vadmin.sh more resilient to node failures.
+
 Release 1.10.8 on 1/4/2016
 * Validate compression when a store is pushed via BnP
 * BnP HA pushes fail, when fetch is disabled on a node.
