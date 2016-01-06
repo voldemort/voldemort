@@ -78,7 +78,7 @@ public class StoreVersionManager {
         // Make sure versions missing from the file-system are cleaned up from the internal state
         for (Long version: versionToEnabledMap.keySet()) {
             File[] existingVersionDirs = ReadOnlyUtils.getVersionDirs(rootDir, version, version);
-            if (existingVersionDirs.length == 0) {
+            if (existingVersionDirs == null || existingVersionDirs.length == 0) {
                 removeVersion(version);
             }
         }
