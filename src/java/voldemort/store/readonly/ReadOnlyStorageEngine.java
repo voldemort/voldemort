@@ -519,8 +519,7 @@ public class ReadOnlyStorageEngine extends AbstractStorageEngine<ByteArray, byte
             fileModificationLock.readLock().lock();
             int chunk = fileSet.getChunkForKey(key.get());
             if(chunk < 0) {
-                logger.warn("Invalid chunk id returned. Either routing strategy is inconsistent or storage format not understood");
-                return Collections.emptyList();
+                throw new IllegalStateException("chunkId < 0"); // should never happen, but just in case
             }
             int location = searchStrategy.indexOf(fileSet.indexFileFor(chunk),
                                                   fileSet.keyToStorageFormat(key.get()),
@@ -535,6 +534,10 @@ public class ReadOnlyStorageEngine extends AbstractStorageEngine<ByteArray, byte
             } else {
                 return Collections.emptyList();
             }
+        } catch (IllegalStateException e) {
+            logger.warn("ChunkedFileSet.getChunkForKey() did not execute successfully. " +
+                        "Returning empty result for key: " + ByteUtils.toHexString(key.get()), e);
+            return Collections.emptyList();
         } finally {
             fileModificationLock.readLock().unlock();
         }
@@ -551,16 +554,21 @@ public class ReadOnlyStorageEngine extends AbstractStorageEngine<ByteArray, byte
             fileModificationLock.readLock().lock();
             List<KeyValueLocation> keysAndValueLocations = Lists.newArrayList();
             for(ByteArray key: keys) {
-                int chunk = fileSet.getChunkForKey(key.get());
-                if(chunk < 0) {
-                    logger.warn("Invalid chunk id returned. ignoring");
+                try {
+                    int chunk = fileSet.getChunkForKey(key.get());
+                    if(chunk < 0) {
+                        throw new IllegalStateException("chunkId < 0"); // should never happen, but just in case
+                    }
+                    int valueLocation = searchStrategy.indexOf(fileSet.indexFileFor(chunk),
+                                                               fileSet.keyToStorageFormat(key.get()),
+                                                               fileSet.getIndexFileSize(chunk));
+                    if(valueLocation >= 0)
+                        keysAndValueLocations.add(new KeyValueLocation(chunk, key, valueLocation));
+                } catch (IllegalStateException e) {
+                    logger.warn("ChunkedFileSet.getChunkForKey() did not execute successfully. " +
+                                "Skipping key in getAll: " + ByteUtils.toHexString(key.get()), e);
                     continue;
                 }
-                int valueLocation = searchStrategy.indexOf(fileSet.indexFileFor(chunk),
-                                                           fileSet.keyToStorageFormat(key.get()),
-                                                           fileSet.getIndexFileSize(chunk));
-                if(valueLocation >= 0)
-                    keysAndValueLocations.add(new KeyValueLocation(chunk, key, valueLocation));
             }
             Collections.sort(keysAndValueLocations);
 

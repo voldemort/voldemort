@@ -6,7 +6,6 @@ import java.io.File;
 import java.io.FileReader;
 import java.io.FileWriter;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -90,7 +89,8 @@ public class ReadOnlyStorageEngineTestInstance {
                                                            int repFactor,
                                                            SerializerDefinition keySerDef,
                                                            SerializerDefinition valueSerDef,
-                                                           ReadOnlyStorageFormat type)
+                                                           ReadOnlyStorageFormat type,
+                                                           int[][] partitionMap)
             throws Exception {
         // create some test data
         Map<String, String> data = createTestData(testSize);
@@ -99,12 +99,17 @@ public class ReadOnlyStorageEngineTestInstance {
         // set up definitions for cluster and store
         List<Node> nodes = new ArrayList<Node>();
         for(int i = 0; i < numNodes; i++) {
+            List<Integer> partitions = new ArrayList<Integer>(partitionMap[i].length);
+            for(int p: partitionMap[i]) {
+                partitions.add(p);
+            }
+
             nodes.add(new Node(i,
                                "localhost",
                                8080 + i,
                                6666 + i,
                                7000 + i,
-                               Arrays.asList(4 * i, 4 * i + 1, 4 * i + 2, 4 * i + 3)));
+                               partitions));
         }
         Cluster cluster = new Cluster("test", nodes);
         StoreDefinition storeDef = new StoreDefinitionBuilder().setName("test")
