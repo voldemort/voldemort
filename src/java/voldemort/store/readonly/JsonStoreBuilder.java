@@ -255,7 +255,7 @@ public class JsonStoreBuilder {
 
     public void buildVersion0() throws IOException {
         logger.info("Building store " + storeDefinition.getName() + " for "
-                    + cluster.getNumberOfNodes() + " with " + numChunks
+                    + cluster.getNumberOfNodes() + " nodes with " + numChunks
                     + " chunks per node and type " + ReadOnlyStorageFormat.READONLY_V0);
 
         // initialize nodes

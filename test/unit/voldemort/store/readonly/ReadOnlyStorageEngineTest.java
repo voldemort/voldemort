@@ -19,8 +19,10 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+import org.apache.log4j.Logger;
 import org.junit.After;
 import org.junit.Assert;
+import org.junit.Ignore;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
@@ -56,17 +58,49 @@ import com.google.common.collect.Lists;
 @RunWith(Parameterized.class)
 public class ReadOnlyStorageEngineTest {
 
-    private static int TEST_SIZE = 100;
+    private static final Logger logger = Logger.getLogger(ReadOnlyStorageEngineTest.class);
+    private static int TOTAL_NUMBER_OF_RECORDS = 100;
+    private static int PARTITIONS_PER_NODE = 5;
+    private static int[][] complexPartitionMap = {
+            {7, 24, 41, 45, 46},    // Node 0
+            {2, 10, 15, 23, 38},    // Node 1
+            {4, 13, 32, 33, 44},    // Node 2
+            {11, 19, 27, 31, 40},   // Node 3
+            {9, 17, 22, 25, 39},    // Node 4
+            {12, 34, 35, 37, 48},   // Node 5
+            {0, 16, 29, 36, 49},    // Node 6
+            {1, 18, 20, 43, 47},    // Node 7
+            {5, 6, 14, 21, 30},     // Node 8
+            {3, 8, 26, 28, 42}      // Node 9
+    };
 
     @Parameters
     public static Collection<Object[]> configs() {
         return Arrays.asList(new Object[][] {
-                { new BinarySearchStrategy(), ReadOnlyStorageFormat.READONLY_V0 },
-                { new InterpolationSearchStrategy(), ReadOnlyStorageFormat.READONLY_V0 },
-                { new BinarySearchStrategy(), ReadOnlyStorageFormat.READONLY_V1 },
-                { new InterpolationSearchStrategy(), ReadOnlyStorageFormat.READONLY_V1 },
-                { new BinarySearchStrategy(), ReadOnlyStorageFormat.READONLY_V2 },
-                { new InterpolationSearchStrategy(), ReadOnlyStorageFormat.READONLY_V2 } });
+                // Replication factor 1, 1 node, simple partition assignment
+                { new BinarySearchStrategy(),        ReadOnlyStorageFormat.READONLY_V0, 1, 1,  null },
+                { new InterpolationSearchStrategy(), ReadOnlyStorageFormat.READONLY_V0, 1, 1,  null },
+                { new BinarySearchStrategy(),        ReadOnlyStorageFormat.READONLY_V1, 1, 1,  null },
+                { new InterpolationSearchStrategy(), ReadOnlyStorageFormat.READONLY_V1, 1, 1,  null },
+                { new BinarySearchStrategy(),        ReadOnlyStorageFormat.READONLY_V2, 1, 1,  null },
+                { new InterpolationSearchStrategy(), ReadOnlyStorageFormat.READONLY_V2, 1, 1,  null },
+
+                // Replication factor 2, 10 nodes, simple partition assignment
+                { new BinarySearchStrategy(),        ReadOnlyStorageFormat.READONLY_V0, 2, 10, null },
+                { new InterpolationSearchStrategy(), ReadOnlyStorageFormat.READONLY_V0, 2, 10, null },
+                { new BinarySearchStrategy(),        ReadOnlyStorageFormat.READONLY_V1, 2, 10, null },
+                { new InterpolationSearchStrategy(), ReadOnlyStorageFormat.READONLY_V1, 2, 10, null },
+                { new BinarySearchStrategy(),        ReadOnlyStorageFormat.READONLY_V2, 2, 10, null },
+                { new InterpolationSearchStrategy(), ReadOnlyStorageFormat.READONLY_V2, 2, 10, null },
+
+                // Replication factor 2, 10 nodes, complex partition assignment
+                { new BinarySearchStrategy(),        ReadOnlyStorageFormat.READONLY_V0, 2, 10, complexPartitionMap },
+                { new InterpolationSearchStrategy(), ReadOnlyStorageFormat.READONLY_V0, 2, 10, complexPartitionMap },
+                { new BinarySearchStrategy(),        ReadOnlyStorageFormat.READONLY_V1, 2, 10, complexPartitionMap },
+                { new InterpolationSearchStrategy(), ReadOnlyStorageFormat.READONLY_V1, 2, 10, complexPartitionMap },
+                { new BinarySearchStrategy(),        ReadOnlyStorageFormat.READONLY_V2, 2, 10, complexPartitionMap },
+                { new InterpolationSearchStrategy(), ReadOnlyStorageFormat.READONLY_V2, 2, 10, complexPartitionMap }
+        });
     }
 
     private File dir;
@@ -77,24 +111,43 @@ public class ReadOnlyStorageEngineTest {
     private Node node;
     private RoutingStrategy routingStrategy;
     private ReadOnlyStorageFormat storageType;
-    private int indexEntrySize;
+    private int indexEntrySize, replicationFactor, numberOfNodes;
+    private int[][] partitionMap;
 
-    public ReadOnlyStorageEngineTest(SearchStrategy strategy, ReadOnlyStorageFormat storageType) {
+    public ReadOnlyStorageEngineTest(SearchStrategy strategy,
+                                     ReadOnlyStorageFormat storageType,
+                                     int replicationFactor,
+                                     int numberOfNodes,
+                                     int[][] partitionMap) {
         this.strategy = strategy;
+        this.replicationFactor = replicationFactor;
+        this.numberOfNodes = numberOfNodes;
         this.dir = TestUtils.createTempDir();
+        logger.info("temp dir: " + dir);
         this.serDef = new SerializerDefinition("json", "'string'");
         this.lzfSerDef = new SerializerDefinition("json",
                                                   ImmutableMap.of(0, "'string'"),
                                                   true,
                                                   new Compression("lzf", null));
         this.storeDef = ServerTestUtils.getStoreDef("test",
-                                                    1,
+                                                    replicationFactor,
                                                     1,
                                                     1,
                                                     1,
                                                     1,
                                                     RoutingStrategyType.CONSISTENT_STRATEGY);
-        Cluster cluster = ServerTestUtils.getLocalCluster(1);
+
+        if (partitionMap == null) {
+            this.partitionMap = new int[numberOfNodes][PARTITIONS_PER_NODE];
+            for (int nodeId = 0; nodeId < numberOfNodes; nodeId++) {
+                for (int partition = 0; partition < PARTITIONS_PER_NODE; partition++) {
+                    this.partitionMap[nodeId][partition] = nodeId + numberOfNodes * partition;
+                }
+            }
+        } else {
+            this.partitionMap = partitionMap;
+        }
+        Cluster cluster = ServerTestUtils.getLocalCluster(numberOfNodes, this.partitionMap);
         this.node = cluster.getNodeById(0);
         this.storageType = storageType;
 
@@ -126,17 +179,9 @@ public class ReadOnlyStorageEngineTest {
      * For each key/value pair we built into the store, look it up and test that
      * the correct value is returned
      */
-    @Test
-    public void canGetGoodValues() throws Exception {
-        ReadOnlyStorageEngineTestInstance testData = ReadOnlyStorageEngineTestInstance.create(strategy,
-                                                                                              dir,
-                                                                                              TEST_SIZE,
-                                                                                              2,
-                                                                                              2,
-                                                                                              serDef,
-                                                                                              serDef,
-                                                                                              storageType);
+    private void canGetGoodRecords(ReadOnlyStorageEngineTestInstance testData) throws Exception {
         // run test multiple times to check caching
+        // ^ What's the point of doing this? - FGV
         for(int i = 0; i < 3; i++) {
             for(Map.Entry<String, String> entry: testData.getData().entrySet()) {
                 for(Node node: testData.routeRequest(entry.getKey())) {
@@ -144,7 +189,7 @@ public class ReadOnlyStorageEngineTest {
                                                                   .get(node.getId());
                     List<Versioned<String>> found = store.get(entry.getKey(), null);
                     assertEquals("Lookup failure for '" + entry.getKey() + "' on iteration " + i
-                                 + " for node " + node.getId() + ".", 1, found.size());
+                                         + " for node " + node.getId() + ".", 1, found.size());
                     Versioned<String> obj = found.get(0);
                     assertEquals(entry.getValue(), obj.getValue());
                 }
@@ -152,62 +197,54 @@ public class ReadOnlyStorageEngineTest {
         }
 
         testData.delete();
+    }
+
+    @Test
+    public void canGetGoodValues() throws Exception {
+        ReadOnlyStorageEngineTestInstance testData = ReadOnlyStorageEngineTestInstance.create(strategy,
+                                                                                              dir,
+                                                                                              TOTAL_NUMBER_OF_RECORDS,
+                                                                                              numberOfNodes,
+                                                                                              replicationFactor,
+                                                                                              serDef,
+                                                                                              serDef,
+                                                                                              storageType,
+                                                                                              partitionMap);
+        canGetGoodRecords(testData);
     }
 
     @Test
     public void canGetGoodCompressedValues() throws Exception {
         ReadOnlyStorageEngineTestInstance testData = ReadOnlyStorageEngineTestInstance.create(strategy,
                                                                                               dir,
-                                                                                              TEST_SIZE,
-                                                                                              2,
-                                                                                              2,
+                                                                                              TOTAL_NUMBER_OF_RECORDS,
+                                                                                              numberOfNodes,
+                                                                                              replicationFactor,
                                                                                               serDef,
                                                                                               lzfSerDef,
-                                                                                              storageType);
-        // run test multiple times to check caching
-        for(int i = 0; i < 3; i++) {
-            for(Map.Entry<String, String> entry: testData.getData().entrySet()) {
-                for(Node node: testData.routeRequest(entry.getKey())) {
-                    Store<String, String, String> store = testData.getNodeStores()
-                                                                  .get(node.getId());
-                    List<Versioned<String>> found = store.get(entry.getKey(), null);
-                    assertEquals("Lookup failure for '" + entry.getKey() + "' on iteration " + i
-                                 + " for node " + node.getId() + ".", 1, found.size());
-                    Versioned<String> obj = found.get(0);
-                    assertEquals(entry.getValue(), obj.getValue());
-                }
-            }
-        }
-
-        testData.delete();
+                                                                                              storageType,
+                                                                                              partitionMap);
+        canGetGoodRecords(testData);
     }
 
+    /**
+     * Disabled because Voldemort Build and Push does not support building stores with compressed keys.
+     *
+     * This test can be re-enabled if support is added later.
+     */
     @Test
+    @Ignore
     public void canGetGoodCompressedKeys() throws Exception {
         ReadOnlyStorageEngineTestInstance testData = ReadOnlyStorageEngineTestInstance.create(strategy,
                                                                                               dir,
-                                                                                              TEST_SIZE,
-                                                                                              2,
-                                                                                              2,
+                                                                                              TOTAL_NUMBER_OF_RECORDS,
+                                                                                              numberOfNodes,
+                                                                                              replicationFactor,
                                                                                               lzfSerDef,
                                                                                               serDef,
-                                                                                              storageType);
-        // run test multiple times to check caching
-        for(int i = 0; i < 3; i++) {
-            for(Map.Entry<String, String> entry: testData.getData().entrySet()) {
-                for(Node node: testData.routeRequest(entry.getKey())) {
-                    Store<String, String, String> store = testData.getNodeStores()
-                                                                  .get(node.getId());
-                    List<Versioned<String>> found = store.get(entry.getKey(), null);
-                    assertEquals("Lookup failure for '" + entry.getKey() + "' on iteration " + i
-                                 + " for node " + node.getId() + ".", 1, found.size());
-                    Versioned<String> obj = found.get(0);
-                    assertEquals(entry.getValue(), obj.getValue());
-                }
-            }
-        }
-
-        testData.delete();
+                                                                                              storageType,
+                                                                                              partitionMap);
+        canGetGoodRecords(testData);
     }
 
     /**
@@ -217,15 +254,16 @@ public class ReadOnlyStorageEngineTest {
     public void cantGetBadValues() throws Exception {
         ReadOnlyStorageEngineTestInstance testData = ReadOnlyStorageEngineTestInstance.create(strategy,
                                                                                               dir,
-                                                                                              TEST_SIZE,
-                                                                                              2,
-                                                                                              2,
+                                                                                              TOTAL_NUMBER_OF_RECORDS,
+                                                                                              numberOfNodes,
+                                                                                              replicationFactor,
                                                                                               serDef,
                                                                                               serDef,
-                                                                                              storageType);
+                                                                                              storageType,
+                                                                                              partitionMap);
         // run test multiple times to check caching
         for(int i = 0; i < 3; i++) {
-            for(int j = 0; j < TEST_SIZE; j++) {
+            for(int j = 0; j < TOTAL_NUMBER_OF_RECORDS; j++) {
                 String key = TestUtils.randomLetters(10);
                 if(!testData.getData().containsKey(key)) {
                     for(int k = 0; k < testData.getNodeStores().size(); k++)
@@ -242,12 +280,13 @@ public class ReadOnlyStorageEngineTest {
     public void canMultigetGoodValues() throws Exception {
         ReadOnlyStorageEngineTestInstance testData = ReadOnlyStorageEngineTestInstance.create(strategy,
                                                                                               dir,
-                                                                                              TEST_SIZE,
-                                                                                              2,
-                                                                                              2,
+                                                                                              TOTAL_NUMBER_OF_RECORDS,
+                                                                                              numberOfNodes,
+                                                                                              replicationFactor,
                                                                                               serDef,
                                                                                               serDef,
-                                                                                              storageType);
+                                                                                              storageType,
+                                                                                              partitionMap);
         Set<String> keys = testData.getData().keySet();
         Set<String> gotten = new HashSet<String>();
         for(Map.Entry<Integer, Store<String, String, String>> entry: testData.getNodeStores()
@@ -503,12 +542,13 @@ public class ReadOnlyStorageEngineTest {
 
         ReadOnlyStorageEngineTestInstance testData = ReadOnlyStorageEngineTestInstance.create(strategy,
                                                                                               dir,
-                                                                                              TEST_SIZE,
-                                                                                              2,
-                                                                                              2,
+                                                                                              TOTAL_NUMBER_OF_RECORDS,
+                                                                                              numberOfNodes,
+                                                                                              replicationFactor,
                                                                                               serDef,
                                                                                               serDef,
-                                                                                              storageType);
+                                                                                              storageType,
+                                                                                              partitionMap);
 
         for(Map.Entry<Integer, ReadOnlyStorageEngine> engine: testData.getReadOnlyStores()
                                                                       .entrySet()) {
@@ -554,12 +594,13 @@ public class ReadOnlyStorageEngineTest {
     public void testIteration() throws Exception {
         ReadOnlyStorageEngineTestInstance testData = ReadOnlyStorageEngineTestInstance.create(strategy,
                                                                                               dir,
-                                                                                              TEST_SIZE,
-                                                                                              10,
-                                                                                              3,
+                                                                                              TOTAL_NUMBER_OF_RECORDS,
+                                                                                              numberOfNodes,
+                                                                                              replicationFactor,
                                                                                               serDef,
                                                                                               serDef,
-                                                                                              storageType);
+                                                                                              storageType,
+                                                                                              partitionMap);
         ListMultimap<Integer, Pair<String, String>> nodeToEntries = ArrayListMultimap.create();
         for(Map.Entry<String, String> entry: testData.getData().entrySet()) {
             for(Node node: testData.routeRequest(entry.getKey())) {

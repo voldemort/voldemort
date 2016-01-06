@@ -351,9 +351,9 @@ public class ChunkedFileSet {
 
                     int correctReplicaType = getReplicaTypeForPartition(masterPartitionId);
                     if (correctReplicaType == -1) {
-                        // Then the partitionId currently being iterated on does not belong on this
-                        // node at all (i.e.: we host none of its replicas), so we skip to the next one.
-                        break;
+                        // Then the masterPartitionId currently being iterated on does not belong on this
+                        // node at all (i.e.: we host none of its replicas), so we skip to the next partition.
+                        continue;
                     }
 
                     renameReadOnlyV2Files(masterPartitionId, correctReplicaType);
@@ -563,11 +563,11 @@ public class ChunkedFileSet {
      * 
      * @param key Byte array of keys
      * @return Chunk id
+     * @throws IllegalStateException if unable to find the chunk id for the given key
      */
-    public int getChunkForKey(byte[] key) {
+    public int getChunkForKey(byte[] key) throws IllegalStateException {
         if(numChunks == 0) {
-            // The ChunkedFileSet is closed
-            return -1;
+            throw new IllegalStateException("The ChunkedFileSet is closed.");
         }
 
         switch(storageFormat) {
@@ -576,13 +576,13 @@ public class ChunkedFileSet {
             }
             case READONLY_V1: {
                 if(nodePartitionIds == null) {
-                    return -1;
+                    throw new IllegalStateException("nodePartitionIds is null.");
                 }
                 List<Integer> routingPartitionList = routingStrategy.getPartitionList(key);
                 routingPartitionList.retainAll(nodePartitionIds);
 
                 if(routingPartitionList.size() != 1) {
-                    return -1;
+                    throw new IllegalStateException("The key does not belong on this node.");
                 }
 
                 return chunkIdToChunkStart.get(routingPartitionList.get(0))
@@ -595,25 +595,31 @@ public class ChunkedFileSet {
                 Pair<Integer, Integer> bucket = null;
                 for(int replicaType = 0; replicaType < routingPartitionList.size(); replicaType++) {
                     if(nodePartitionIds == null) {
-                        return -1;
+                        throw new IllegalStateException("nodePartitionIds is null.");
                     }
                     if(nodePartitionIds.contains(routingPartitionList.get(replicaType))) {
                         if(bucket == null) {
                             bucket = Pair.create(routingPartitionList.get(0), replicaType);
                         } else {
-                            return -1;
+                            throw new IllegalStateException("Found more than one replica for a given partition on the current node!");
                         }
                     }
                 }
 
-                if(bucket == null)
-                    return -1;
+                if(bucket == null) {
+                    throw new IllegalStateException("The key does not belong on this node.");
+                }
 
-                return chunkIdToChunkStart.get(bucket)
-                       + ReadOnlyUtils.chunk(ByteUtils.md5(key), chunkIdToNumChunks.get(bucket));
+                Integer chunkStart = chunkIdToChunkStart.get(bucket);
+
+                if (chunkStart == null) {
+                    throw new IllegalStateException("chunkStart is null.");
+                }
+
+                return chunkStart + ReadOnlyUtils.chunk(ByteUtils.md5(key), chunkIdToNumChunks.get(bucket));
             }
             default: {
-                return -1;
+                throw new IllegalStateException("Unsupported storageFormat: " + storageFormat);
             }
         }
 
