@@ -36,6 +36,7 @@ import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
 
 import org.apache.avro.Schema;
 import org.apache.avro.mapred.AvroInputFormat;
@@ -48,7 +49,6 @@ import org.apache.log4j.Logger;
 import voldemort.VoldemortException;
 import voldemort.client.ClientConfig;
 import voldemort.client.protocol.admin.AdminClient;
-import voldemort.client.protocol.admin.AdminClientConfig;
 import voldemort.client.protocol.pb.VAdminProto;
 import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
@@ -190,7 +190,9 @@ public class VoldemortBuildAndPushJob extends AbstractJob {
         for(String url: Utils.COMMA_SEP.split(clusterUrlText.trim())) {
             if(url.trim().length() > 0) {
                 this.clusterURLs.add(url);
-                AdminClient adminClient = new AdminClient(url, new AdminClientConfig(), new ClientConfig());
+                AdminClient adminClient = new AdminClient(new ClientConfig().setBootstrapUrls(url)
+                                                                            .setConnectionTimeout(15,
+                                                                                                  TimeUnit.SECONDS));
                 this.adminClientPerCluster.put(url, adminClient);
                 this.closeables.add(adminClient);
             }

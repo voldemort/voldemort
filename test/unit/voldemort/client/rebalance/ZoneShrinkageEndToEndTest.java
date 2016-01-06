@@ -37,10 +37,8 @@ import voldemort.ClusterTestUtils;
 import voldemort.ServerTestUtils;
 import voldemort.TestUtils;
 import voldemort.VoldemortAdminTool;
-import voldemort.client.ClientConfig;
 import voldemort.client.ClientTrafficGenerator;
 import voldemort.client.protocol.admin.AdminClient;
-import voldemort.client.protocol.admin.AdminClientConfig;
 import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
 import voldemort.routing.ConsistentRoutingStrategy;
@@ -336,10 +334,7 @@ public class ZoneShrinkageEndToEndTest {
         logger.info("        UPDATING BOTH XML      ");
         logger.info("-------------------------------");
 
-        // get admin client
-        AdminClientConfig adminClientConfig = new AdminClientConfig();
-        ClientConfig clientConfigForAdminClient = new ClientConfig();
-        adminClient = new AdminClient(bootstrapURL, adminClientConfig, clientConfigForAdminClient);
+        adminClient = new AdminClient(bootstrapURL);
 
         // set stores metadata (simulating admin tools)
         String validatedStoresXML = storeDefinitionsMapper.writeStoreList(storeDefinitionsMapper.readStoreList(new StringReader(finalStoresXML)));

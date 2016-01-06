@@ -89,8 +89,7 @@ public class ExceededQuotaSlopTest {
         Properties adminProperties = new Properties();
         adminProperties.setProperty("max_connections", "2");
         adminClient = new AdminClient(cluster,
-                                      new AdminClientConfig(adminProperties),
-                                      new ClientConfig());
+                                      new AdminClientConfig().setMaxConnectionsPerNode(2));
 
         Map<Pair<Integer, QuotaType>, Integer> throughPutMap = new HashMap<Pair<Integer, QuotaType>, Integer>();
         // Set Node0 Quota

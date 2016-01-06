@@ -18,7 +18,6 @@ import org.junit.Test;
 
 import voldemort.ServerTestUtils;
 import voldemort.client.protocol.admin.AdminClient;
-import voldemort.client.protocol.admin.AdminClientConfig;
 import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
 import voldemort.server.VoldemortConfig;
@@ -218,9 +217,7 @@ public class ReplaceNodeTest {
 
     private void verifyNewNodePartOfCluster(Node replacementNode) {
         // Verify if new node is part of the new cluster.
-        Cluster cluster = new AdminClient(originalBootstrapUrl,
-                                          new AdminClientConfig(),
-                                          new ClientConfig()).getAdminClientCluster();
+        Cluster cluster = new AdminClient(originalBootstrapUrl).getAdminClientCluster();
 
         boolean isNewNodePresent = false;
         for(Node curNode: cluster.getNodes()) {

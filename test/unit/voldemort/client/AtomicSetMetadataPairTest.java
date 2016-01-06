@@ -36,7 +36,6 @@ import voldemort.ServerTestUtils;
 import voldemort.TestUtils;
 import voldemort.VoldemortAdminTool;
 import voldemort.client.protocol.admin.AdminClient;
-import voldemort.client.protocol.admin.AdminClientConfig;
 import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
 import voldemort.server.VoldemortServer;
@@ -143,9 +142,7 @@ public class AtomicSetMetadataPairTest {
     public void testClusterAndStoresAreSetAtomically() {
         try {
 
-            AdminClient adminClient = new AdminClient(bootStrapUrls[0],
-                                                      new AdminClientConfig(),
-                                                      new ClientConfig());
+            AdminClient adminClient = new AdminClient(bootStrapUrls[0]);
 
             StoreDefinitionsMapper storeDefsMapper = new StoreDefinitionsMapper();
             List<StoreDefinition> storeDefs = storeDefsMapper.readStoreList(new File(newStoresXmlfile));

@@ -35,7 +35,6 @@ import java.util.concurrent.TimeUnit;
 import org.apache.log4j.Logger;
 
 import voldemort.VoldemortException;
-import voldemort.client.ClientConfig;
 import voldemort.client.protocol.RequestFormatType;
 import voldemort.client.protocol.pb.ProtoUtils;
 import voldemort.client.protocol.pb.VAdminProto;
@@ -102,7 +101,7 @@ public class BaseStreamingClient {
     protected EventThrottler throttler;
 
     protected AdminClient adminClient;
-    private AdminClientConfig adminClientConfig;
+    private final AdminClientConfig adminClientConfig = new AdminClientConfig();
 
     String bootstrapURL;
 
@@ -137,8 +136,7 @@ public class BaseStreamingClient {
         THROTTLE_QPS = config.getThrottleQPS();
         this.overWriteIfLatestTs = config.isOverWriteIfLatestTs();
 
-        adminClientConfig = new AdminClientConfig();
-        adminClient = new AdminClient(bootstrapURL, adminClientConfig, new ClientConfig());
+        adminClient = new AdminClient(bootstrapURL);
         faultyNodes = new ArrayList<Integer>();
         storeNames = new ArrayList<String>();
         nodesToStream = new ArrayList<Node>();

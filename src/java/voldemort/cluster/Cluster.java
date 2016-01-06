@@ -334,6 +334,22 @@ public class Cluster implements Serializable {
          */
     }
 
+    public List<String> getBootStrapUrls() {
+        return getBootStrapUrls(5);
+    }
+
+    public List<String> getBootStrapUrls(int maxSize) {
+        List<String> bootStrapUrls = new ArrayList<String>();
+        for(Node node: getNodes()) {
+            if(bootStrapUrls.size() >= maxSize) {
+                break;
+            }
+            String bootStrapUrl = node.getSocketUrl().toString();
+            bootStrapUrls.add(bootStrapUrl);
+        }
+        return bootStrapUrls;
+    }
+
     @Override
     public boolean equals(Object second) {
         if(this == second)

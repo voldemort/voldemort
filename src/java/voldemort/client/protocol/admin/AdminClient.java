@@ -166,11 +166,11 @@ public class AdminClient implements Closeable {
     private final AdminStoreClient adminStoreClient;
     private final NetworkClassLoader networkClassLoader;
     private final AdminClientConfig adminClientConfig;
+    private final String debugInfo;
     private Cluster currentCluster;
     private SystemStoreClient<String, String> metadataVersionSysStoreClient = null;
     private SystemStoreClient<String, String> quotaSysStoreClient = null;
     private SystemStoreClientFactory<String, String> systemStoreFactory = null;
-    private String mainBootstrapUrl = null;
 
     final public AdminClient.HelperOperations helperOps;
     final public AdminClient.ReplicationOperations replicaOps;
@@ -195,7 +195,17 @@ public class AdminClient implements Closeable {
      *        ClientRequestExecutorPool-based operations via the (private)
      *        AdminStoreClient.
      */
-    private AdminClient(AdminClientConfig adminClientConfig, ClientConfig clientConfig) {
+    private AdminClient(AdminClientConfig adminClientConfig,
+                        ClientConfig clientConfig,
+                        Cluster cluster) {
+        Utils.notNull(adminClientConfig);
+        Utils.notNull(clientConfig);
+
+        if(clientConfig.getBootstrapUrls().length == 0) {
+            throw new IllegalArgumentException("Client config does not have valid bootstrapUrls");
+        }
+        debugInfo = "AdminClient with BootStrapUrls: "
+                    + Arrays.toString(clientConfig.getBootstrapUrls());
         this.helperOps = this.new HelperOperations();
         this.replicaOps = this.new ReplicationOperations();
         this.rpcOps = this.new RPCOperations();
@@ -217,34 +227,36 @@ public class AdminClient implements Closeable {
         this.adminClientConfig = adminClientConfig;
         this.socketPool = helperOps.createSocketPool(adminClientConfig);
         this.adminStoreClient = new AdminStoreClient(clientConfig);
-        try {
-            if(clientConfig.getBootstrapUrls().length > 0) {
-                this.mainBootstrapUrl = clientConfig.getBootstrapUrls()[0];
-            }
-        } catch(IllegalStateException e) {}
+
+        if(cluster != null) {
+            this.currentCluster = cluster;
+        } else {
+            this.currentCluster = getClusterFromBootstrapURL(clientConfig);
+        }
+
+        Utils.notNull(this.currentCluster);
+        helperOps.initSystemStoreClient(clientConfig);
+
     }
 
-    /**
-     * Create an instance of AdminClient given a URL of a node in the cluster.
-     * The bootstrap URL is used to get the cluster metadata.
-     * 
-     * @param bootstrapURL URL pointing to the bootstrap node
-     * @param adminClientConfig Configuration for AdminClient specifying client
-     *        parameters eg. <br>
-     *        <ul>
-     *        <t>
-     *        <li>number of threads</li>
-     *        <li>number of sockets per node</li>
-     *        <li>socket buffer size</li>
-     *        </ul>
-     */
-    public AdminClient(String bootstrapURL,
-                       AdminClientConfig adminClientConfig,
-                       ClientConfig clientConfig) {
-        this(adminClientConfig, clientConfig);
-        this.mainBootstrapUrl = bootstrapURL;
-        this.currentCluster = helperOps.getClusterFromBootstrapURL(bootstrapURL);
-        helperOps.initSystemStoreClient(this.mainBootstrapUrl, Zone.UNSET_ZONE_ID);
+    public AdminClient(String bootstrapURL) {
+        this(new ClientConfig().setBootstrapUrls(bootstrapURL));
+    }
+
+    public AdminClient(Cluster cluster) {
+        this(cluster, new AdminClientConfig());
+    }
+
+    public AdminClient(ClientConfig clientConfig) {
+        this(new AdminClientConfig(), clientConfig);
+    }
+
+    public AdminClient(Cluster cluster, AdminClientConfig config) {
+        this(config, new ClientConfig().setBootstrapUrls(cluster.getBootStrapUrls()), cluster);
+    }
+
+    public AdminClient(AdminClientConfig adminConfig, ClientConfig clientConfig) {
+        this(adminConfig, clientConfig, null);
     }
 
     /**
@@ -264,38 +276,12 @@ public class AdminClient implements Closeable {
     public AdminClient(Cluster cluster,
                        AdminClientConfig adminClientConfig,
                        ClientConfig clientConfig) {
-        this(adminClientConfig, clientConfig);
-        this.mainBootstrapUrl = cluster.getNodes().iterator().next().getSocketUrl().toString();
-        this.currentCluster = cluster;
-        helperOps.initSystemStoreClient(mainBootstrapUrl, Zone.UNSET_ZONE_ID);
-    }
-
-    /**
-     * Wrapper for the actual AdminClient constructor given the URL of a node in
-     * the cluster.
-     * 
-     * @param bootstrapURL URL pointing to the bootstrap node
-     * @param adminClientConfig Configuration for AdminClient specifying client
-     *        parameters eg. <br>
-     *        <ul>
-     *        <t>
-     *        <li>number of threads</li>
-     *        <li>number of sockets per node</li>
-     *        <li>socket buffer size</li>
-     *        </ul>
-     * @param zoneID The primary Zone ID for the purpose of the SystemStore
-     */
-    public AdminClient(String bootstrapURL,
-                       AdminClientConfig adminClientConfig,
-                       ClientConfig clientConfig,
-                       int zoneID) {
-        this(bootstrapURL, adminClientConfig, clientConfig);
-        helperOps.initSystemStoreClient(bootstrapURL, zoneID);
+        this(adminClientConfig, clientConfig, cluster);
     }
 
     @Override
     public String toString() {
-        return "AdminClient with mainBootstrapUrl: " + this.mainBootstrapUrl;
+        return debugInfo;
     }
 
     /**
@@ -346,7 +332,18 @@ public class AdminClient implements Closeable {
                                                           .setAdminSocketTimeoutSec(voldemortConfig.getAdminSocketTimeout())
                                                           .setAdminSocketBufferSize(voldemortConfig.getAdminSocketBufferSize());
 
-        return new AdminClient(cluster, config, new ClientConfig());
+        return new AdminClient(cluster, config);
+    }
+
+    private static Cluster getClusterFromBootstrapURL(ClientConfig config) {
+        SocketStoreClientFactory factory = new SocketStoreClientFactory(config);
+        // get Cluster from bootStrapUrl
+        String clusterXml = factory.bootstrapMetadataWithRetries(MetadataStore.CLUSTER_KEY,
+                                                                 factory.validateUrls(config.getBootstrapUrls()));
+        // release all threads/sockets hold by the factory.
+        factory.close();
+
+        return clusterMapper.readCluster(new StringReader(clusterXml), false);
     }
 
     /**
@@ -365,16 +362,12 @@ public class AdminClient implements Closeable {
          * 
          * 2) quota store
          */
-        private void initSystemStoreClient(String bootstrapURL, int zoneId) {
+        private void initSystemStoreClient(ClientConfig clientConfig) {
 
-            String[] bootstrapUrls = new String[1];
-            bootstrapUrls[0] = bootstrapURL;
-
+            String originalIdString = null;
             try {
                 if(systemStoreFactory == null) {
-                    ClientConfig clientConfig = new ClientConfig();
-                    clientConfig.setBootstrapUrls(bootstrapUrls);
-                    clientConfig.setClientZoneId(zoneId);
+                    originalIdString = clientConfig.getIdentifierString();
                     clientConfig.setIdentifierString("admin");
                     systemStoreFactory = new SystemStoreClientFactory<String, String>(clientConfig);
                 }
@@ -387,24 +380,17 @@ public class AdminClient implements Closeable {
                                                                            null,
                                                                            null);
             } catch(Exception e) {
-                logger.debug("Error while creating a system store client for metadata version store/quota store.");
+                logger.info("Error while creating a system store client for metadata version store/quota store.",
+                            e);
+            } finally {
+                if(originalIdString != null) {
+                    clientConfig.setIdentifierString(originalIdString);
+                }
             }
 
         }
 
-        private Cluster getClusterFromBootstrapURL(String bootstrapURL) {
-            ClientConfig config = new ClientConfig();
-            // try to bootstrap metadata from bootstrapUrl
-            config.setBootstrapUrls(bootstrapURL);
-            SocketStoreClientFactory factory = new SocketStoreClientFactory(config);
-            // get Cluster from bootStrapUrl
-            String clusterXml = factory.bootstrapMetadataWithRetries(MetadataStore.CLUSTER_KEY,
-                                                                     factory.validateUrls(config.getBootstrapUrls()));
-            // release all threads/sockets hold by the factory.
-            factory.close();
 
-            return clusterMapper.readCluster(new StringReader(clusterXml), false);
-        }
 
         private SocketPool createSocketPool(AdminClientConfig config) {
             TimeUnit unit = TimeUnit.SECONDS;
@@ -3948,9 +3934,7 @@ public class AdminClient implements Closeable {
                                final int nodeIdToMirrorFrom,
                                final String urlToMirrorFrom,
                                List<String> stores) {
-            final AdminClient mirrorAdminClient = new AdminClient(urlToMirrorFrom,
-                                                                  new AdminClientConfig(),
-                                                                  new ClientConfig());
+            final AdminClient mirrorAdminClient = new AdminClient(urlToMirrorFrom);
             final AdminClient currentAdminClient = AdminClient.this;
 
             // determine the partitions residing on the mirror node

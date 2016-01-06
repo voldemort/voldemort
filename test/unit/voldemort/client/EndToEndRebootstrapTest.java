@@ -35,7 +35,6 @@ import voldemort.ServerTestUtils;
 import voldemort.VoldemortAdminTool;
 import voldemort.VoldemortException;
 import voldemort.client.protocol.admin.AdminClient;
-import voldemort.client.protocol.admin.AdminClientConfig;
 import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
 import voldemort.common.service.SchedulerService;
@@ -184,10 +183,9 @@ public class EndToEndRebootstrapTest {
             // Get bootstraptime at start
             String bootstrapTime = getPropertyFromClientInfo("bootstrapTime");
             // Update cluster.xml metadata
-            AdminClient adminClient = new AdminClient(bootStrapUrls[0],
-                                                      new AdminClientConfig(),
-                                                      new ClientConfig(),
-                                                      CLIENT_ZONE_ID);
+            ClientConfig clientConfig = new ClientConfig().setBootstrapUrls(bootStrapUrls)
+                                                          .setClientZoneId(CLIENT_ZONE_ID);
+            AdminClient adminClient = new AdminClient(clientConfig);
             for(Node node: cluster.getNodes()) {
                 VoldemortAdminTool.executeSetMetadata(node.getId(),
                                                       adminClient,
@@ -228,10 +226,10 @@ public class EndToEndRebootstrapTest {
             // Get bootstraptime at start
             String bootstrapTime = getPropertyFromClientInfo("bootstrapTime");
             // Update cluster.xml metadata
-            AdminClient adminClient = new AdminClient(bootStrapUrls[0],
-                                                      new AdminClientConfig(),
-                                                      new ClientConfig(),
-                                                      CLIENT_ZONE_ID);
+            ClientConfig clientConfig = new ClientConfig().setBootstrapUrls(bootStrapUrls)
+                                                          .setClientZoneId(CLIENT_ZONE_ID);
+
+            AdminClient adminClient = new AdminClient(clientConfig);
             StoreDefinitionsMapper storeDefsMapper = new StoreDefinitionsMapper();
             List<StoreDefinition> storeDefs = storeDefsMapper.readStoreList(new File(storesXmlfile));
             for (Node node: cluster.getNodes()) {

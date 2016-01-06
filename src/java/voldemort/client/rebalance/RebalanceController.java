@@ -27,9 +27,7 @@ import java.util.concurrent.TimeUnit;
 import org.apache.log4j.Logger;
 
 import voldemort.VoldemortException;
-import voldemort.client.ClientConfig;
 import voldemort.client.protocol.admin.AdminClient;
-import voldemort.client.protocol.admin.AdminClientConfig;
 import voldemort.client.rebalance.task.RebalanceTask;
 import voldemort.client.rebalance.task.StealerBasedRebalanceTask;
 import voldemort.cluster.Cluster;
@@ -66,9 +64,7 @@ public class RebalanceController {
     public RebalanceController(String bootstrapUrl,
                                int maxParallelRebalancing,
                                long proxyPauseSec) {
-        this.adminClient = new AdminClient(bootstrapUrl,
-                                           new AdminClientConfig(),
-                                           new ClientConfig());
+        this.adminClient = new AdminClient(bootstrapUrl);
         Pair<Cluster, List<StoreDefinition>> pair = getCurrentClusterState();
         this.currentCluster = pair.getFirst();
         this.currentStoreDefs = pair.getSecond();

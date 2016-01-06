@@ -18,9 +18,7 @@ import joptsimple.OptionSet;
 import org.apache.log4j.Logger;
 
 import voldemort.VoldemortApplicationException;
-import voldemort.client.ClientConfig;
 import voldemort.client.protocol.admin.AdminClient;
-import voldemort.client.protocol.admin.AdminClientConfig;
 import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
 import voldemort.cluster.Zone;
@@ -71,10 +69,8 @@ public class ReplaceNodeCLI {
     }
 
     private void init() {
-        this.adminClient = new AdminClient(this.url, new AdminClientConfig(), new ClientConfig());
-        this.newAdminClient = new AdminClient(this.newUrl,
-                                              new AdminClientConfig(),
-                                              new ClientConfig());
+        this.adminClient = new AdminClient(this.url);
+        this.newAdminClient = new AdminClient(this.newUrl);
 
         this.cluster = adminClient.getAdminClientCluster();
         this.newCluster = newAdminClient.getAdminClientCluster();

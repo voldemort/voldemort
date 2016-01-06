@@ -16,7 +16,6 @@ import voldemort.client.SocketStoreClientFactory;
 import voldemort.client.StoreClientFactory;
 import voldemort.client.protocol.RequestFormatType;
 import voldemort.client.protocol.admin.AdminClient;
-import voldemort.client.protocol.admin.AdminClientConfig;
 import voldemort.store.StoreDefinition;
 import voldemort.utils.Pair;
 import voldemort.utils.Utils;
@@ -104,7 +103,7 @@ public class VoldemortAvroClientShell {
 
         AdminClient adminClient = null;
         try {
-            adminClient = new AdminClient(url, new AdminClientConfig(), new ClientConfig());
+            adminClient = new AdminClient(url);
             List<StoreDefinition> storeDefs = adminClient.metadataMgmtOps.getRemoteStoreDefList()
                                                                          .getValue();
 

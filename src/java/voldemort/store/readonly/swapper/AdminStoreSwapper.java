@@ -1,25 +1,5 @@
 package voldemort.store.readonly.swapper;
 
-import com.google.common.base.Joiner;
-import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Maps;
-import joptsimple.OptionParser;
-import joptsimple.OptionSet;
-import org.apache.commons.io.FileUtils;
-import org.apache.log4j.Logger;
-import voldemort.VoldemortException;
-import voldemort.client.ClientConfig;
-import voldemort.client.protocol.admin.AdminClient;
-import voldemort.client.protocol.admin.AdminClientConfig;
-import voldemort.cluster.Cluster;
-import voldemort.cluster.Node;
-import voldemort.store.quota.QuotaExceededException;
-import voldemort.store.readonly.ReadOnlyUtils;
-import voldemort.utils.CmdUtils;
-import voldemort.utils.Time;
-import voldemort.utils.logging.PrefixedLogger;
-import voldemort.xml.ClusterMapper;
-
 import java.io.File;
 import java.io.StringReader;
 import java.util.ArrayList;
@@ -34,6 +14,27 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
+
+import joptsimple.OptionParser;
+import joptsimple.OptionSet;
+
+import org.apache.commons.io.FileUtils;
+import org.apache.log4j.Logger;
+
+import voldemort.VoldemortException;
+import voldemort.client.protocol.admin.AdminClient;
+import voldemort.cluster.Cluster;
+import voldemort.cluster.Node;
+import voldemort.store.quota.QuotaExceededException;
+import voldemort.store.readonly.ReadOnlyUtils;
+import voldemort.utils.CmdUtils;
+import voldemort.utils.Time;
+import voldemort.utils.logging.PrefixedLogger;
+import voldemort.xml.ClusterMapper;
+
+import com.google.common.base.Joiner;
+import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Maps;
 
 public class AdminStoreSwapper {
 
@@ -387,7 +388,7 @@ public class AdminStoreSwapper {
         String clusterStr = FileUtils.readFileToString(new File(clusterXml));
         Cluster cluster = new ClusterMapper().readCluster(new StringReader(clusterStr));
         ExecutorService executor = Executors.newFixedThreadPool(cluster.getNumberOfNodes());
-        AdminClient adminClient = new AdminClient(cluster, new AdminClientConfig(), new ClientConfig());
+        AdminClient adminClient = new AdminClient(cluster);
         AdminStoreSwapper swapper = new AdminStoreSwapper(cluster, executor, adminClient, timeoutMs);
 
         try {

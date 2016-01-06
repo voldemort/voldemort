@@ -45,15 +45,13 @@ import joptsimple.OptionSet;
 import org.apache.commons.codec.DecoderException;
 import org.apache.log4j.Logger;
 
-import voldemort.client.ClientConfig;
 import voldemort.client.protocol.admin.AdminClient;
-import voldemort.client.protocol.admin.AdminClientConfig;
 import voldemort.cluster.Cluster;
 import voldemort.routing.BaseStoreRoutingPlan;
 import voldemort.store.StoreDefinition;
+import voldemort.utils.ByteArray;
 import voldemort.utils.ByteUtils;
 import voldemort.utils.Utils;
-import voldemort.utils.ByteArray;
 import voldemort.versioning.Version;
 import voldemort.versioning.Versioned;
 
@@ -107,9 +105,7 @@ public class KeyVersionFetcherCLI {
         clientProps.put("socket_timeout_ms", "10000");
         clientProps.put("failuredetector_threshold", "10");
 
-        this.adminClient = new AdminClient(url,
-                                           new AdminClientConfig(),
-                                           new ClientConfig(clientProps));
+        this.adminClient = new AdminClient(url);
         this.cluster = adminClient.getAdminClientCluster();
         this.storeDefinitions = adminClient.metadataMgmtOps.getRemoteStoreDefList(cluster.getNodeIds()
                                                                                          .iterator()

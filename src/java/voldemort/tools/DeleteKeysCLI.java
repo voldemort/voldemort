@@ -48,7 +48,6 @@ import voldemort.client.SocketStoreClientFactory;
 import voldemort.client.StoreClient;
 import voldemort.client.protocol.RequestFormatType;
 import voldemort.client.protocol.admin.AdminClient;
-import voldemort.client.protocol.admin.AdminClientConfig;
 import voldemort.cluster.Node;
 import voldemort.cluster.Zone;
 import voldemort.serialization.DefaultSerializerFactory;
@@ -201,7 +200,7 @@ public class DeleteKeysCLI {
             if(adminUrl == null || adminUrl.length() == 0) {
                 throw new Exception("When deleting from a specific node admin URL is expected");
             }
-            adminClient = new AdminClient(adminUrl, new AdminClientConfig(), clientConfig);
+            adminClient = new AdminClient(adminUrl);
         } else {
             adminClient = null;
         }

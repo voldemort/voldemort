@@ -21,9 +21,7 @@ import org.apache.log4j.Logger;
 
 import voldemort.VoldemortApplicationException;
 import voldemort.VoldemortException;
-import voldemort.client.ClientConfig;
 import voldemort.client.protocol.admin.AdminClient;
-import voldemort.client.protocol.admin.AdminClientConfig;
 import voldemort.client.protocol.admin.BaseStreamingClient;
 import voldemort.client.protocol.admin.QueryKeyResult;
 import voldemort.client.protocol.admin.StreamingClientConfig;
@@ -170,9 +168,7 @@ public class ClusterForkLiftTool implements Runnable {
             throw new IllegalArgumentException("One or more stores expected");
         }
         // set up AdminClient on source cluster
-        this.srcAdminClient = new AdminClient(srcBootstrapUrl,
-                                              new AdminClientConfig(),
-                                              new ClientConfig());
+        this.srcAdminClient = new AdminClient(srcBootstrapUrl);
 
         // set up streaming client to the destination cluster
         Props props = new Props();

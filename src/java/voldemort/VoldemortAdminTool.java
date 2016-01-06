@@ -64,9 +64,7 @@ import org.codehaus.jackson.JsonFactory;
 import org.codehaus.jackson.JsonGenerator;
 import org.codehaus.jackson.map.ObjectMapper;
 
-import voldemort.client.ClientConfig;
 import voldemort.client.protocol.admin.AdminClient;
-import voldemort.client.protocol.admin.AdminClientConfig;
 import voldemort.client.protocol.admin.QueryKeyResult;
 import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
@@ -382,9 +380,7 @@ public class VoldemortAdminTool {
             int parallelism = CmdUtils.valueOf(options, "restore", 5);
             Integer zoneId = CmdUtils.valueOf(options, "zone", -1);
 
-            AdminClient adminClient = new AdminClient(url,
-                                                      new AdminClientConfig(),
-                                                      new ClientConfig());
+            AdminClient adminClient = new AdminClient(url);
 
             List<String> storeNames = null;
             if(options.has("store") && options.has("stores")) {

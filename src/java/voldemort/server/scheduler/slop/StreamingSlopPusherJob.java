@@ -32,7 +32,6 @@ import java.util.concurrent.atomic.AtomicLong;
 import org.apache.log4j.Logger;
 
 import voldemort.VoldemortException;
-import voldemort.client.ClientConfig;
 import voldemort.client.protocol.admin.AdminClient;
 import voldemort.client.protocol.admin.AdminClientConfig;
 import voldemort.cluster.Cluster;
@@ -128,8 +127,7 @@ public class StreamingSlopPusherJob extends SlopPusherJob implements Runnable {
 
         if(adminClient == null) {
             adminClient = new AdminClient(cluster,
-                                          new AdminClientConfig().setMaxConnectionsPerNode(1),
-                                          new ClientConfig());
+                                          new AdminClientConfig().setMaxConnectionsPerNode(1));
         }
 
         if(voldemortConfig.getSlopZonesDownToTerminate() > 0) {

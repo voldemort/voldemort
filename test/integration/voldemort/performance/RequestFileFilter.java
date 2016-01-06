@@ -28,9 +28,7 @@ import java.util.Set;
 import joptsimple.OptionParser;
 import joptsimple.OptionSet;
 import voldemort.VoldemortException;
-import voldemort.client.ClientConfig;
 import voldemort.client.protocol.admin.AdminClient;
-import voldemort.client.protocol.admin.AdminClientConfig;
 import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
 import voldemort.routing.RoutingStrategy;
@@ -157,9 +155,7 @@ public class RequestFileFilter {
         String outputFile = (String) options.valueOf("output");
         boolean stringKeys = options.has("string-keys");
 
-        AdminClient adminClient = new AdminClient(bootstrapURL,
-                                                  new AdminClientConfig(),
-                                                  new ClientConfig());
+        AdminClient adminClient = new AdminClient(bootstrapURL);
         List<StoreDefinition> storeDefinitionList = adminClient.metadataMgmtOps.getRemoteStoreDefList(nodeId)
                                                                                .getValue();
 

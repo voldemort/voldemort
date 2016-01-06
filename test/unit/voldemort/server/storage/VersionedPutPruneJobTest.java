@@ -36,7 +36,6 @@ import voldemort.client.SocketStoreClientFactory;
 import voldemort.client.StoreClient;
 import voldemort.client.protocol.RequestFormatType;
 import voldemort.client.protocol.admin.AdminClient;
-import voldemort.client.protocol.admin.AdminClientConfig;
 import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
 import voldemort.routing.BaseStoreRoutingPlan;
@@ -159,7 +158,7 @@ public class VersionedPutPruneJobTest {
         }
 
         // run the prune job
-        AdminClient admin = new AdminClient(cluster, new AdminClientConfig(), new ClientConfig());
+        AdminClient admin = new AdminClient(cluster);
         for(int nodeid = 0; nodeid < servers.length; nodeid++) {
             admin.storeMntOps.pruneJob(nodeid, "test");
         }

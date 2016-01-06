@@ -41,12 +41,10 @@ import org.mortbay.jetty.Server;
 import org.mortbay.jetty.servlet.Context;
 import org.mortbay.jetty.servlet.ServletHolder;
 
-import voldemort.client.ClientConfig;
 import voldemort.client.RoutingTier;
 import voldemort.client.protocol.RequestFormatFactory;
 import voldemort.client.protocol.RequestFormatType;
 import voldemort.client.protocol.admin.AdminClient;
-import voldemort.client.protocol.admin.AdminClientConfig;
 import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
 import voldemort.cluster.Zone;
@@ -1016,14 +1014,11 @@ public class ServerTestUtils {
     }
 
     public static AdminClient getAdminClient(Cluster cluster) {
-
-        AdminClientConfig config = new AdminClientConfig();
-        return new AdminClient(cluster, config, new ClientConfig());
+        return new AdminClient(cluster);
     }
 
     public static AdminClient getAdminClient(String bootstrapURL) {
-        AdminClientConfig config = new AdminClientConfig();
-        return new AdminClient(bootstrapURL, config, new ClientConfig());
+        return new AdminClient(bootstrapURL);
     }
 
     public static RequestHandlerFactory getSocketRequestHandlerFactory(StoreRepository repository) {

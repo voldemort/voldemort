@@ -29,16 +29,13 @@ import joptsimple.OptionSet;
 
 import org.apache.log4j.Logger;
 
-import voldemort.client.ClientConfig;
 import voldemort.client.protocol.admin.AdminClient;
-import voldemort.client.protocol.admin.AdminClientConfig;
 import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
 import voldemort.routing.RoutingStrategy;
 import voldemort.routing.RoutingStrategyFactory;
 import voldemort.store.StoreDefinition;
 import voldemort.store.readonly.ReadOnlyStorageConfiguration;
-import voldemort.store.readonly.ReadOnlyStorageFormat;
 import voldemort.utils.CmdUtils;
 import voldemort.utils.Utils;
 
@@ -299,7 +296,7 @@ public class ReadOnlyReplicationHelperCLI {
         }
         Boolean local = options.has(OPT_LOCAL);
 
-        AdminClient adminClient = new AdminClient(url, new AdminClientConfig(), new ClientConfig());
+        AdminClient adminClient = new AdminClient(url);
 
         outputStream.println("src_host_name,src_node_id,src_rel_path,dest_rel_path");
 

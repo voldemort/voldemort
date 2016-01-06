@@ -20,12 +20,16 @@ import java.io.BufferedReader;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStreamReader;
-import java.util.*;
+import java.util.Collection;
+import java.util.HashMap;
+import java.util.Iterator;
+import java.util.List;
+import java.util.Locale;
+import java.util.Map;
+import java.util.Set;
 
 import voldemort.VoldemortException;
-import voldemort.client.ClientConfig;
 import voldemort.client.protocol.admin.AdminClient;
-import voldemort.client.protocol.admin.AdminClientConfig;
 import voldemort.cluster.Node;
 import voldemort.store.StoreDefinition;
 import voldemort.store.UnreachableStoreException;
@@ -155,7 +159,7 @@ public class AdminToolUtils {
      * @return Newly constructed AdminClient
      */
     public static AdminClient getAdminClient(String url) {
-        return new AdminClient(url, new AdminClientConfig(), new ClientConfig());
+        return new AdminClient(url);
     }
 
     /**

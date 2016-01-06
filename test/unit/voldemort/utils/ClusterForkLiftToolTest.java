@@ -23,7 +23,6 @@ import voldemort.client.SocketStoreClientFactory;
 import voldemort.client.StoreClient;
 import voldemort.client.StoreClientFactory;
 import voldemort.client.protocol.admin.AdminClient;
-import voldemort.client.protocol.admin.AdminClientConfig;
 import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
 import voldemort.routing.StoreRoutingPlan;
@@ -125,10 +124,7 @@ public class ClusterForkLiftToolTest {
                 keyCount++;
             }
 
-            srcAdminClient = new AdminClient(srcCluster,
-                                             new AdminClientConfig(),
-                                             new ClientConfig());
-
+            srcAdminClient = new AdminClient(srcCluster);
             List<StoreDefinition> storeDefs = new StoreDefinitionsMapper().readStoreList(new File(SRC_STORES_XML));
 
             primaryResolvingStoreDef = StoreUtils.getStoreDef(storeDefs,
@@ -412,9 +408,7 @@ public class ClusterForkLiftToolTest {
                                                                    ClusterForkLiftTool.ForkLiftTaskMode.no_resolution);
         forkLiftTool.run();
 
-        AdminClient dstAdminClient = new AdminClient(dstBootStrapUrl,
-                                                     new AdminClientConfig(),
-                                                     new ClientConfig());
+        AdminClient dstAdminClient = new AdminClient(dstBootStrapUrl);
 
         for(Node node: dstAdminClient.getAdminClientCluster().getNodes()) {
 

@@ -16,10 +16,18 @@
 
 package voldemort.store.readonly.mr.azkaban;
 
-import azkaban.jobExecutor.AbstractJob;
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
+
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.mapred.JobConf;
+
 import voldemort.VoldemortException;
 import voldemort.client.ClientConfig;
 import voldemort.client.protocol.admin.AdminClient;
@@ -29,14 +37,7 @@ import voldemort.store.readonly.mr.utils.VoldemortUtils;
 import voldemort.store.readonly.swapper.AdminStoreSwapper;
 import voldemort.store.readonly.swapper.FailedFetchStrategy;
 import voldemort.utils.logging.PrefixedLogger;
-
-import java.io.IOException;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.TimeUnit;
+import azkaban.jobExecutor.AbstractJob;
 
 /*
  * Call voldemort to swap the current store for the specified store
@@ -118,12 +119,15 @@ public class VoldemortSwapJob extends AbstractJob {
                     dataDir, e);
         }
 
+        AdminClientConfig adminConfig = new AdminClientConfig().setMaxConnectionsPerNode(cluster.getNumberOfNodes())
+                                                               .setAdminConnectionTimeoutSec(httpTimeoutMs / 1000)
+                                                               .setMaxBackoffDelayMs(maxBackoffDelayMs);
+
+        ClientConfig clientConfig = new ClientConfig().setBootstrapUrls(cluster.getBootStrapUrls())
+                                                      .setConnectionTimeout(httpTimeoutMs,
+                                                                            TimeUnit.MILLISECONDS);
         // Create admin client
-        AdminClient client = new AdminClient(cluster,
-                                             new AdminClientConfig().setMaxConnectionsPerNode(cluster.getNumberOfNodes())
-                                                                    .setAdminConnectionTimeoutSec(httpTimeoutMs / 1000)
-                                                                    .setMaxBackoffDelayMs(maxBackoffDelayMs),
-                                             new ClientConfig());
+        AdminClient client = new AdminClient(cluster, adminConfig, clientConfig);
 
         if (pushVersion == -1L) {
             // Need to retrieve max version

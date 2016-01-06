@@ -34,10 +34,8 @@ import org.junit.Test;
 
 import voldemort.ServerTestUtils;
 import voldemort.TestUtils;
-import voldemort.client.ClientConfig;
 import voldemort.client.RoutingTier;
 import voldemort.client.protocol.admin.AdminClient;
-import voldemort.client.protocol.admin.AdminClientConfig;
 import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
 import voldemort.server.VoldemortConfig;
@@ -95,7 +93,7 @@ public class MetaOperationsTest {
             vservers.put(node.getId(), vs);
             socketStoreFactories.put(node.getId(), ssf);
         }
-        adminClient = new AdminClient(cluster, new AdminClientConfig(), new ClientConfig());
+        adminClient = new AdminClient(cluster);
     }
 
     @Test

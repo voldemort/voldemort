@@ -27,7 +27,6 @@ import org.junit.Before;
 import org.junit.Test;
 
 import voldemort.ServerTestUtils;
-import voldemort.client.ClientConfig;
 import voldemort.client.protocol.admin.AdminClient;
 import voldemort.client.protocol.admin.AdminClientConfig;
 import voldemort.cluster.Cluster;
@@ -70,9 +69,7 @@ public class ReadOnlyReplicationHelperTest {
 
         Properties adminProperties = new Properties();
         adminProperties.setProperty("max_connections", "20");
-        adminClient = new AdminClient(cluster,
-                                      new AdminClientConfig(adminProperties),
-                                      new ClientConfig());
+        adminClient = new AdminClient(cluster, new AdminClientConfig(adminProperties));
     }
 
     @After

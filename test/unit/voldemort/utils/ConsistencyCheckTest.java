@@ -36,9 +36,7 @@ import org.junit.Before;
 import org.junit.Test;
 
 import voldemort.ServerTestUtils;
-import voldemort.client.ClientConfig;
 import voldemort.client.protocol.admin.AdminClient;
-import voldemort.client.protocol.admin.AdminClientConfig;
 import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
 import voldemort.routing.RoutingStrategy;
@@ -443,9 +441,7 @@ public class ConsistencyCheckTest {
 
         Node node = cluster.getNodeById(0);
         String bootstrapUrl = "tcp://" + node.getHost() + ":" + node.getSocketPort();
-        AdminClient adminClient = new AdminClient(bootstrapUrl,
-                                                  new AdminClientConfig(),
-                                                  new ClientConfig());
+        AdminClient adminClient = new AdminClient(bootstrapUrl);
 
         byte[] value = { 1, 2, 3, 4, 5, 6, 7, 8, 9 };
         byte[] value2 = { 0, 1, 2, 3, 4, 5, 6, 7, 8, 9 };

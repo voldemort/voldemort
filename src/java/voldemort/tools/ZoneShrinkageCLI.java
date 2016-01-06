@@ -30,9 +30,7 @@ import joptsimple.OptionSet;
 
 import org.apache.log4j.Logger;
 
-import voldemort.client.ClientConfig;
 import voldemort.client.protocol.admin.AdminClient;
-import voldemort.client.protocol.admin.AdminClientConfig;
 import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
 import voldemort.store.StoreDefinition;
@@ -106,9 +104,7 @@ public class ZoneShrinkageCLI {
     }
 
     public ZoneShrinkageCLI(String url, Integer droppingZoneId) {
-        AdminClientConfig acc = new AdminClientConfig();
-        ClientConfig cc = new ClientConfig();
-        adminClient = new AdminClient(url, acc, cc);
+        adminClient = new AdminClient(url);
         this.droppingZoneId = droppingZoneId;
         this.bootstrapUrl = url;
     }

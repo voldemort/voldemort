@@ -22,7 +22,6 @@ import org.junit.runners.Parameterized.Parameters;
 import voldemort.ServerTestUtils;
 import voldemort.TestUtils;
 import voldemort.VoldemortTestConstants;
-import voldemort.client.ClientConfig;
 import voldemort.client.protocol.admin.AdminClient;
 import voldemort.client.protocol.admin.AdminClientConfig;
 import voldemort.cluster.Cluster;
@@ -83,8 +82,7 @@ public class SlopPusherDeadSlopTest {
             Properties adminProperties = new Properties();
             adminProperties.setProperty("max_connections", "2");
             adminClient = new AdminClient(servers[0].getMetadataStore().getCluster(),
-                                          new AdminClientConfig(adminProperties),
-                                          new ClientConfig());
+                                          new AdminClientConfig(adminProperties));
         } catch(Exception e) {
             logger.error("Error in setup", e);
             throw e;

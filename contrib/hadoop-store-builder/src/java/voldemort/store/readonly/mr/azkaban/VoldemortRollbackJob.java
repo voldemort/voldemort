@@ -27,9 +27,7 @@ import java.util.concurrent.TimeUnit;
 import org.apache.log4j.Logger;
 
 import voldemort.VoldemortException;
-import voldemort.client.ClientConfig;
 import voldemort.client.protocol.admin.AdminClient;
-import voldemort.client.protocol.admin.AdminClientConfig;
 import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
 import voldemort.store.readonly.mr.utils.VoldemortUtils;
@@ -76,9 +74,7 @@ public class VoldemortRollbackJob extends AbstractJob {
             ExecutorService service = null;
             try {
                 service = Executors.newCachedThreadPool();
-                adminClient = new AdminClient(clusterUrl,
-                                              new AdminClientConfig(),
-                                              new ClientConfig());
+                adminClient = new AdminClient(clusterUrl);
                 Cluster cluster = adminClient.getAdminClientCluster();
                 AdminStoreSwapper swapper = new AdminStoreSwapper(
                         cluster,

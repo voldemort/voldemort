@@ -17,8 +17,8 @@ package voldemort.utils;
 
 import java.io.BufferedWriter;
 import java.io.FileWriter;
-import java.io.Writer;
 import java.io.IOException;
+import java.io.Writer;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -36,9 +36,7 @@ import joptsimple.OptionSet;
 import org.apache.log4j.Logger;
 
 import voldemort.VoldemortException;
-import voldemort.client.ClientConfig;
 import voldemort.client.protocol.admin.AdminClient;
-import voldemort.client.protocol.admin.AdminClientConfig;
 import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
 import voldemort.routing.RoutingStrategyFactory;
@@ -96,9 +94,7 @@ public class ConsistencyCheck {
             if(logger.isInfoEnabled()) {
                 logger.info("Connecting to bootstrap server: " + url);
             }
-            AdminClient adminClient = new AdminClient(url,
-                    new AdminClientConfig(),
-                    new ClientConfig());
+            AdminClient adminClient = new AdminClient(url);
             adminClients.add(adminClient);
             /* get Cluster */
             Cluster cluster = adminClient.getAdminClientCluster();

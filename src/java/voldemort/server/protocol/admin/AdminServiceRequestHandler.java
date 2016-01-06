@@ -34,10 +34,8 @@ import org.apache.commons.io.IOUtils;
 import org.apache.log4j.Logger;
 
 import voldemort.VoldemortException;
-import voldemort.client.ClientConfig;
 import voldemort.client.protocol.VoldemortFilter;
 import voldemort.client.protocol.admin.AdminClient;
-import voldemort.client.protocol.admin.AdminClientConfig;
 import voldemort.client.protocol.admin.filter.DefaultVoldemortFilter;
 import voldemort.client.protocol.pb.ProtoUtils;
 import voldemort.client.protocol.pb.VAdminProto;
@@ -1683,9 +1681,7 @@ public class AdminServiceRequestHandler implements RequestHandler {
             StoreDefinitionsMapper mapper = new StoreDefinitionsMapper();
             StoreDefinition def = mapper.readStore(new StringReader(request.getStoreDefinition()));
 
-            adminClient = new AdminClient(metadataStore.getCluster(),
-                                          new AdminClientConfig(),
-                                          new ClientConfig());
+            adminClient = new AdminClient(metadataStore.getCluster());
 
             synchronized(lock) {
                 // only allow a single store to be created at a time. We'll see

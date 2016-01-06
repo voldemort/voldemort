@@ -49,9 +49,8 @@ import voldemort.client.SocketStoreClientFactory;
 import voldemort.client.StoreClient;
 import voldemort.client.protocol.RequestFormatType;
 import voldemort.client.protocol.admin.AdminClient;
-import voldemort.client.protocol.admin.AdminClientConfig;
-import voldemort.cluster.Node;
 import voldemort.cluster.Cluster;
+import voldemort.cluster.Node;
 import voldemort.cluster.failuredetector.FailureDetector;
 import voldemort.routing.RoutingStrategy;
 import voldemort.routing.RoutingStrategyFactory;
@@ -115,19 +114,18 @@ public class VoldemortClientShell {
         this.commandOutput = commandOutput;
         this.errorStream = errorStream;
 
-        String bootstrapUrl = clientConfig.getBootstrapUrls()[0];
-
         try {
             factory = new SocketStoreClientFactory(clientConfig);
             client = factory.getStoreClient(storeName);
-            adminClient = new AdminClient(bootstrapUrl, new AdminClientConfig(), clientConfig);
+            adminClient = new AdminClient(clientConfig);
 
             storeDef = StoreUtils.getStoreDef(factory.getStoreDefs(), storeName);
 
 	    Cluster cluster = adminClient.getAdminClientCluster();
 	    routingStrategy = new RoutingStrategyFactory().updateRoutingStrategy(storeDef, cluster);
 
-            commandOutput.println("Established connection to " + storeName + " via " + bootstrapUrl);
+            commandOutput.println("Established connection to " + storeName + " via "
+                                  + Arrays.toString(clientConfig.getBootstrapUrls()));
             commandOutput.print(PROMPT);
         } catch(Exception e) {
             safeClose();

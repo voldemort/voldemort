@@ -39,9 +39,7 @@ import org.junit.runners.Parameterized.Parameters;
 import voldemort.Attempt;
 import voldemort.ServerTestUtils;
 import voldemort.TestUtils;
-import voldemort.client.ClientConfig;
 import voldemort.client.protocol.admin.AdminClient;
-import voldemort.client.protocol.admin.AdminClientConfig;
 import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
 import voldemort.server.VoldemortServer;
@@ -156,7 +154,7 @@ public class GossiperTest {
     }
 
     private AdminClient getAdminClient(Cluster newCluster) {
-        return new AdminClient(newCluster, new AdminClientConfig(), new ClientConfig());
+        return new AdminClient(newCluster);
     }
 
     private Cluster attemptStartAdditionalServer() throws IOException {

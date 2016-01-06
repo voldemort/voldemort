@@ -13,7 +13,6 @@ import org.junit.Test;
 
 import voldemort.ServerTestUtils;
 import voldemort.TestUtils;
-import voldemort.client.ClientConfig;
 import voldemort.client.protocol.admin.AdminClient;
 import voldemort.client.protocol.admin.AdminClientConfig;
 import voldemort.cluster.Cluster;
@@ -72,8 +71,7 @@ public class SlopPurgeTest {
         Properties adminProperties = new Properties();
         adminProperties.setProperty("max_connections", "2");
         adminClient = new AdminClient(servers[0].getMetadataStore().getCluster(),
-                                      new AdminClientConfig(adminProperties),
-                                      new ClientConfig());
+                                      new AdminClientConfig(adminProperties));
     }
 
     private int numSlopsInServer(List<Versioned<Slop>> slops) {

@@ -126,9 +126,7 @@ public class OfflineStateTest {
 
         Properties adminProperties = new Properties();
         adminProperties.setProperty("max_connections", "20");
-        adminClient = new AdminClient(cluster,
-                                      new AdminClientConfig(adminProperties),
-                                      new ClientConfig());
+        adminClient = new AdminClient(cluster, new AdminClientConfig(adminProperties));
 
         Node node = cluster.getNodeById(0);
         String bootstrapUrl = "tcp://" + node.getHost() + ":" + node.getSocketPort();

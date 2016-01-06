@@ -15,8 +15,16 @@
  */
 package voldemort.tools;
 
+import static org.junit.Assert.assertEquals;
+
+import java.io.IOException;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Properties;
+
 import org.junit.After;
 import org.junit.Test;
+
 import voldemort.ClusterTestUtils;
 import voldemort.ServerTestUtils;
 import voldemort.TestUtils;
@@ -25,7 +33,6 @@ import voldemort.client.SocketStoreClientFactory;
 import voldemort.client.StoreClient;
 import voldemort.client.StoreClientFactory;
 import voldemort.client.protocol.admin.AdminClient;
-import voldemort.client.protocol.admin.AdminClientConfig;
 import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
 import voldemort.server.VoldemortConfig;
@@ -33,13 +40,6 @@ import voldemort.server.VoldemortServer;
 import voldemort.store.StoreDefinition;
 import voldemort.store.socket.SocketStoreFactory;
 import voldemort.store.socket.TestSocketStoreFactory;
-
-import java.io.IOException;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Properties;
-
-import static org.junit.Assert.assertEquals;
 
 public class ZoneShrinkageCLITest {
 
@@ -81,7 +81,7 @@ public class ZoneShrinkageCLITest {
         String[] argv = ("--url " + bsURL +" --drop-zoneid 0 --real-run").split(" ");
         ZoneShrinkageCLI.main(argv);
 
-        AdminClient adminClient = new AdminClient(bsURL, new AdminClientConfig(), new ClientConfig());
+        AdminClient adminClient = new AdminClient(bsURL);
         assertEquals(2, adminClient.getAdminClientCluster().getZoneIds().size());
 
 
@@ -103,7 +103,7 @@ public class ZoneShrinkageCLITest {
         String[] argv = ("--url " + bsURL +" --drop-zoneid 1 --real-run").split(" ");
         ZoneShrinkageCLI.main(argv);
 
-        AdminClient adminClient = new AdminClient(bsURL, new AdminClientConfig(), new ClientConfig());
+        AdminClient adminClient = new AdminClient(bsURL);
         assertEquals(1, adminClient.getAdminClientCluster().getZoneIds().size());
     }
 

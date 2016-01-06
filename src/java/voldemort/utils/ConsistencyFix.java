@@ -39,9 +39,7 @@ import java.util.concurrent.TimeUnit;
 
 import org.apache.log4j.Logger;
 
-import voldemort.client.ClientConfig;
 import voldemort.client.protocol.admin.AdminClient;
-import voldemort.client.protocol.admin.AdminClientConfig;
 import voldemort.client.protocol.admin.QueryKeyResult;
 import voldemort.cluster.Cluster;
 import voldemort.routing.StoreRoutingPlan;
@@ -74,7 +72,7 @@ public class ConsistencyFix {
                    boolean parseOnly) {
         this.storeName = storeName;
         logger.info("Connecting to bootstrap server: " + url);
-        this.adminClient = new AdminClient(url, new AdminClientConfig(), new ClientConfig());
+        this.adminClient = new AdminClient(url);
         Cluster cluster = adminClient.getAdminClientCluster();
         logger.info("Cluster determined to be: " + cluster.getName());
 

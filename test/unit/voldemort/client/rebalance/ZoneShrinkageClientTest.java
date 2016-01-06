@@ -68,8 +68,7 @@ public class ZoneShrinkageClientTest {
         Properties adminProperties = new Properties();
         adminProperties.setProperty("max_connections", "2");
         adminClient = new AdminClient(servers[0].getMetadataStore().getCluster(),
-                                      new AdminClientConfig(adminProperties),
-                                      new ClientConfig());
+                                      new AdminClientConfig(adminProperties));
     }
 
     @Test

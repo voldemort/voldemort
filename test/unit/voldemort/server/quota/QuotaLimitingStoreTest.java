@@ -21,7 +21,6 @@ import voldemort.client.ClientConfig;
 import voldemort.client.SocketStoreClientFactory;
 import voldemort.client.StoreClient;
 import voldemort.client.protocol.admin.AdminClient;
-import voldemort.client.protocol.admin.AdminClientConfig;
 import voldemort.server.VoldemortServer;
 import voldemort.store.configuration.FileBackedCachingStorageEngine;
 import voldemort.store.memory.InMemoryStorageEngine;
@@ -59,9 +58,7 @@ public class QuotaLimitingStoreTest {
         server = ServerTestUtils.startStandAloneVoldemortServer(props,
                                                                 "test/common/voldemort/config/single-store.xml");
 
-        adminClient = new AdminClient(server.getMetadataStore().getCluster(),
-                                      new AdminClientConfig(),
-                                      new ClientConfig());
+        adminClient = new AdminClient(server.getMetadataStore().getCluster());
         String bootStrapUrl = "tcp://" + server.getIdentityNode().getHost() + ":"
                               + server.getIdentityNode().getSocketPort();
         factory = new SocketStoreClientFactory(new ClientConfig().setBootstrapUrls(bootStrapUrl));

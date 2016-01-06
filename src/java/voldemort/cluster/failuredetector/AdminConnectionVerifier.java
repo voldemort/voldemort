@@ -45,7 +45,8 @@ public class AdminConnectionVerifier implements ConnectionVerifier {
         if (adminClient == null) {
             adminClient = new AdminClient(this.cluster,
                                           new AdminClientConfig(),
-                                          new ClientConfig().setSelectors(1));
+                                          new ClientConfig().setSelectors(1)
+                                                            .setBootstrapUrls(this.cluster.getBootStrapUrls()));
         }
         return adminClient;
     }

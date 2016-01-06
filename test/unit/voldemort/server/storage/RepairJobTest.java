@@ -36,10 +36,8 @@ import voldemort.MockTime;
 import voldemort.ServerTestUtils;
 import voldemort.TestUtils;
 import voldemort.VoldemortTestConstants;
-import voldemort.client.ClientConfig;
 import voldemort.client.protocol.RequestFormatType;
 import voldemort.client.protocol.admin.AdminClient;
-import voldemort.client.protocol.admin.AdminClientConfig;
 import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
 import voldemort.common.service.SchedulerService;
@@ -194,7 +192,7 @@ public class RepairJobTest {
         populateData(testEntries);
 
         // create admin client and run repair on all nodes
-        AdminClient admin = new AdminClient(cluster, new AdminClientConfig(), new ClientConfig());
+        AdminClient admin = new AdminClient(cluster);
         for(int i = 0; i < 9; i++) {
             admin.storeMntOps.repairJob(i);
         }

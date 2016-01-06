@@ -27,8 +27,6 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 import javax.management.ObjectName;
 
-import com.google.common.collect.Lists;
-import com.google.common.collect.Sets;
 import org.apache.commons.io.IOUtils;
 import org.apache.hadoop.fs.FileStatus;
 import org.apache.hadoop.fs.FileSystem;
@@ -36,9 +34,7 @@ import org.apache.hadoop.fs.Path;
 import org.apache.log4j.Logger;
 
 import voldemort.VoldemortException;
-import voldemort.client.ClientConfig;
 import voldemort.client.protocol.admin.AdminClient;
-import voldemort.client.protocol.admin.AdminClientConfig;
 import voldemort.cluster.Cluster;
 import voldemort.routing.RoutingStrategy;
 import voldemort.routing.RoutingStrategyFactory;
@@ -62,6 +58,9 @@ import voldemort.utils.JmxUtils;
 import voldemort.utils.Time;
 import voldemort.utils.Utils;
 import voldemort.versioning.Versioned;
+
+import com.google.common.collect.Lists;
+import com.google.common.collect.Sets;
 
 /**
  * A {@link FileFetcher} implementation that fetches the store files from HDFS
@@ -199,9 +198,7 @@ public class HdfsFetcher implements FileFetcher {
                       MetadataStore metadataStore) throws Exception {
         AdminClient adminClient = null;
         try {
-            adminClient = new AdminClient(metadataStore.getCluster(),
-                                          new AdminClientConfig(),
-                                          new ClientConfig());
+            adminClient = new AdminClient(metadataStore.getCluster());
 
             Versioned<String> diskQuotaSize = adminClient.quotaMgmtOps.getQuotaForNode(storeName,
                                                                                        QuotaType.STORAGE_SPACE,
