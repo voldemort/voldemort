@@ -1,3 +1,6 @@
+Release 1.10.9 on 1/6/2016
+* AdminClient constructor cleanup and respects the timeout of ClientConfig
+
 Release 1.10.9 on 1/5/2016
 * Fixed a regression affecting Read-Only servers introduced in 1.10.7.
 * Fixed a unit test which failed on Java 8.
