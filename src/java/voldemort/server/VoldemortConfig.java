@@ -739,7 +739,8 @@ public class VoldemortConfig implements Serializable {
         }
 
         // Define various paths
-        String dataDirectory = combinedConfigs.getString(VOLDEMORT_HOME) + File.separator + "data";
+        String defaultDataDirectory = combinedConfigs.getString(VOLDEMORT_HOME) + File.separator + "data";
+        String dataDirectory = combinedConfigs.getString(DATA_DIRECTORY, defaultDataDirectory);
         dynamicDefaults.put(DATA_DIRECTORY, dataDirectory);
         dynamicDefaults.put(BDB_DATA_DIRECTORY, dataDirectory + File.separator + "bdb");
         dynamicDefaults.put(READONLY_DATA_DIRECTORY, dataDirectory + File.separator + "read-only");
