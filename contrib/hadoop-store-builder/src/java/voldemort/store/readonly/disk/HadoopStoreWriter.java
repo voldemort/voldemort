@@ -22,8 +22,10 @@ import java.io.DataOutputStream;
 import java.io.IOException;
 import java.util.Iterator;
 import java.util.Locale;
+import java.util.Set;
 import java.util.zip.GZIPOutputStream;
 
+import com.google.common.collect.Sets;
 import org.apache.commons.codec.binary.Hex;
 import org.apache.hadoop.fs.FSDataOutputStream;
 import org.apache.hadoop.fs.FileSystem;
@@ -36,6 +38,7 @@ import org.apache.hadoop.mapred.Reporter;
 import org.apache.log4j.Logger;
 
 import voldemort.VoldemortException;
+import voldemort.annotations.concurrency.NotThreadsafe;
 import voldemort.store.readonly.ReadOnlyStorageMetadata;
 import voldemort.store.readonly.ReadOnlyUtils;
 import voldemort.store.readonly.checksum.CheckSum;
@@ -51,6 +54,8 @@ public class HadoopStoreWriter
         implements KeyValueWriter<BytesWritable, BytesWritable> {
 
     private static final Logger logger = Logger.getLogger(HadoopStoreWriter.class);
+
+    private Set<Integer> chunksHandled = Sets.newHashSet();
 
     private DataOutputStream[] indexFileStream = null;
     private DataOutputStream[] valueFileStream = null;
@@ -73,12 +78,14 @@ public class HadoopStoreWriter
 
     private FileSystem fs;
 
+    private boolean isValidCompressionEnabled;
+
     /**
      * This variable is used to figure out the file extension for index and data
      * files. When the server supports compression, this variable's value is
      * typically ".gz" or else it holds and empty string
      */
-    private String fileExtension = null;
+    private String fileExtension;
 
     /** Used to track the size of the index files produced by the reducer */
     private long[] indexFileSizeInBytes;
@@ -108,23 +115,14 @@ public class HadoopStoreWriter
         super.configure(job);
 
         this.conf = job;
-        try {
-            this.position = new int[getNumChunks()];
-            this.outputDir = job.get("final.output.dir");
-            this.taskId = job.get("mapred.task.id");
-            this.checkSumType = CheckSum.fromString(job.get(VoldemortBuildAndPushJob.CHECKSUM_TYPE));
-            this.checkSumDigestIndex = new CheckSum[getNumChunks()];
-            this.checkSumDigestValue = new CheckSum[getNumChunks()];
+        this.position = new int[getNumChunks()];
+        this.outputDir = job.get("final.output.dir");
+        this.taskId = job.get("mapred.task.id");
+        this.checkSumType = CheckSum.fromString(job.get(VoldemortBuildAndPushJob.CHECKSUM_TYPE));
 
-            initFileStreams(conf.getBoolean(VoldemortBuildAndPushJob.REDUCER_OUTPUT_COMPRESS, false),
-                            conf.get(VoldemortBuildAndPushJob.REDUCER_OUTPUT_COMPRESS_CODEC, NO_COMPRESSION_CODEC));
-        } catch(IOException e) {
-            throw new RuntimeException("Failed to open Input/OutputStream", e);
-        }
-    }
-
-    private void initFileStreams(boolean isCompressionEnabled, String compressionCodec)
-            throws IOException {
+        // These arrays are sparse if reducer.per.bucket is false and num.chunks > 1
+        this.checkSumDigestIndex = new CheckSum[getNumChunks()];
+        this.checkSumDigestValue = new CheckSum[getNumChunks()];
         this.taskIndexFileName = new Path[getNumChunks()];
         this.taskValueFileName = new Path[getNumChunks()];
         this.indexFileStream = new DataOutputStream[getNumChunks()];
@@ -132,56 +130,69 @@ public class HadoopStoreWriter
         this.indexFileSizeInBytes = new long[getNumChunks()];
         this.valueFileSizeInBytes = new long[getNumChunks()];
 
-        boolean isValidCompressionEnabled = false;
-        if(isCompressionEnabled
+        String compressionCodec = conf.get(VoldemortBuildAndPushJob.REDUCER_OUTPUT_COMPRESS_CODEC, NO_COMPRESSION_CODEC);
+        if(conf.getBoolean(VoldemortBuildAndPushJob.REDUCER_OUTPUT_COMPRESS, false)
                 && compressionCodec.toUpperCase(Locale.ENGLISH).equals(this.COMPRESSION_CODEC)) {
-            fileExtension = GZIP_FILE_EXTENSION;
-            isValidCompressionEnabled = true;
+            this.fileExtension = GZIP_FILE_EXTENSION;
+            this.isValidCompressionEnabled = true;
         } else {
-            fileExtension = "";
+            this.fileExtension = "";
+            this.isValidCompressionEnabled = false;
         }
+    }
 
-        for(int chunkId = 0; chunkId < getNumChunks(); chunkId++) {
+    /**
+     * The MapReduce framework should operate sequentially, so thread safety shouldn't be a problem.
+     */
+    @NotThreadsafe
+    private void initFileStreams(int chunkId) {
+        /**
+         * {@link Set#add(Object)} returns false if the element already existed in the set.
+         * This ensures we initialize the resources for each chunk only once.
+         */
+        if (chunksHandled.add(chunkId)) {
+            try {
+                this.indexFileSizeInBytes[chunkId] = 0L;
+                this.valueFileSizeInBytes[chunkId] = 0L;
+                this.checkSumDigestIndex[chunkId] = CheckSum.getInstance(checkSumType);
+                this.checkSumDigestValue[chunkId] = CheckSum.getInstance(checkSumType);
+                this.position[chunkId] = 0;
+                this.taskIndexFileName[chunkId] = new Path(FileOutputFormat.getOutputPath(conf),
+                                                           getStoreName() + "."
+                                                                   + Integer.toString(chunkId) + "_"
+                                                                   + this.taskId + INDEX_FILE_EXTENSION
+                                                                   + fileExtension);
+                this.taskValueFileName[chunkId] = new Path(FileOutputFormat.getOutputPath(conf),
+                                                           getStoreName() + "."
+                                                                   + Integer.toString(chunkId) + "_"
+                                                                   + this.taskId + DATA_FILE_EXTENSION
+                                                                   + fileExtension);
+                if(this.fs == null)
+                    this.fs = this.taskIndexFileName[chunkId].getFileSystem(conf);
+                if(isValidCompressionEnabled) {
+                    this.indexFileStream[chunkId] = new DataOutputStream(new BufferedOutputStream(new GZIPOutputStream(fs.create(this.taskIndexFileName[chunkId]),
+                                                                                                                       DEFAULT_BUFFER_SIZE)));
+                    this.valueFileStream[chunkId] = new DataOutputStream(new BufferedOutputStream(new GZIPOutputStream(fs.create(this.taskValueFileName[chunkId]),
+                                                                                                                       DEFAULT_BUFFER_SIZE)));
 
-            this.indexFileSizeInBytes[chunkId] = 0L;
-            this.valueFileSizeInBytes[chunkId] = 0L;
-            this.checkSumDigestIndex[chunkId] = CheckSum.getInstance(checkSumType);
-            this.checkSumDigestValue[chunkId] = CheckSum.getInstance(checkSumType);
-            this.position[chunkId] = 0;
-            this.taskIndexFileName[chunkId] = new Path(FileOutputFormat.getOutputPath(conf),
-                                                       getStoreName() + "."
-                                                               + Integer.toString(chunkId) + "_"
-                                                               + this.taskId + INDEX_FILE_EXTENSION
-                                                               + fileExtension);
-            this.taskValueFileName[chunkId] = new Path(FileOutputFormat.getOutputPath(conf),
-                                                       getStoreName() + "."
-                                                               + Integer.toString(chunkId) + "_"
-                                                               + this.taskId + DATA_FILE_EXTENSION
-                                                               + fileExtension);
-            if(this.fs == null)
-                this.fs = this.taskIndexFileName[chunkId].getFileSystem(conf);
-            if(isValidCompressionEnabled) {
-                this.indexFileStream[chunkId] = new DataOutputStream(new BufferedOutputStream(new GZIPOutputStream(fs.create(this.taskIndexFileName[chunkId]),
-                                                                                                                   DEFAULT_BUFFER_SIZE)));
-                this.valueFileStream[chunkId] = new DataOutputStream(new BufferedOutputStream(new GZIPOutputStream(fs.create(this.taskValueFileName[chunkId]),
-                                                                                                                   DEFAULT_BUFFER_SIZE)));
+                } else {
+                    this.indexFileStream[chunkId] = fs.create(this.taskIndexFileName[chunkId]);
+                    this.valueFileStream[chunkId] = fs.create(this.taskValueFileName[chunkId]);
 
-            } else {
-                this.indexFileStream[chunkId] = fs.create(this.taskIndexFileName[chunkId]);
-                this.valueFileStream[chunkId] = fs.create(this.taskValueFileName[chunkId]);
+                }
+                fs.setPermission(this.taskIndexFileName[chunkId],
+                                 new FsPermission(HadoopStoreBuilder.HADOOP_FILE_PERMISSION));
+                logger.info("Setting permission to 755 for " + this.taskIndexFileName[chunkId]);
+                fs.setPermission(this.taskValueFileName[chunkId],
+                                 new FsPermission(HadoopStoreBuilder.HADOOP_FILE_PERMISSION));
+                logger.info("Setting permission to 755 for " + this.taskValueFileName[chunkId]);
 
+                logger.info("Opening " + this.taskIndexFileName[chunkId] + " and "
+                                    + this.taskValueFileName[chunkId] + " for writing.");
+            } catch(IOException e) {
+                throw new RuntimeException("Failed to open Input/OutputStream", e);
             }
-            fs.setPermission(this.taskIndexFileName[chunkId],
-                             new FsPermission(HadoopStoreBuilder.HADOOP_FILE_PERMISSION));
-            logger.info("Setting permission to 755 for " + this.taskIndexFileName[chunkId]);
-            fs.setPermission(this.taskValueFileName[chunkId],
-                             new FsPermission(HadoopStoreBuilder.HADOOP_FILE_PERMISSION));
-            logger.info("Setting permission to 755 for " + this.taskValueFileName[chunkId]);
-
-            logger.info("Opening " + this.taskIndexFileName[chunkId] + " and "
-                                + this.taskValueFileName[chunkId] + " for writing.");
         }
-
     }
 
     @Override
@@ -190,6 +201,8 @@ public class HadoopStoreWriter
 
         // Read chunk id
         int chunkId = ReadOnlyUtils.chunk(key.getBytes(), getNumChunks());
+
+        initFileStreams(chunkId);
 
         // Write key and position
         this.indexFileStream[chunkId].write(key.getBytes(), 0, key.getLength());
@@ -212,34 +225,59 @@ public class HadoopStoreWriter
             byte[] valueBytes = writable.getBytes();
             int offsetTillNow = 0;
 
+            /**
+             * Below, we read the node id, partition id and replica type of each record
+             * coming in, and validate that it is consistent with the other IDs seen so
+             * far. This is to catch potential regressions to the shuffling logic in:
+             *
+             * {@link AbstractStoreBuilderConfigurable#getPartition(byte[], byte[], int)}
+             */
+
             // Read node Id
-            if(this.nodeId == -1)
-                this.nodeId = ByteUtils.readInt(valueBytes, offsetTillNow);
+            int currentNodeId = ByteUtils.readInt(valueBytes, offsetTillNow);
+            if (this.nodeId == -1) {
+                this.nodeId = currentNodeId;
+            } else if (this.nodeId != currentNodeId) {
+                throw new IllegalArgumentException("Should not get various nodeId shuffled to us! "
+                                                   + "First nodeId seen: " + this.nodeId
+                                                   + ", currentNodeId: " + currentNodeId);
+            }
             offsetTillNow += ByteUtils.SIZE_OF_INT;
 
             // Read partition id
-            if(this.partitionId == -1)
-                this.partitionId = ByteUtils.readInt(valueBytes, offsetTillNow);
+            int currentPartitionId = ByteUtils.readInt(valueBytes, offsetTillNow);
+            if (this.partitionId == -1) {
+                this.partitionId = currentPartitionId;
+            } else if (this.partitionId != currentPartitionId) {
+                throw new IllegalArgumentException("Should not get various partitionId shuffled to us! "
+                                                   + "First partitionId seen: " + this.partitionId
+                                                   + ", currentPartitionId: " + currentPartitionId);
+            }
             offsetTillNow += ByteUtils.SIZE_OF_INT;
 
             // Read replica type
             if(getSaveKeys()) {
+                int currentReplicaType = (int) ByteUtils.readBytes(valueBytes,
+                                                                   offsetTillNow,
+                                                                   ByteUtils.SIZE_OF_BYTE);
                 if(this.replicaType == -1) {
-                    this.replicaType = (int) ByteUtils.readBytes(valueBytes,
-                                                                 offsetTillNow,
-                                                                 ByteUtils.SIZE_OF_BYTE);
-                    if (getBuildPrimaryReplicasOnly() && this.replicaType > 0) {
-                        throw new IllegalArgumentException("Should not get any replicaType > 0 shuffled to us"
-                                                           + " when buildPrimaryReplicasOnly mode is enabled!");
-                    }
+                    this.replicaType = currentReplicaType;
+                } else if (this.replicaType != currentReplicaType) {
+                    throw new IllegalArgumentException("Should not get various replicaType shuffled to us! "
+                                                       + "First replicaType seen: " + this.replicaType
+                                                       + ", currentReplicaType: " + currentReplicaType);
+                }
+
+                if (getBuildPrimaryReplicasOnly() && this.replicaType > 0) {
+                    throw new IllegalArgumentException("Should not get any replicaType > 0 shuffled to us"
+                                                       + " when buildPrimaryReplicasOnly mode is enabled!");
                 }
                 offsetTillNow += ByteUtils.SIZE_OF_BYTE;
             }
 
             int valueLength = writable.getLength() - offsetTillNow;
             if(getSaveKeys()) {
-                // Write ( key_length, value_length, key,
-                // value )
+                // Write ( key_length, value_length, key, value )
                 valueStream.write(valueBytes, offsetTillNow, valueLength);
             } else {
                 // Write (value_length + value)
@@ -309,7 +347,7 @@ public class HadoopStoreWriter
     @Override
     public void close() throws IOException {
 
-        for(int chunkId = 0; chunkId < getNumChunks(); chunkId++) {
+        for(int chunkId: chunksHandled) {
             this.indexFileStream[chunkId].close();
             this.valueFileStream[chunkId].close();
         }
@@ -350,8 +388,7 @@ public class HadoopStoreWriter
         logger.info("Setting permission to 755 for " + outputDir);
 
         // Write the checksum and output files
-        for(int chunkId = 0; chunkId < getNumChunks(); chunkId++) {
-
+        for (int chunkId: chunksHandled) {
             String chunkFileName = fileNamePrefix + Integer.toString(chunkId);
             CheckSumMetadata indexCheckSum = new CheckSumMetadata();
             CheckSumMetadata valueCheckSum = new CheckSumMetadata();

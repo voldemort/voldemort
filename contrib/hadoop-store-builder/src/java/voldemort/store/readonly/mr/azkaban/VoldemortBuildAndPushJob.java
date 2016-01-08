@@ -694,7 +694,7 @@ public class VoldemortBuildAndPushJob extends AbstractJob {
                                                             getInputPath(),
                                                             checkSumType,
                                                             props.getBoolean(SAVE_KEYS, true),
-                                                            props.getBoolean(REDUCER_PER_BUCKET, false),
+                                                            props.getBoolean(REDUCER_PER_BUCKET, true),
                                                             props.getInt(BUILD_CHUNK_SIZE, 1024 * 1024 * 1024),
                                                             props.getInt(NUM_CHUNKS, -1),
                                                             this.isAvroJob,

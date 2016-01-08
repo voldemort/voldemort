@@ -27,11 +27,14 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Properties;
 import java.util.Set;
+import java.util.SortedSet;
+import java.util.TreeSet;
 
 import voldemort.annotations.concurrency.NotThreadsafe;
 
@@ -344,7 +347,15 @@ public class Props implements Map<String, String> {
     public String toString(boolean oneLinePerEntry) {
         StringBuilder builder = new StringBuilder("{");
         boolean firstLine = true;
-        for(Entry<String, String> entry: this.props.entrySet()) {
+        SortedSet<Entry<String, String>> sortedEntries =
+                new TreeSet<Entry<String, String>>(new Comparator<Entry<String, String>>(){
+                    @Override
+                    public int compare(Entry<String, String> o1, Entry<String, String> o2) {
+                        return o1.getKey().compareTo(o2.getKey());
+                    }
+                });
+        sortedEntries.addAll(this.props.entrySet());
+        for(Entry<String, String> entry: sortedEntries) {
             if (oneLinePerEntry) {
                 builder.append("\n\t");
             } else {

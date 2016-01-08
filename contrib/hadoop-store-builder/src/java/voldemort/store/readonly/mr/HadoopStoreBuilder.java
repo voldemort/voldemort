@@ -514,20 +514,19 @@ public class HadoopStoreBuilder extends AbstractHadoopJob {
             }
 
             // update metadata
-            long diskSizeForNodeInBytes = dataSizeInBytes + indexSizeInBytes;
-            logger.info("Estimated disk size for store " + this.storeDef.getName() + " in "
-                        + directoryName + " in KB: "
-                        + (diskSizeForNodeInBytes / ByteUtils.BYTES_PER_KB));
-            metadata.add(ReadOnlyStorageMetadata.DISK_SIZE_IN_BYTES,
-                         Long.toString(diskSizeForNodeInBytes));
+
+            String checkSum = "NONE";
             if(checkSumType != CheckSumType.NONE) {
                 metadata.add(ReadOnlyStorageMetadata.CHECKSUM_TYPE, CheckSum.toString(checkSumType));
-
-                String checkSum = new String(Hex.encodeHex(checkSumGenerator.getCheckSum()));
-                logger.info("Checksum for node " + directoryName + " - " + checkSum);
-
+                checkSum = new String(Hex.encodeHex(checkSumGenerator.getCheckSum()));
                 metadata.add(ReadOnlyStorageMetadata.CHECKSUM, checkSum);
             }
+
+            long diskSizeForNodeInBytes = dataSizeInBytes + indexSizeInBytes;
+            logger.info(directoryName + ": Checksum = " + checkSum +
+                        ", Size = " + (diskSizeForNodeInBytes / ByteUtils.BYTES_PER_KB) + " KB");
+            metadata.add(ReadOnlyStorageMetadata.DISK_SIZE_IN_BYTES,
+                         Long.toString(diskSizeForNodeInBytes));
         }
 
     }
