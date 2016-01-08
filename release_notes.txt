@@ -1,4 +1,11 @@
-Release 1.10.9 on 1/6/2016
+Release 1.10.11 on 1/8/2016
+* Fixed RO data directory diverged on 1.10.7
+* Fixed BnP assigns keys into correct partitions, resulting in data loss
+* Fixed unknown.host unit test failure
+* Fixed HadoopStoreWriter for multiple chunks bug
+* Added Defensive code for BnP Partition reducer when it sees incorrect data
+
+Release 1.10.10 on 1/6/2016
 * AdminClient constructor cleanup and respects the timeout of ClientConfig
 
 Release 1.10.9 on 1/5/2016
