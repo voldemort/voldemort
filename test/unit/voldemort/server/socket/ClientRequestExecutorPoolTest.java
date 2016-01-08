@@ -286,7 +286,7 @@ public class ClientRequestExecutorPoolTest {
 
     @Test
     public void testNonExistentHost() throws Exception {
-        SocketDestination nonExistentHost = new SocketDestination("unknown.host",
+        SocketDestination nonExistentHost = new SocketDestination("unknown.invalid",
                                                                   port,
                                                                   RequestFormatType.VOLDEMORT_V1);
         // JDK 1.6 throws UnresolvedAddressException, which is not even an
