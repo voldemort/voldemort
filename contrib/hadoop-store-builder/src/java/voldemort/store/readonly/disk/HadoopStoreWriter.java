@@ -97,19 +97,6 @@ public class HadoopStoreWriter
 
     }
 
-    /**
-     * Intended for use by test classes only.
-     *
-     * @param job
-     */
-    protected HadoopStoreWriter(JobConf job) {
-        this.nodeId = 1;
-        this.partitionId = 1;
-        this.replicaType = 1;
-
-        conf(job);
-    }
-
     @Override
     public void conf(JobConf job) {
         super.configure(job);

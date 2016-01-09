@@ -2,16 +2,19 @@ package voldemort.store.readonly.disk;
 
 import java.io.File;
 import java.io.IOException;
+import java.security.MessageDigest;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
 
+import com.google.common.collect.Lists;
 import junit.framework.Assert;
 
 import org.apache.commons.io.FileUtils;
 import org.apache.hadoop.io.BytesWritable;
 import org.apache.hadoop.mapred.JobConf;
+import org.apache.hadoop.mapred.OutputCollector;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
@@ -19,8 +22,11 @@ import org.junit.runners.Parameterized.Parameters;
 
 import voldemort.ServerTestUtils;
 import voldemort.TestUtils;
+import voldemort.routing.RoutingStrategyType;
 import voldemort.store.StoreDefinition;
 import voldemort.store.readonly.checksum.CheckSum;
+import voldemort.store.readonly.mr.AbstractCollectorWrapper;
+import voldemort.store.readonly.mr.BuildAndPushMapper;
 import voldemort.store.readonly.mr.azkaban.VoldemortBuildAndPushJob;
 import voldemort.store.readonly.utils.ReadOnlyTestUtils;
 import voldemort.utils.ByteUtils;
@@ -29,34 +35,35 @@ import voldemort.xml.StoreDefinitionsMapper;
 
 @RunWith(Parameterized.class)
 /**
- * Tight assumptions this test makes: nodeId = 1, partitionId = 1,
- * replicaType = 1
- *
- * Number of chunks = 2
+ * Tight assumptions this test makes: nodeId = 0, partitionId = 0,
+ * replicaType = 0, Number of chunks = 2
  *
  * So files generated will be like:
  * (if saveKeys == true){
- *   1_1_<chunkId>.data // where chunkId can be 0 or 1 since num of chunks = 2.
+ *   0_0_<chunkId>.data // where chunkId can be 0 or 1 since num of chunks = 2.
  * }else{
- *   1_<chunkId>.data // where chunkId can be 0 or 1 since num of chunks = 2.
+ *   0_<chunkId>.data // where chunkId can be 0 or 1 since num of chunks = 2.
  * }
  *
  * The only compression type allowed is gzip.
  *
- *
  * Also this test suite does not check for checksum types. It assumes a
- * default checksum type of NONE
+ * default checksum type of NONE.
+ *
+ * This test also does not verify the shuffling/distribution of keys.
  */
 public class HadoopStoreWriterTest {
 
     private JobConf conf = null;
     private HadoopStoreWriter hadoopStoreWriterPerBucket = null;
-    File tmpOutPutDirectory = null;
-    BytesWritable Key1;
-    ArrayList<BytesWritable> valueList1;
-    boolean saveKeys;
-    File dataFile, indexFile;
-    int numChunks = 2;
+    private File tmpOutPutDirectory = null;
+    private boolean saveKeys;
+    private File dataFile, indexFile;
+    private int numKeys = 1000;
+    private int numChunks = 2;
+    private BuildAndPushMapper mapper;
+    private TestCollectorWrapper testCollectorWrapper;
+    private TestCollector testCollector;
 
     @Parameters
     public static Collection<Object[]> configs() {
@@ -77,18 +84,29 @@ public class HadoopStoreWriterTest {
         conf.set("mapred.output.dir", tmpOutPutDirectory.getAbsolutePath());
         conf.set("mapred.task.id", "1234");
 
-        /*
-         * We dont have to test different types of checksums. thats covered in
-         * seperate unit test
+        /**
+         * We don't have to test different types of checksums. That's covered in
+         * {@link voldemort.store.readonly.checksum.CheckSumTests}.
          */
         conf.set(VoldemortBuildAndPushJob.CHECKSUM_TYPE, CheckSum.CheckSumType.NONE.name());
 
         // generate a list of storeDefinitions.
-        List<StoreDefinition> storeDefList = ServerTestUtils.getStoreDefs(1);
+        List<StoreDefinition> storeDefList = Lists.newArrayList(
+                ServerTestUtils.getStoreDef("test",
+                                            1, // Replication Factor 1, since we are testing a one node "cluster"
+                                            1, 1, 1, 1, // preferred/required reads/writes all at 1
+                                            RoutingStrategyType.CONSISTENT_STRATEGY.toString()));
         String storesXML = new StoreDefinitionsMapper().writeStoreList(storeDefList);
         conf.set("stores.xml", storesXML);
         String clusterXML = new ClusterMapper().writeCluster(ServerTestUtils.getLocalCluster(1));
         conf.set("cluster.xml", clusterXML);
+
+        // We leverage the real mapper used in the BnP job to generate data with the proper format
+        mapper = new BuildAndPushMapper();
+        mapper.configure(conf);
+        testCollector = new TestCollector();
+        testCollectorWrapper = new TestCollectorWrapper();
+        testCollectorWrapper.setCollector(testCollector);
     }
 
     private void cleanUp() throws IOException {
@@ -97,33 +115,57 @@ public class HadoopStoreWriterTest {
         }
     }
 
-    private BytesWritable generateKey(String key, int chunkId) {
-        int keyLength = key.getBytes().length;
-        byte[] keyBytes = new byte[ByteUtils.SIZE_OF_INT + keyLength];
-        ByteUtils.writeInt(keyBytes, chunkId, 0);
-        System.arraycopy(key.getBytes(), 0, keyBytes, ByteUtils.SIZE_OF_INT, keyLength);
-        return new BytesWritable(keyBytes);
+    /**
+     * The purpose of this class is to provide an easy way to access the key/values
+     * generated by the {@link voldemort.store.readonly.mr.BuildAndPushMapper}.
+     */
+    class TestCollector implements OutputCollector<BytesWritable, BytesWritable> {
+        public BytesWritable key;
+        public List<BytesWritable> values = Lists.newArrayList();
+
+        @Override
+        public void collect(BytesWritable key, BytesWritable value) throws IOException {
+            if (!key.equals(this.key)) {
+                this.key = key;
+                values.clear();
+            }
+            values.add(value);
+        }
     }
 
-    private void generateUnCompressedFiles(boolean saveKeys, int numChunks) throws IOException {
+    /**
+     * This abstraction is necessary in order to be able to pass in the
+     * {@link voldemort.store.readonly.disk.HadoopStoreWriterTest.TestCollector}.`
+     */
+    class TestCollectorWrapper extends AbstractCollectorWrapper<TestCollector> {
+        @Override
+        public void collect(byte[] key, byte[] value) throws IOException {
+            BytesWritable keyBW = new BytesWritable(), valueBW = new BytesWritable();
+            keyBW.setSize(key.length);
+            keyBW.set(key, 0, key.length);
+            valueBW.setSize(value.length);
+            valueBW.set(value, 0, value.length);
+            getCollector().collect(keyBW, valueBW);
+        }
+    }
+
+    private void generateUnCompressedFiles(boolean saveKeys) throws IOException {
         conf.setBoolean(VoldemortBuildAndPushJob.SAVE_KEYS, saveKeys);
         conf.setBoolean(VoldemortBuildAndPushJob.REDUCER_OUTPUT_COMPRESS, false);
-        hadoopStoreWriterPerBucket = new HadoopStoreWriter(conf);
+        hadoopStoreWriterPerBucket = new HadoopStoreWriter();
+        hadoopStoreWriterPerBucket.conf(conf);
 
-        for(int i = 0; i < numChunks; i++) {
+        for(int i = 0; i < numKeys; i++) {
             String key = "test_key_" + i;
             String value = "test_value_" + i;
-
-            Key1 = generateKey(key, i);
-            valueList1 = ReadOnlyTestUtils.generateValues(key, value, saveKeys);
-
-            hadoopStoreWriterPerBucket.write(Key1, valueList1.iterator(), null);
+            mapper.map(key.getBytes(), value.getBytes(), testCollectorWrapper);
+            hadoopStoreWriterPerBucket.write(testCollector.key, testCollector.values.iterator(), null);
         }
         hadoopStoreWriterPerBucket.close();
     }
 
     private void generateExpectedDataAndIndexFileNames(boolean isGzipCompressed, int chunkId) {
-        String basePath = tmpOutPutDirectory.getAbsolutePath() + File.separator + "node-1"
+        String basePath = tmpOutPutDirectory.getAbsolutePath() + File.separator + "node-0"
                 + File.separator;
         String fileName = "";
         String dataFilePrefix = KeyValueWriter.DATA_FILE_EXTENSION;
@@ -133,7 +175,7 @@ public class HadoopStoreWriterTest {
         if(isGzipCompressed) {
             fileExtension = KeyValueWriter.GZIP_FILE_EXTENSION;
         }
-        fileName = (saveKeys ? "1_1" : "1");
+        fileName = (saveKeys ? "0_0" : "0");
         dataFile = new File(basePath + fileName + "_" + chunkId + dataFilePrefix + fileExtension);
         indexFile = new File(basePath + fileName + "_" + chunkId + indexFilePrefix + fileExtension);
     }
@@ -143,16 +185,16 @@ public class HadoopStoreWriterTest {
         /**
          * Very basic assertion. This test case needs improvement later.
          *
-         * if(saveKeys) Assert if two files are generated - 1_1_1.data and
-         * 1_1_1.index with non-zero size under <tmpOutPutDirectory>/node_1.
+         * if(saveKeys) Assert if two files are generated - 0_0_0.data and
+         * 0_0_0.index with non-zero size under <tmpOutPutDirectory>/node_0.
          *
-         * else Assert if two files are generated - 1_1.data and 1_1.index with
-         * non-zero size under <tmpOutPutDirectory>/node_1.
+         * else Assert if two files are generated - 0_0.data and 0_0.index with
+         * non-zero size under <tmpOutPutDirectory>/node_0.
          *
          */
         init();
 
-        generateUnCompressedFiles(saveKeys, numChunks);
+        generateUnCompressedFiles(saveKeys);
 
         for(int i = 0; i < numChunks; i++) {
             generateExpectedDataAndIndexFileNames(false, i);
@@ -191,22 +233,19 @@ public class HadoopStoreWriterTest {
          */
         init();
 
-        generateUnCompressedFiles(saveKeys, numChunks);
+        generateUnCompressedFiles(saveKeys);
         conf.setBoolean(VoldemortBuildAndPushJob.SAVE_KEYS, saveKeys);
         conf.setBoolean(VoldemortBuildAndPushJob.REDUCER_OUTPUT_COMPRESS, true);
         conf.setStrings(VoldemortBuildAndPushJob.REDUCER_OUTPUT_COMPRESS_CODEC, KeyValueWriter.COMPRESSION_CODEC);
 
-        hadoopStoreWriterPerBucket = new HadoopStoreWriter(conf);
+        hadoopStoreWriterPerBucket = new HadoopStoreWriter();
+        hadoopStoreWriterPerBucket.conf(conf);
 
-        // Write into all chunked files
-        for(int i = 0; i < numChunks; i++) {
+        for(int i = 0; i < numKeys; i++) {
             String key = "test_key_" + i;
             String value = "test_value_" + i;
-
-            Key1 = generateKey(key, i);
-            valueList1 = ReadOnlyTestUtils.generateValues(key, value, saveKeys);
-
-            hadoopStoreWriterPerBucket.write(Key1, valueList1.iterator(), null);
+            mapper.map(key.getBytes(), value.getBytes(), testCollectorWrapper);
+            hadoopStoreWriterPerBucket.write(testCollector.key, testCollector.values.iterator(), null);
         }
 
         hadoopStoreWriterPerBucket.close();
