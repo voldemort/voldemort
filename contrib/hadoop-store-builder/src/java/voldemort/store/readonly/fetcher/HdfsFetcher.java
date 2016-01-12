@@ -245,10 +245,10 @@ public class HdfsFetcher implements FileFetcher {
 
             stats = new HdfsCopyStats(sourceFileUrl,
                                       destination,
-                                      enableStatsFile,
+                                      false, // stats file initially disabled, to fetch just the first metadata file
                                       maxVersionsStatsFile,
                                       isFile,
-                                      new HdfsPathInfo(fs, rootPath));
+                                      null);
             jmxName = JmxUtils.registerMbean("hdfs-copy-" + copyCount.getAndIncrement(), stats);
             logger.info("Starting fetch for : " + sourceFileUrl);
 
@@ -259,7 +259,7 @@ public class HdfsFetcher implements FileFetcher {
                                                                  bufferSize);
             if(!fs.isFile(rootPath)) { // We are asked to fetch a directory
                 Utils.mkdirs(destination);
-                HdfsDirectory rootDirectory = new HdfsDirectory(fs, rootPath);
+                HdfsDirectory rootDirectory = new HdfsDirectory(fs, rootPath, this.voldemortConfig);
                 List<HdfsDirectory> directoriesToFetch = Lists.newArrayList();
 
                 HdfsFile metadataFile = rootDirectory.getMetadataFile();
@@ -285,7 +285,9 @@ public class HdfsFetcher implements FileFetcher {
                                 } else {
                                     expectedDiskSize += Long.parseLong(diskSizeInBytes);
                                 }
-                                HdfsDirectory partitionDirectory = new HdfsDirectory(fs, new Path(rootPath, partitionKey));
+                                HdfsDirectory partitionDirectory = new HdfsDirectory(fs,
+                                                                                     new Path(rootPath, partitionKey),
+                                                                                     this.voldemortConfig);
                                 partitionDirectory.initializeMetadata(partitionMetadata);
                                 directoriesToFetch.add(partitionDirectory);
                             } else {
@@ -308,6 +310,19 @@ public class HdfsFetcher implements FileFetcher {
                                      storeName,
                                      destination,
                                      expectedDiskSize);
+
+                stats = new HdfsCopyStats(sourceFileUrl,
+                        destination,
+                        enableStatsFile,
+                        maxVersionsStatsFile,
+                        isFile,
+                        new HdfsPathInfo(directoriesToFetch));
+
+                fetchStrategy = new BasicFetchStrategy(this,
+                                                       fs,
+                                                       stats,
+                                                       status,
+                                                       bufferSize);
 
                 logger.debug("directoriesToFetch for store '" + storeName + "': " + Arrays.toString(directoriesToFetch.toArray()));
                 for (HdfsDirectory directoryToFetch: directoriesToFetch) {
@@ -457,7 +472,9 @@ public class HdfsFetcher implements FileFetcher {
                         + " url [keytab-location kerberos-username hadoop-config-path [destDir]]");
         String url = args[0];
 
-        HdfsFetcher fetcher = new HdfsFetcher();
+        VoldemortConfig config = new VoldemortConfig(-1, "");
+
+        HdfsFetcher fetcher = new HdfsFetcher(config);
 
         String destDir = null;
         if(args.length >= 4) {

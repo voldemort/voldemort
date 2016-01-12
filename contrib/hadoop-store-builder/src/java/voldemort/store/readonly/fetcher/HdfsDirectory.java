@@ -15,6 +15,8 @@ import org.apache.hadoop.fs.Path;
 import org.apache.log4j.Logger;
 
 import voldemort.VoldemortApplicationException;
+import voldemort.VoldemortException;
+import voldemort.server.VoldemortConfig;
 import voldemort.store.readonly.FileType;
 import voldemort.store.readonly.ReadOnlyStorageMetadata;
 import voldemort.store.readonly.ReadOnlyUtils;
@@ -33,6 +35,9 @@ public class HdfsDirectory {
     private List<HdfsFile> allFiles = new ArrayList<HdfsFile>();
     private HdfsFile metadataFile = null;
     private ReadOnlyStorageMetadata metadata;
+    private long totalSizeOfChildren = 0;
+    private int numberOfFiles = 0;
+    private int numberOfSubDirectories = 0;
 
     private static final String CHECKSUM_FILE = "checkSum.txt";
 
@@ -50,15 +55,52 @@ public class HdfsDirectory {
         return metadataFile;
     }
 
-    public HdfsDirectory(FileSystem fs, Path source) throws IOException {
+    public HdfsDirectory(FileSystem fs, Path source, VoldemortConfig voldemortConfig) throws IOException {
         this.source = source;
 
-        FileStatus[] files = fs.listStatus(source);
+        FileStatus[] files = null;
+        int maxAttempts = voldemortConfig.getReadOnlyFetchRetryCount();
+        for (int attempt = 1; attempt <= maxAttempts && files == null; attempt++) {
+            try {
+                files = fs.listStatus(source);
+                break;
+            } catch (Exception e) {
+                if(attempt < maxAttempts) {
+                    // We may need to sleep
+                    long retryDelayMs = voldemortConfig.getReadOnlyFetchRetryDelayMs();
+                    if (retryDelayMs > 0) {
+                        // Doing random back off so that all nodes do not end up swarming the NameNode
+                        long randomDelay = (long) (Math.random() * retryDelayMs + retryDelayMs);
+
+                        logger.error("Could not execute listStatus operation on attempt # " + attempt +
+                                " / " + maxAttempts + ". Trying again in " + randomDelay + " ms.");
+                        try {
+                            Thread.sleep(randomDelay);
+                        } catch(InterruptedException ie) {
+                            logger.error("Fetcher interrupted while waiting to retry", ie);
+                            Thread.currentThread().interrupt();
+                        }
+                    }
+                } else {
+                    throw new VoldemortException("Failed " + maxAttempts +
+                            " times attempting listStatus operations for path: " + source, e);
+                }
+            }
+        }
+
         if(files == null) {
             throw new VoldemortApplicationException(source + " is empty");
         }
 
         for(FileStatus file: files) {
+            // Bookkeeping
+            totalSizeOfChildren += file.getLen();
+            if (file.isDirectory()) {
+                numberOfSubDirectories++;
+            } else {
+                numberOfFiles++;
+            }
+
             String fileName = file.getPath().getName();
             if(fileName.contains(CHECKSUM_FILE)
                || (!fileName.contains(ReadOnlyUtils.METADATA_FILE_EXTENSION) && fileName.startsWith("."))) {
@@ -134,6 +176,19 @@ public class HdfsDirectory {
 
     public ReadOnlyStorageMetadata getMetadata() {
         return this.metadata;
+    }
+
+
+    public int getNumberOfSubDirectories() {
+        return numberOfSubDirectories;
+    }
+
+    public long getTotalSizeOfChildren() {
+        return totalSizeOfChildren;
+    }
+
+    public int getNumberOfFiles() {
+        return numberOfFiles;
     }
 
     public String toString() {

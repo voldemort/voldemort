@@ -361,7 +361,7 @@ public class HadoopUtils {
             throws Exception {
         final Configuration config = getConfiguration(voldemortConfig, sourceFileUrl);
         final Path path = new Path(sourceFileUrl);
-        final int maxAttempts = voldemortConfig.getReadOnlyFetchRetryCount() + 1;
+        final int maxAttempts = voldemortConfig.getReadOnlyFetchRetryCount();
         final String keytabPath = voldemortConfig.getReadOnlyKeytabPath();
         FileSystem fs = null;
 
@@ -422,7 +422,7 @@ public class HadoopUtils {
                         logger.error("Could not get a valid Filesystem object on attempt # " + attempt +
                                              " / " + maxAttempts + ". Trying again in " + randomDelay + " ms.");
                         try {
-                            Thread.sleep(retryDelayMs);
+                            Thread.sleep(randomDelay);
                         } catch(InterruptedException ie) {
                             logger.error("Fetcher interrupted while waiting to retry", ie);
                             Thread.currentThread().interrupt();

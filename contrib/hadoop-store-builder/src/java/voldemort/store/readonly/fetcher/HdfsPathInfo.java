@@ -1,12 +1,15 @@
 package voldemort.store.readonly.fetcher;
 
-import java.io.IOException;
+import java.util.List;
 
-import org.apache.hadoop.fs.FileStatus;
-import org.apache.hadoop.fs.FileSystem;
-import org.apache.hadoop.fs.Path;
-
-
+/**
+ * This class maintains some metrics about some directories in HDFS
+ * which we are interested to fetch.
+ *
+ * TODO: Determine if we'd rather get rid of this class entirely.
+ *       We might want to instead keep just:
+ *       {@link voldemort.store.readonly.fetcher.HdfsDirectory}
+ */
 public class HdfsPathInfo {
 
     int directories = 0;
@@ -17,27 +20,20 @@ public class HdfsPathInfo {
 
     }
 
-    public HdfsPathInfo(FileSystem fs, Path path) throws IOException {
-        addDirectory(fs, path);
-    }
-
-    private void addSize(long newSize) {
-        this.files++;
-        this.size += newSize;
-    }
-
-    private void addDirectory(FileSystem fs, Path path) throws IOException {
-        directories++;
-
-        FileStatus[] statuses = fs.listStatus(path);
-        if(statuses != null) {
-            for(FileStatus status: statuses) {
-                if(status.isDir()) {
-                    addDirectory(fs, status.getPath());
-                } else {
-                    addSize(status.getLen());
-                }
-            }
+    /**
+     * This constructor relies on the caller to tell it the list of
+     * directories for which it needs to hold statistics. This is
+     * useful for the 'build.primary.replicas.only' strategy where
+     * we are interested in downloading just a subset of a given
+     * directory. That subset is determined higher up the stack.
+     *
+     * @param directories list of HdfsDirectories to maintain metrics about
+     */
+    public HdfsPathInfo(List<HdfsDirectory> directories) {
+        for (HdfsDirectory directory: directories) {
+            this.directories += directory.getNumberOfSubDirectories();
+            this.files += directory.getNumberOfFiles();
+            this.size += directory.getTotalSizeOfChildren();
         }
     }
 
