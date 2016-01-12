@@ -1,3 +1,7 @@
+Release 1.10.12 on 1/11/2016
+* Fixed and cleaned up HadoopStoreWriterTest.
+* Fixed HDFS directory size measurement in HdfsFetcher.
+
 Release 1.10.11 on 1/8/2016
 * Fixed RO data directory diverged on 1.10.7
 * Fixed BnP assigns keys into correct partitions, resulting in data loss
