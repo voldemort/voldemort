@@ -33,6 +33,7 @@ import java.util.Random;
 import java.util.zip.GZIPInputStream;
 import java.util.zip.GZIPOutputStream;
 
+import com.google.common.collect.Lists;
 import junit.framework.Assert;
 
 import org.apache.commons.codec.binary.Hex;
@@ -70,7 +71,6 @@ import voldemort.utils.Utils;
  */
 public class HdfsFetcherAdvancedTest {
 
-    public static final Random UNSEEDED_RANDOM = new Random();
     private final boolean isCompressed;
     private final boolean enableStatsFile;
     private File testSourceDir, testCompressedSourceDir, testDestDir, copyLocation;
@@ -143,20 +143,6 @@ public class HdfsFetcherAdvancedTest {
         return dir.delete();
     }
 
-    private long sizeOfPath(FileSystem fs, Path path) throws IOException {
-        long size = 0;
-        FileStatus[] statuses = fs.listStatus(path);
-        if(statuses != null) {
-            for(FileStatus status: statuses) {
-                if(status.isDir())
-                    size += sizeOfPath(fs, status.getPath());
-                else
-                    size += status.getLen();
-            }
-        }
-        return size;
-    }
-
     /*
      * Helper method to calculate checksum for a single file
      */
@@ -186,33 +172,6 @@ public class HdfsFetcherAdvancedTest {
         return fileCheckSumGenerator.getCheckSum();
     }
 
-    /**
-     * Convenient method to execute private methods from other classes.
-     * 
-     * @param test Instance of the class we want to test
-     * @param methodName Name of the method we want to test
-     * @param params Arguments we want to pass to the method
-     * @return Object with the result of the executed method
-     * @throws Exception
-     */
-    private Object invokePrivateMethod(Object test, String methodName, Object params[])
-            throws Exception {
-        Object ret = null;
-
-        final Method[] methods = test.getClass().getDeclaredMethods();
-        for(int i = 0; i < methods.length; ++i) {
-            if(methods[i].getName().equals(methodName)) {
-                methods[i].setAccessible(true);
-                ret = methods[i].invoke(test, params);
-                break;
-            }
-        }
-
-        return ret;
-    }
-
-
-
     private void setUp() throws Exception {
         // First clean up any dirty state.
         cleanUp();
@@ -225,6 +184,9 @@ public class HdfsFetcherAdvancedTest {
         FileUtils.writeByteArrayToFile(indexFile, indexBytes);
         source = new Path(indexFile.getAbsolutePath());
         checksumCalculated = calculateCheckSumForFile(source);
+
+        String sourceString = testSourceDir.getAbsolutePath();
+        String finalIndexFileName = indexFileName;
 
         if(isCompressed) {
             testCompressedSourceDir = new File(testSourceDir.getAbsolutePath() + "_compressed");
@@ -239,28 +201,30 @@ public class HdfsFetcherAdvancedTest {
             // Checksum still needs to be calculated only for the uncompressed
             // data since we calculate the checksum for uncompressed data in
             // server.
+
+            sourceString = testCompressedSourceDir.getAbsolutePath();
+            finalIndexFileName += ".gz";
         }
 
-        fetcher = new HdfsFetcher();
+        // Fake config with a bogus node ID and server config path
+        VoldemortConfig config = new VoldemortConfig(-1, "");
+        config.setReadOnlyFetchRetryCount(3);
+        config.setReadOnlyFetchRetryDelayMs(1000);
+        config.setReadOnlyStatsFileEnabled(true);
+        config.setReadOnlyMaxVersionsStatsFile(50);
+
+        fetcher = new HdfsFetcher(config);
         fs = source.getFileSystem(new Configuration());
+        HdfsPathInfo hdfsPathInfo = new HdfsPathInfo(Lists.newArrayList(new HdfsDirectory(fs, source, config)));
         File destination = new File(testDestDir.getAbsolutePath() + "1");
-        if(isCompressed) {
-            stats = new HdfsCopyStats(testCompressedSourceDir.getAbsolutePath(),
-                                      destination,
-                                      enableStatsFile,
-                                      5,
-                                      false,
-                                      new HdfsPathInfo(fs, source));
-            copyLocation = new File(destination, indexFileName + ".gz");
-        } else {
-            stats = new HdfsCopyStats(testSourceDir.getAbsolutePath(),
-                                      destination,
-                                      enableStatsFile,
-                                      5,
-                                      false,
-                                      new HdfsPathInfo(fs, source));
-            copyLocation = new File(destination, indexFileName);
-        }
+
+        stats = new HdfsCopyStats(sourceString,
+                                  destination,
+                                  enableStatsFile,
+                                  5,
+                                  false,
+                                  hdfsPathInfo);
+        copyLocation = new File(destination, finalIndexFileName);
 
         Utils.mkdirs(destination);
 
@@ -389,7 +353,6 @@ public class HdfsFetcherAdvancedTest {
 
         }
         if(testDestDir.exists()) {
-
             deleteDir(testDestDir);
         }
 
@@ -686,20 +649,16 @@ public class HdfsFetcherAdvancedTest {
         try {
             fetchedFile = fetcher.fetch(testSourceDir.getAbsolutePath(),
                                          testDestDir.getAbsolutePath());
+            Assert.fail("Unexpected! Fetch should have failed, but instead, successfully got: " + fetchedFile);
         } catch(VoldemortException ex) {
             // this is expected, since we did not send valid compressed file
             cleanUp();
             return;
         } catch(Exception ex) {
-            // Any other exceptionis not acceptable. Fail the test case
+            // Any other exception is not acceptable. Fail the test case
             cleanUp();
             Assert.fail("Unexpected Exception thrown!");
         }
-        cleanUp();
-        // If the code reaches here, this means something is seriously bad
-        Assert.fail("Unexpected behavior!");
-
-
     }
 
 }

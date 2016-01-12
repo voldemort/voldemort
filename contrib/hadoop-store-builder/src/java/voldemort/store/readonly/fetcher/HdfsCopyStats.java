@@ -83,7 +83,7 @@ public class HdfsCopyStats {
         return this.statsFile;
     }
 
-    private static final int STATS_VERSION = 3;
+    private static final int STATS_VERSION = 4;
     private void initializeStatsFile(File destination,
                                      boolean enableStatsFile,
                                      int maxVersionsStatsFile,
@@ -230,16 +230,23 @@ public class HdfsCopyStats {
 
     public void complete() {
         long nowMS = System.currentTimeMillis() ;
-        reportStats(" Completed at " + nowMS + " MS. Total bytes transferred " + totalBytesTransferred
-                    + " . Expected total bytes transferred " + pathInfo.getTotalSize()
-                    + " . Total bytes written " + totalBytesWritten
-                    + " . Time taken(MS) " + (nowMS - startTimeMS));
+        String expectedTotalBytesTransferred = "unavailable";
+        if (pathInfo != null) {
+            expectedTotalBytesTransferred = String.valueOf(pathInfo.getTotalSize());
+        }
+        reportStats(" Completed at " + nowMS + " MS. Total bytes transferred: " + totalBytesTransferred
+                    + " . Expected total bytes transferred: " + expectedTotalBytesTransferred
+                    + " . Total bytes written: " + totalBytesWritten
+                    + " . Time taken(MS): " + (nowMS - startTimeMS));
         if(statsFileWriter != null) {
             IOUtils.closeQuietly(statsFileWriter);
         }
     }
 
     public double getPercentCopied() {
+        if (pathInfo == null) {
+            return -1.0;
+        }
         if(pathInfo.getTotalSize() == 0) {
             return 0.0;
         } else {
