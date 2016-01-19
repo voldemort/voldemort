@@ -368,12 +368,13 @@ public class HdfsFetcher implements FileFetcher {
             if(fs != null) {
                 try {
                     fs.close();
-                } catch(IOException e) {
-                    String errorMessage = "Got IOException while trying to close the filesystem instance (harmless).";
+                } catch(Exception e) {
+                    String errorMessage = "Caught " + e.getClass().getSimpleName() +
+                                          " while trying to close the filesystem instance (harmless).";
                     if(stats != null) {
                         stats.reportError(errorMessage, e);
                     }
-                    logger.info(errorMessage, e);
+                    logger.debug(errorMessage, e);
                 }
             }
         }
