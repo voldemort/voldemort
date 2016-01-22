@@ -289,14 +289,7 @@ public class ClientRequestExecutorPoolTest {
         SocketDestination nonExistentHost = new SocketDestination("unknown.invalid",
                                                                   port,
                                                                   RequestFormatType.VOLDEMORT_V1);
-        // JDK 1.6 throws UnresolvedAddressException, which is not even an
-        // instance of IOException or ConnectException . JDK 1.8 fixes this
-        // issue and uses the ConnectException .
-        try {
-            testConnectionFailure(pool, nonExistentHost, ConnectException.class);
-        } catch(Exception e) {
-            testConnectionFailure(pool, nonExistentHost, UnresolvedAddressException.class);
-        }
+        testConnectionFailure(pool, nonExistentHost, UnresolvedAddressException.class);
     }
 
     @Test
