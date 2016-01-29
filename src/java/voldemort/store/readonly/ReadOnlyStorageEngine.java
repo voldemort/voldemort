@@ -27,6 +27,7 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 import org.apache.log4j.Logger;
 
@@ -72,6 +73,7 @@ public class ReadOnlyStorageEngine extends AbstractStorageEngine<ByteArray, byte
     private volatile ChunkedFileSet fileSet;
     private volatile boolean isOpen;
     private long lastSwapped;
+    private AtomicBoolean currently_fetching;
 
     /**
      * Create an instance of the store
@@ -97,6 +99,8 @@ public class ReadOnlyStorageEngine extends AbstractStorageEngine<ByteArray, byte
              numBackups,
              0,
              VoldemortConfig.DEFAULT_RO_MAX_VALUE_BUFFER_ALLOCATION_SIZE);
+
+        currently_fetching = new AtomicBoolean(false);
     }
 
     /**
@@ -129,6 +133,9 @@ public class ReadOnlyStorageEngine extends AbstractStorageEngine<ByteArray, byte
         this.nodeId = nodeId;
         this.maxValueBufferAllocationSize = maxValueBufferAllocationSize;
         this.fileSet = null;
+
+        currently_fetching = new AtomicBoolean(false);
+
         /*
          * A lock that blocks reads during swap(), open(), and close()
          * operations
@@ -662,4 +669,14 @@ public class ReadOnlyStorageEngine extends AbstractStorageEngine<ByteArray, byte
                     "Store '" + getName() + "' version " + getCurrentVersionId() + " is disabled on this node.");
         }
     }
+
+    public Boolean isCurrentlyFetching() {
+        return this.currently_fetching.get();
+    }
+
+    public void setCurrentlyFetching(boolean value) {
+        this.currently_fetching.set(value);
+    }
 }
+
+
