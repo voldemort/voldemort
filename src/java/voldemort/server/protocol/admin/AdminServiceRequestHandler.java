@@ -496,8 +496,8 @@ public class AdminServiceRequestHandler implements RequestHandler {
             for(String storeName: storeNames) {
 
                 ReadOnlyStorageEngine store = getReadOnlyStorageEngine(metadataStore,
-                                                                       storeRepository,
-                                                                       storeName);
+                        storeRepository,
+                        storeName);
                 VAdminProto.ROStoreVersionDirMap storeResponse = VAdminProto.ROStoreVersionDirMap.newBuilder()
                                                                                                  .setStoreName(storeName)
                                                                                                  .setStoreDir(store.getCurrentDirPath())
@@ -530,8 +530,8 @@ public class AdminServiceRequestHandler implements RequestHandler {
 
                 File[] versionDirs = ReadOnlyUtils.getVersionDirs(storeDirPath);
                 File[] kthDir = ReadOnlyUtils.findKthVersionedDir(versionDirs,
-                                                                  versionDirs.length - 1,
-                                                                  versionDirs.length - 1);
+                        versionDirs.length - 1,
+                        versionDirs.length - 1);
 
                 VAdminProto.ROStoreVersionDirMap storeResponse = VAdminProto.ROStoreVersionDirMap.newBuilder()
                                                                                                  .setStoreName(storeName)
@@ -585,8 +585,8 @@ public class AdminServiceRequestHandler implements RequestHandler {
                                              + " correctly to delete it");
 
             final ReadOnlyStorageEngine store = getReadOnlyStorageEngine(metadataStore,
-                                                                         storeRepository,
-                                                                         storeName);
+                    storeRepository,
+                    storeName);
 
             if(store.getCurrentVersionId() == ReadOnlyUtils.getVersionId(new File(storeDir))) {
                 logger.warn("Cannot delete " + storeDir + " for " + storeName
@@ -595,11 +595,11 @@ public class AdminServiceRequestHandler implements RequestHandler {
             }
 
             logger.info("Deleting data from failed fetch for RO store '" + storeName
-                        + "' and directory '" + storeDir + "'");
+                    + "' and directory '" + storeDir + "'");
             // Lets delete the folder
             Utils.rm(new File(storeDir));
             logger.info("Successfully deleted data from failed fetch for RO store '" + storeName
-                        + "' and directory '" + storeDir + "'");
+                    + "' and directory '" + storeDir + "'");
 
         } catch(VoldemortException e) {
             response.setError(ProtoUtils.encodeError(errorCodeMapper, e));
@@ -850,8 +850,8 @@ public class AdminServiceRequestHandler implements RequestHandler {
 
         try {
             ReadOnlyStorageEngine store = getReadOnlyStorageEngine(metadataStore,
-                                                                   storeRepository,
-                                                                   storeName);
+                    storeRepository,
+                    storeName);
 
             File rollbackVersionDir = new File(store.getStoreDirPath(), "version-" + pushVersion);
 
@@ -859,7 +859,7 @@ public class AdminServiceRequestHandler implements RequestHandler {
                         + rollbackVersionDir + "'");
             store.rollback(rollbackVersionDir);
             logger.info("Successfully rolled back data for RO store '" + storeName
-                        + "' to version directory '" + rollbackVersionDir + "'");
+                    + "' to version directory '" + rollbackVersionDir + "'");
         } catch(VoldemortException e) {
             response.setError(ProtoUtils.encodeError(errorCodeMapper, e));
             logger.error("handleRollbackStore failed for request(" + request.toString() + ")", e);
@@ -882,7 +882,7 @@ public class AdminServiceRequestHandler implements RequestHandler {
                             return;
                         }
                         logger.info("Starting the repair job now on ID : "
-                                    + metadataStore.getNodeId());
+                                + metadataStore.getNodeId());
                         job.run();
                     } else
                         logger.error("RepairJob is not initialized.");
@@ -919,7 +919,7 @@ public class AdminServiceRequestHandler implements RequestHandler {
                         }
                         job.setStoreName(storeName);
                         logger.info("Starting the prune job now on ID : "
-                                    + metadataStore.getNodeId() + " for store " + storeName);
+                                + metadataStore.getNodeId() + " for store " + storeName);
                         job.run();
                     } else {
                         logger.error("PruneJob is not initialized.");
@@ -991,8 +991,8 @@ public class AdminServiceRequestHandler implements RequestHandler {
     private String swapStore(String storeName, String directory) throws VoldemortException {
 
         ReadOnlyStorageEngine store = getReadOnlyStorageEngine(metadataStore,
-                                                               storeRepository,
-                                                               storeName);
+                storeRepository,
+                storeName);
 
         if(!Utils.isReadableDir(directory))
             throw new VoldemortException("Store directory '" + directory
@@ -1055,8 +1055,12 @@ public class AdminServiceRequestHandler implements RequestHandler {
                                              + " state on node " + metadataStore.getNodeId());
             }
             final ReadOnlyStorageEngine store = getReadOnlyStorageEngine(metadataStore,
-                                                                         storeRepository,
-                                                                         storeName);
+                    storeRepository,
+                    storeName);
+
+            if (store.isCurrentlyFetching())
+                throw new ReadOnlyFetchDisabledException(storeName + " is currently fetching data.");
+
             final long currentVersion = store.getCurrentVersionId();
             final long pushVersion;
             if(request.hasPushVersion()) {
@@ -1131,12 +1135,18 @@ public class AdminServiceRequestHandler implements RequestHandler {
 
                             String destinationDir = store.getStoreDirPath() + File.separator + "version-"
                                             + Long.toString(pushVersion);
+
+                            store.setCurrentlyFetching(true);
+
                             fetchDir = fileFetcher.fetch(fetchUrl,
                                                       destinationDir,
                                                       status,
                                                       storeName,
                                                       pushVersion,
                                                       metadataStore);
+
+                            store.setCurrentlyFetching(false);
+
                             if(fetchDir == null) {
                                 String errorMessage = "File fetcher failed for "
                                                       + fetchUrl
@@ -1162,6 +1172,9 @@ public class AdminServiceRequestHandler implements RequestHandler {
                         } catch(Exception e) {
                             throw new VoldemortException("Exception in Fetcher = " + e.getMessage(),
                                                          e);
+                        } finally{
+                            if (store.isCurrentlyFetching())
+                                store.setCurrentlyFetching(false);
                         }
 
                     }
