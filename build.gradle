@@ -150,6 +150,7 @@ task voldJar(type:Jar) {
     destinationDir = project.file(distDir)
 }
 
+
 task contribJar(type:Jar) {
     dependsOn voldJar, testJar, sourceSets.contrib.output
     baseName = projectName + "-contrib"
@@ -193,6 +194,7 @@ def depJacksonMapper = 'org.codehaus.jackson:jackson-mapper-asl:1.9.13'
 def depJoda = 'joda-time:joda-time:1.6'
 def depTehuti = 'io.tehuti:tehuti:0.7.0'
 
+
 shadowJar {
     classifier "bnp"
     from sourceSets.main.output, sourceSets.contrib.output, sourceSets.test.output, sourceSets.main.resources
@@ -212,6 +214,35 @@ shadowJar {
     relocate 'com.google.protobuf', 'voldemort.shadow.2.3.0.com.google.protobuf'
     relocate 'org.apache.avro', 'voldemort.shadow.1.4.0.org.apache.avro'
     // TODO: find a way to exclude private lib's BDB-JE which gets pulled into the fat jar...
+}
+
+import com.github.jengelman.gradle.plugins.shadow.tasks.ShadowJar
+task protobufJar(type: ShadowJar) {    
+    baseName = projectName + "-protobuf"
+
+    manifest {
+        attributes 'Voldemort-Implementation-Version' : version,
+        'Implementation-Title': 'Voldemort',
+        'Implementation-Version': version,
+        'Implementation-Vendor' :'LinkedIn'
+    }
+
+    dependencies {
+        include(dependency(depProtoBuf))
+        configurations.runtime.each { exclude(dependency(it)) }
+    }
+
+    configurations = [ project.configurations.runtime ]
+
+    from sourceSets.main.output
+    destinationDir = project.file(distDir)
+
+    relocate 'com.google.protobuf', 'voldemort.shadow.2.3.0.com.google.protobuf'
+    // Since BDB is included via compile files option, shadow does not support
+    // excluding them. https://github.com/johnrengelman/shadow/issues/142
+    // Once shadow supports excluding them, it can be excluded. There are 
+    // Complex ways to exclude it, but not worth it.
+    relocate 'com.sleepycat' , 'voldemort.shadow.5.0.88.com.sleepycat'
 }
 
 task copySources (type: Copy) {
@@ -411,7 +442,6 @@ tasks.withType(Test) {
 
 task wrapper(type: Wrapper) { gradleVersion = '2.0' }
 
-
 dependencies {
     // Avro serialization format
     compile depAvro
@@ -570,7 +600,7 @@ dependencies {
     // Other libs...
     compile 'org.apache.tomcat:catalina-ant:6.0.43'
     compile 'org.apache.hadoop:libthrift:0.5.0.0'
-    
+
     // rocksdb from maven
     compile 'org.rocksdb:rocksdbjni:3.13.1'
 
