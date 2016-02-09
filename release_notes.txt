@@ -1,3 +1,8 @@
+Release 1.10.13 on 2/8/2016
+* Unit Test fixes for ClientRequestExecutorPool
+* ShadowJar with Protobuf dependency
+* HdfsFetcher error message cleanup
+
 Release 1.10.12 on 1/11/2016
 * Fixed and cleaned up HadoopStoreWriterTest.
 * Fixed HDFS directory size measurement in HdfsFetcher.
