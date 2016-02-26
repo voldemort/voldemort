@@ -58,6 +58,7 @@ get "k1"
 
 You can find more commands by running```help```
 
+Want to dig into the detailed implementation or even contribute to Voldemort? [A quick git guild for people who want to make contributions to Voldemort](https://github.com/voldemort/voldemort/wiki/A-quick-git-guide-for-people-who-want-to-make-contributions-to-Voldemort).
 
 ## Comparison to relational databases ##
 

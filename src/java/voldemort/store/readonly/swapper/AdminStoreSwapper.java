@@ -213,8 +213,9 @@ public class AdminStoreSwapper {
          * that this needs careful decision on how to handle those fetches that
          * already started in other nodes and how & when to clean them up.
          */
-        int numQuotaExceededException = 0;
-        boolean invalidBootstrapURLExceptions = false;
+        /*int numQuotaExceededException = 0;
+        ArrayList<Integer>QuotaExceededExceptions = new ArrayList<Integer>();
+        //boolean invalidBootstrapURLExceptions = false;
         for(final Node node: cluster.getNodes()) {
             Future<String> val = fetchDirs.get(node.getId());
             try {
@@ -223,10 +224,14 @@ public class AdminStoreSwapper {
             } catch(ExecutionException e) {
                 fetchErrors = true;
                 if(e.getCause() instanceof QuotaExceededException) {
-                    numQuotaExceededException++;
+                    //numQuotaExceededException++;
+                    QuotaExceededExceptions.add(node.getId());
                     fetchResponseMap.put(node, new Response((QuotaExceededException) e.getCause()));
                 } else if(e.getCause() instanceof InvalidBootstrapURLException) {
-                    invalidBootstrapURLExceptions = true;
+                    //invalidBootstrapURLExceptions = true;
+                    throw new InvalidBootstrapURLException("Not able to find store (" + storeName +
+                            ") in this cluster according to the push URL. BnP job is not able to create new stores now." +
+                            "Please create new stores through Nuage if you think this is the correct cluster you want to push." );
                 } else {
                     fetchResponseMap.put(node, new Response(e));
                 }
@@ -238,9 +243,29 @@ public class AdminStoreSwapper {
         }
 
         // Invalid stores should fail faster
-        if(invalidBootstrapURLExceptions) {
-            throw new InvalidBootstrapURLException("Exceptions during push. Invalid bootstrap url. Please check your "
+        /*if(invalidBootstrapURLExceptions) {
+           throw new InvalidBootstrapURLException("Exceptions during push. Invalid bootstrap url. Please check your "
                                                    + "cluster bootstrap URL");
+
+        }*/
+        ArrayList<Node>failedNodes = new ArrayList<Node>();
+        for (final Node node: cluster.getNodes()){
+            Future<String> val = fetchDirs.get(node.getId());
+            try{
+                String response = val.get();
+                fetchResponseMap.put(node, new Response(response));
+            }catch(Exception e){
+                if (e.getCause() instanceof InvalidBootstrapURLException){
+                    throw new InvalidBootstrapURLException("Not able to find store (" + storeName +
+                            ") in this cluster according to the push URL. BnP job is not able to create new stores now." +
+                            "Please create new stores through Nuage if you think this is the correct cluster you want to push." );
+                }
+                else{
+                    fetchErrors = true;
+                    fetchResponseMap.put(node, new Response(e));
+                    failedNodes.add(node);
+                }
+            }
         }
 
         if(fetchErrors) {
@@ -272,7 +297,7 @@ public class AdminStoreSwapper {
                 }
             }
 
-            if (swapIsPossible) {
+            /*if (swapIsPossible) {
                 // We're good... We'll return the fetchResponseMap.
             } else {
                 String errorMessage = "";
@@ -282,6 +307,10 @@ public class AdminStoreSwapper {
                     errorMessage = "Exception during push. Swap will be aborted.";
                 }
                 throw new VoldemortException(errorMessage);
+
+            }*/
+            if (!swapIsPossible){
+                throw new VoldemortException("Exception during psh. Swap will be aborted", fetchResponseMap.get(failedNodes.get(0)).getException());
             }
         }
         return fetchResponseMap;
