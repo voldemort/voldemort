@@ -17,7 +17,6 @@
 package voldemort.store.readonly.fetcher;
 
 import java.io.File;
-import java.io.IOException;
 import java.text.NumberFormat;
 import java.util.Arrays;
 import java.util.List;
@@ -51,7 +50,7 @@ import voldemort.store.readonly.ReadOnlyUtils;
 import voldemort.store.readonly.checksum.CheckSum.CheckSumType;
 import voldemort.store.readonly.mr.utils.HadoopUtils;
 import voldemort.store.readonly.mr.utils.VoldemortUtils;
-import voldemort.store.readonly.swapper.InvalidBootstrapURLException;
+import voldemort.store.readonly.UnauthorizedStoreException;
 import voldemort.utils.ByteUtils;
 import voldemort.utils.EventThrottler;
 import voldemort.utils.JmxUtils;
@@ -430,11 +429,11 @@ public class HdfsFetcher implements FileFetcher {
                                 + ", Disk quota size in KB: " + diskQuotaSizeInKB;
             logger.debug(logMessage);
             if(diskQuotaSizeInKB == 0L) {
-                String errorMessage = "This store: \'"
-                                      + storeName
-                                      + "\' does not belong to this Voldemort cluster. Please use a valid bootstrap url.";
+                String errorMessage = "Not able to find store (" + storeName +
+                        ") in this cluster according to the push URL. BnP job is not able to create new stores now." +
+                        "Please reach out to a Voldemort admin if you think this is the correct cluster you want to push.";
                 logger.error(errorMessage);
-                throw new InvalidBootstrapURLException(errorMessage);
+                throw new UnauthorizedStoreException(errorMessage);
             }
             // check if there is still sufficient quota left for this push
             Long estimatedDiskSizeNeeded = (expectedDiskSize / ByteUtils.BYTES_PER_KB);

@@ -9,7 +9,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.Callable;
-import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
@@ -25,8 +24,8 @@ import voldemort.VoldemortException;
 import voldemort.client.protocol.admin.AdminClient;
 import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
-import voldemort.store.quota.QuotaExceededException;
 import voldemort.store.readonly.ReadOnlyUtils;
+import voldemort.store.readonly.UnauthorizedStoreException;
 import voldemort.utils.CmdUtils;
 import voldemort.utils.Time;
 import voldemort.utils.logging.PrefixedLogger;
@@ -107,7 +106,7 @@ public class AdminStoreSwapper {
     }
 
     /**
-     * 
+     *
      * @param cluster The cluster metadata
      * @param executor Executor to use for running parallel fetch / swaps
      * @param adminClient The admin client to use for querying
@@ -151,8 +150,8 @@ public class AdminStoreSwapper {
     }
 
     public Map<Node, Response> invokeFetch(final String storeName,
-                                    final String basePath,
-                                    final long pushVersion) {
+                                           final String basePath,
+                                           final long pushVersion) {
         // do fetch
         final Map<Integer, Future<String>> fetchDirs = new HashMap<Integer, Future<String>>();
         for(final Node node: cluster.getNodes()) {
@@ -179,10 +178,10 @@ public class AdminStoreSwapper {
                     // TODO: Catch specific exception if async task status is not found, and retry in that case.
                     logger.info("Invoking fetch for " + node.briefToString() + " for " + storeDir);
                     return adminClient.readonlyOps.fetchStore(node.getId(),
-                                                              storeName,
-                                                              storeDir,
-                                                              pushVersion,
-                                                              timeoutMs);
+                            storeName,
+                            storeDir,
+                            pushVersion,
+                            timeoutMs);
                 }
             }));
         }
@@ -213,34 +212,23 @@ public class AdminStoreSwapper {
          * that this needs careful decision on how to handle those fetches that
          * already started in other nodes and how & when to clean them up.
          */
-        int numQuotaExceededException = 0;
-        boolean invalidBootstrapURLExceptions = false;
-        for(final Node node: cluster.getNodes()) {
+
+        ArrayList<Node>failedNodes = new ArrayList<Node>();
+        for (final Node node: cluster.getNodes()){
             Future<String> val = fetchDirs.get(node.getId());
-            try {
+            try{
                 String response = val.get();
                 fetchResponseMap.put(node, new Response(response));
-            } catch(ExecutionException e) {
-                fetchErrors = true;
-                if(e.getCause() instanceof QuotaExceededException) {
-                    numQuotaExceededException++;
-                    fetchResponseMap.put(node, new Response((QuotaExceededException) e.getCause()));
-                } else if(e.getCause() instanceof InvalidBootstrapURLException) {
-                    invalidBootstrapURLExceptions = true;
-                } else {
+            }catch(Exception e){
+                if (e.getCause() instanceof UnauthorizedStoreException){
+                    throw (UnauthorizedStoreException) e.getCause();
+                }
+                else{
+                    fetchErrors = true;
                     fetchResponseMap.put(node, new Response(e));
+                    failedNodes.add(node);
                 }
             }
-            catch(Exception e) {
-                fetchErrors = true;
-                fetchResponseMap.put(node, new Response(e));
-            }
-        }
-
-        // Invalid stores should fail faster
-        if(invalidBootstrapURLExceptions) {
-            throw new InvalidBootstrapURLException("Exceptions during push. Invalid bootstrap url. Please check your "
-                                                   + "cluster bootstrap URL");
         }
 
         if(fetchErrors) {
@@ -272,16 +260,8 @@ public class AdminStoreSwapper {
                 }
             }
 
-            if (swapIsPossible) {
-                // We're good... We'll return the fetchResponseMap.
-            } else {
-                String errorMessage = "";
-                if(numQuotaExceededException > 0) {
-                    errorMessage = "Disk Quota exceeded. Swap will be aborted.";
-                } else {
-                    errorMessage = "Exception during push. Swap will be aborted.";
-                }
-                throw new VoldemortException(errorMessage);
+            if (!swapIsPossible){
+                throw new VoldemortException("Exception during push. Swap will be aborted", fetchResponseMap.get(failedNodes.get(0)).getException());
             }
         }
         return fetchResponseMap;

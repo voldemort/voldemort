@@ -26,10 +26,8 @@ import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.FilterInputStream;
 import java.io.IOException;
-import java.lang.reflect.Method;
 import java.util.Arrays;
 import java.util.Collection;
-import java.util.Random;
 import java.util.zip.GZIPInputStream;
 import java.util.zip.GZIPOutputStream;
 
@@ -40,7 +38,6 @@ import org.apache.commons.codec.binary.Hex;
 import org.apache.commons.io.FileUtils;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FSDataInputStream;
-import org.apache.hadoop.fs.FileStatus;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.junit.Test;
@@ -60,7 +57,7 @@ import voldemort.store.readonly.ReadOnlyStorageMetadata;
 import voldemort.store.readonly.checksum.CheckSum;
 import voldemort.store.readonly.checksum.CheckSum.CheckSumType;
 import voldemort.store.readonly.checksum.CheckSumTests;
-import voldemort.store.readonly.swapper.InvalidBootstrapURLException;
+import voldemort.store.readonly.UnauthorizedStoreException;
 import voldemort.store.readonly.utils.ReadOnlyTestUtils;
 import voldemort.utils.Utils;
 
@@ -374,14 +371,14 @@ public class HdfsFetcherAdvancedTest {
          // When disk quota is 0 expect InvalidBootsrapURLException. What this
          // mean is no new stores will be onboarded on the fly during BnP
          testForDiskQuota(0, 2048);
-         } catch(InvalidBootstrapURLException e) {
+         } catch(UnauthorizedStoreException e) {
          // This is expected
          testhasErrors = true;
          } catch(Exception e) {
             Assert.fail("testForDiskQuota(0, 2048) failed with Exception: " + e);
          }
          if(!testhasErrors) {
-            Assert.fail("testForDiskQuota(0, 2048) should have failed with InvalidBootstrapURLException.");
+            Assert.fail("testForDiskQuota(0, 2048) should have failed with UnauthorizedStoreException.");
          }
 
 
