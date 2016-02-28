@@ -27,7 +27,7 @@ import voldemort.server.protocol.admin.ReadOnlyFetchDisabledException;
 import voldemort.server.rebalance.AlreadyRebalancingException;
 import voldemort.server.rebalance.VoldemortRebalancingException;
 import voldemort.store.quota.QuotaExceededException;
-import voldemort.store.readonly.swapper.InvalidBootstrapURLException;
+import voldemort.store.readonly.UnauthorizedStoreException;
 import voldemort.store.rebalancing.ProxyUnreachableException;
 import voldemort.store.slop.SlopStreamingDisabledException;
 import voldemort.store.views.UnsupportedViewOperationException;
@@ -65,7 +65,7 @@ public class ErrorCodeMapper {
         codeToException.put((short) 16, VoldemortUnsupportedOperationalException.class);
         codeToException.put((short) 17, QuotaExceededException.class);
         codeToException.put((short) 18, SlopStreamingDisabledException.class);
-        codeToException.put((short) 19, InvalidBootstrapURLException.class);
+        codeToException.put((short) 19, UnauthorizedStoreException.class);
         codeToException.put((short) 20, AsyncOperationStoppedException.class);
         codeToException.put((short) 21, ReadOnlyFetchDisabledException.class);
 
