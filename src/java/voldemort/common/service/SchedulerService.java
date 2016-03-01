@@ -252,4 +252,15 @@ public class SchedulerService extends AbstractService {
         }
     }
 
+    @JmxGetter(name = "numActiveTasks", description = "Returns number of tasks executing currently")
+    public long getActiveTasksCount() {
+        return this.scheduler.getActiveCount();
+    }
+
+    @JmxGetter(name = "numQueuedTasks",
+            description = "Returns number of tasks queued for execution")
+    public long getQueuedTasksCount() {
+        return this.scheduler.getQueue().size();
+    }
+
 }

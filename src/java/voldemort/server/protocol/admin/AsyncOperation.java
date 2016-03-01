@@ -51,4 +51,27 @@ public abstract class AsyncOperation implements Runnable {
 
     @JmxOperation
     abstract public void stop();
+
+    /**
+     * Cumulative wait time is reported as Seconds in the JMX by AsyncService.
+     * AsyncOperation can return a positive number indicating the milliseconds
+     * it is waiting, to be included for that calculation.
+     *
+     * @return If the AsyncOperation is waiting, return the wait time in
+     *         milliseconds else return 0
+     */
+    public long getWaitTimeMs() {
+        return 0;
+    }
+
+    /**
+     * Number of wait tasks is reported as Seconds in the JMX by AsyncService.
+     * AsyncOperation can return true to indicate that it should be included in
+     * that calculation.
+     *
+     * @return If the AsyncOperation is waiting, return true else false
+     */
+    public boolean isWaiting() {
+        return false;
+    }
 }

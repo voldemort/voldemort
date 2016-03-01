@@ -21,11 +21,13 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import org.apache.log4j.Logger;
 
 import voldemort.VoldemortException;
+import voldemort.annotations.jmx.JmxGetter;
 import voldemort.annotations.jmx.JmxManaged;
 import voldemort.annotations.jmx.JmxOperation;
 import voldemort.common.service.AbstractService;
@@ -84,7 +86,9 @@ public class AsyncOperationService extends AbstractService {
             throw new VoldemortException("No operation with id " + requestId + " found");
 
         if(operations.get(requestId).getStatus().isComplete()) {
-            logger.debug("Operation complete " + requestId);
+            if(logger.isDebugEnabled()) {
+                logger.debug("Operation complete " + requestId);
+            }
             operations.remove(requestId);
 
             return true;
@@ -145,7 +149,8 @@ public class AsyncOperationService extends AbstractService {
 
         List<Integer> keyList = new ArrayList<Integer>();
         for(int key: keySet) {
-            if(!operations.get(key).getStatus().isComplete())
+            AsyncOperation operation = operations.get(key);
+            if(operation != null && !operation.getStatus().isComplete())
                 keyList.add(key);
         }
         return keyList;
@@ -195,4 +200,33 @@ public class AsyncOperationService extends AbstractService {
     protected void stopInner() {
         logger.info("Stopping asyncOperationRunner");
     }
+
+    @JmxGetter(name = "totalWaitTime",
+            description = "Cumulative number of seconds spent by all tasks in Queue Waiting")
+    public long totalWaitTime() {
+        long totalWaitTimeMs = 0;
+        Set<Integer> keySet = ImmutableSet.copyOf(operations.keySet());
+        for(int key: keySet) {
+            AsyncOperation operation = operations.get(key);
+            if(operation != null && !operation.getStatus().isComplete()) {
+                totalWaitTimeMs += operation.getWaitTimeMs();
+            }
+        }
+        return TimeUnit.SECONDS.convert(totalWaitTimeMs, TimeUnit.MILLISECONDS);
+    }
+
+    @JmxGetter(name = "numWaitingTasks", description = "Total number of tasks waiting in the Queue")
+    public long waitingTasks() {
+        long waitingTasks = 0;
+        Set<Integer> keySet = ImmutableSet.copyOf(operations.keySet());
+        for(int key: keySet) {
+            AsyncOperation operation = operations.get(key);
+            if(operation != null && !operation.getStatus().isComplete()) {
+                if(operation.isWaiting())
+                    waitingTasks++;
+            }
+        }
+        return waitingTasks;
+    }
+
 }
