@@ -189,6 +189,8 @@ public class VoldemortBuildAndPushJob extends AbstractJob {
         String clusterUrlText = props.getString(PUSH_CLUSTER);
         for(String url: Utils.COMMA_SEP.split(clusterUrlText.trim())) {
             if(url.trim().length() > 0) {
+                if (clusterURLs.contains(url))
+                    throw new VoldemortException("the URL: " + url + " is duplicated. Please check it out.");
                 this.clusterURLs.add(url);
                 AdminClient adminClient = new AdminClient(new ClientConfig().setBootstrapUrls(url)
                                                                             .setConnectionTimeout(15,

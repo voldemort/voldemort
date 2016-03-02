@@ -76,24 +76,34 @@ public class AsyncOperationService extends AbstractService {
     }
 
     /**
-     * Is a request complete? If so, forget the operations
+     * Check if the an operation is done or not. 
      * 
      * @param requestId Id of the request
+     * @param remove Whether remove the request out of the list if it is done.
      * @return True if request is complete, false otherwise
      */
-    public synchronized boolean isComplete(int requestId) {
-        if(!operations.containsKey(requestId))
+    public synchronized boolean isComplete(int requestId, boolean remove) {
+        if (!operations.containsKey(requestId))
             throw new VoldemortException("No operation with id " + requestId + " found");
 
-        if(operations.get(requestId).getStatus().isComplete()) {
-            if(logger.isDebugEnabled()) {
+        if (operations.get(requestId).getStatus().isComplete()) {
+            if (logger.isDebugEnabled())
                 logger.debug("Operation complete " + requestId);
-            }
-            operations.remove(requestId);
+
+            if (remove)
+                operations.remove(requestId);
 
             return true;
         }
+
         return false;
+    }
+    /**
+     * A default caller. remove operations ID out of the list when it is done.
+     * @param requestId Id of the request
+     */
+    public synchronized boolean isComplete(int requestId) {
+        return isComplete(requestId, true);
     }
 
     // Wrap getOperationStatus to avoid throwing exception over JMX

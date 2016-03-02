@@ -29,6 +29,7 @@ public class ReadOnlyStoreFetchOperation extends AsyncOperation {
     private final long pushVersion;
     private final ReadOnlyStorageEngine store;
     private final long startTime = System.currentTimeMillis();
+    private final Long diskQuotaSizeInKB;
 
     private State currentState;
 
@@ -38,7 +39,8 @@ public class ReadOnlyStoreFetchOperation extends AsyncOperation {
                                        FileFetcher fileFetcher,
                                        String storeName,
                                        String fetchUrl,
-                                       long pushVersion) {
+                                       long pushVersion,
+                                       Long diskQuotaSizeInKB) {
         super(id, "Fetch store '" + storeName + "' v" + pushVersion);
         this.metadataStore = metadataStore;
         this.store = store;
@@ -47,6 +49,7 @@ public class ReadOnlyStoreFetchOperation extends AsyncOperation {
         this.fetchUrl = fetchUrl;
         this.pushVersion = pushVersion;
         this.currentState = State.WAITING;
+        this.diskQuotaSizeInKB = diskQuotaSizeInKB;
 
         updateStatus("Waiting in Queue");
     }
@@ -97,7 +100,8 @@ public class ReadOnlyStoreFetchOperation extends AsyncOperation {
                                              status,
                                              storeName,
                                              pushVersion,
-                                             metadataStore);
+                                             metadataStore,
+                                             diskQuotaSizeInKB);
                 if(fetchDir == null) {
                     String errorMessage = "File fetcher failed for " + fetchUrl + " and store '"
                                           + storeName

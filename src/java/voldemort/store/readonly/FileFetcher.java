@@ -53,5 +53,6 @@ public interface FileFetcher {
                       AsyncOperationStatus status,
                       String storeName,
                       long pushVersion,
-                      MetadataStore metadataStore) throws IOException, Exception;
+                      MetadataStore metadataStore,
+                      Long diskQuotaSizeInKB) throws IOException, Exception;
 }

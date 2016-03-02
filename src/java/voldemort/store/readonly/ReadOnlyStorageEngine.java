@@ -59,6 +59,7 @@ import com.google.common.collect.Lists;
 public class ReadOnlyStorageEngine extends AbstractStorageEngine<ByteArray, byte[], byte[]> {
 
     private static Logger logger = Logger.getLogger(ReadOnlyStorageEngine.class);
+    public static int NO_FETCH_IN_PROGRESS = -1;
 
     // Immutable state
     private final int numBackups, nodeId, deleteBackupMs, maxValueBufferAllocationSize;
@@ -72,6 +73,7 @@ public class ReadOnlyStorageEngine extends AbstractStorageEngine<ByteArray, byte
     private volatile ChunkedFileSet fileSet;
     private volatile boolean isOpen;
     private long lastSwapped;
+    private int lastFetchReqestId;
 
     /**
      * Create an instance of the store
@@ -137,6 +139,8 @@ public class ReadOnlyStorageEngine extends AbstractStorageEngine<ByteArray, byte
         this.isOpen = false;
         storeVersionManager = new StoreVersionManager(storeDir);
         open(null);
+
+        lastFetchReqestId = NO_FETCH_IN_PROGRESS;
     }
 
     @Override
@@ -662,4 +666,8 @@ public class ReadOnlyStorageEngine extends AbstractStorageEngine<ByteArray, byte
                     "Store '" + getName() + "' version " + getCurrentVersionId() + " is disabled on this node.");
         }
     }
+
+    public int getFetchingRequest() { return lastFetchReqestId; }
+
+    public void setFetchingRequest(int requestId) { lastFetchReqestId = requestId; }
 }

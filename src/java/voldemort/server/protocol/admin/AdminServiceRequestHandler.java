@@ -29,6 +29,8 @@ import java.util.List;
 import java.util.Properties;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.locks.Lock;
+import java.util.concurrent.locks.ReentrantLock;
 
 import org.apache.commons.io.IOUtils;
 import org.apache.log4j.Logger;
@@ -67,9 +69,11 @@ import voldemort.store.StoreDefinition;
 import voldemort.store.StoreDefinitionBuilder;
 import voldemort.store.StoreOperationFailureException;
 import voldemort.store.backup.NativeBackupable;
+import voldemort.store.configuration.FileBackedCachingStorageEngine;
 import voldemort.store.metadata.MetadataStore;
 import voldemort.store.mysql.MysqlStorageEngine;
 import voldemort.store.quota.QuotaType;
+import voldemort.store.quota.QuotaUtils;
 import voldemort.store.readonly.FileFetcher;
 import voldemort.store.readonly.ReadOnlyStorageConfiguration;
 import voldemort.store.readonly.ReadOnlyStorageEngine;
@@ -80,6 +84,7 @@ import voldemort.store.readonly.swapper.FailedFetchLock;
 import voldemort.store.slop.SlopStorageEngine;
 import voldemort.store.stats.StreamingStats;
 import voldemort.store.stats.StreamingStats.Operation;
+import voldemort.store.system.SystemStoreConstants;
 import voldemort.utils.ByteArray;
 import voldemort.utils.ByteUtils;
 import voldemort.utils.ClosableIterator;
@@ -111,6 +116,7 @@ public class AdminServiceRequestHandler implements RequestHandler {
     private final static Logger logger = Logger.getLogger(AdminServiceRequestHandler.class);
 
     private final static Object lock = new Object();
+    private final static Lock storeLock = new ReentrantLock();
 
     private final ErrorCodeMapper errorCodeMapper;
     private final MetadataStore metadataStore;
@@ -1009,7 +1015,7 @@ public class AdminServiceRequestHandler implements RequestHandler {
         return currentDirPath;
     }
 
-    public VAdminProto.SwapStoreResponse handleSwapROStore(VAdminProto.SwapStoreRequest request) {
+    public VAdminProto.SwapStoreResponse handleSwapROStore( VAdminProto.SwapStoreRequest request) {
         final String dir = request.getStoreDir();
         final String storeName = request.getStoreName();
         VAdminProto.SwapStoreResponse.Builder response = VAdminProto.SwapStoreResponse.newBuilder();
@@ -1085,15 +1091,44 @@ public class AdminServiceRequestHandler implements RequestHandler {
                 logger.warn("Push Version is not specified, this might create issues during rebalance/restore. Store"
                         + storeName + " Generated version " + pushVersion);
             }
+
+            FileBackedCachingStorageEngine quotaStore = (FileBackedCachingStorageEngine)
+                    storeRepository.getStorageEngine(SystemStoreConstants.SystemStoreName.voldsys$_store_quotas.toString());
+            String quotaKey = QuotaUtils.makeQuotaKey(storeName, QuotaType.STORAGE_SPACE);
+            String diskQuotaSize = quotaStore.cacheGet(quotaKey);
+            Long diskQuotaSizeInKB = (diskQuotaSize == null) ? null : Long.parseLong(diskQuotaSize);
+
             ReadOnlyStoreFetchOperation operation = new ReadOnlyStoreFetchOperation(requestId,
                                                                                     metadataStore,
                                                                                     store,
                                                                                     fileFetcher,
                                                                                     storeName,
                                                                                     fetchUrl,
-                                                                                    pushVersion);
-            asyncService.submitOperation(requestId, operation);
+                                                                                    pushVersion,
+                                                                                    diskQuotaSizeInKB);
+            AdminServiceRequestHandler.storeLock.lock();
 
+            try {
+                boolean complete;
+                int previousRequestId = store.getFetchingRequest();
+
+                if (previousRequestId != ReadOnlyStorageEngine.NO_FETCH_IN_PROGRESS) {
+                    try {
+                        complete = asyncService.isComplete(store.getFetchingRequest(), false);
+                    } catch (VoldemortException e) {
+                        complete = true;
+                    }
+
+                    if (!complete)
+                        throw new VoldemortException("The store: " + storeName + " is currently blocked since it is fetching data " +
+                                "(existing operation request ID: " + previousRequestId + ")");
+                }
+
+                store.setFetchingRequest(requestId);
+                asyncService.submitOperation(requestId, operation);
+            }finally {
+                AdminServiceRequestHandler.storeLock.unlock();
+            }
         } catch(VoldemortException e) {
             response.setError(ProtoUtils.encodeError(errorCodeMapper, e));
             logger.error("handleFetchStore failed for request(" + request.toString() + ")", e);

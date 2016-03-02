@@ -21,6 +21,8 @@ import com.google.common.collect.Maps;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.Parameterized;
 import voldemort.ServerTestUtils;
 import voldemort.TestUtils;
 import voldemort.VoldemortException;
@@ -34,6 +36,7 @@ import voldemort.server.VoldemortServer;
 import voldemort.store.StoreDefinition;
 import voldemort.store.StoreDefinitionBuilder;
 import voldemort.store.metadata.MetadataStore;
+import voldemort.store.nonblockingstore.ThreadPoolBasedNonblockingStoreImpl;
 import voldemort.store.readonly.ReadOnlyStorageConfiguration;
 import voldemort.store.readonly.ReadOnlyUtils;
 import voldemort.store.socket.SocketStoreFactory;
@@ -44,11 +47,17 @@ import voldemort.xml.StoreDefinitionsMapper;
 import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
+import java.util.Arrays;
+import java.util.Collection;
+import java.util.List;
 import java.util.Map;
 import java.util.Properties;
 import java.util.TreeMap;
+import java.util.concurrent.Callable;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
@@ -101,6 +110,7 @@ public class StoreSwapperTest {
         servers = new VoldemortServer[NUM_NODES];
         Properties props = new Properties();
         props.put("readonly.backups", "1");
+        props.put("file.fetcher.class", MockFetcher.class.getName());
         cluster = ServerTestUtils.startVoldemortCluster(NUM_NODES,
                                                         servers,
                                                         null,
@@ -192,6 +202,63 @@ public class StoreSwapperTest {
             testFetchSwapWithoutRollback(swapper);
         } finally {
             executor.shutdown();
+        }
+    }
+
+    @Test
+    public void testConcurrencyPush() throws ExecutionException, InterruptedException {
+        //Set to let the fetcher sleep for a while so it's gonna block the rest of push requests.
+        MockFetcher.setSleepTime(5);
+
+        int pushNums = 4;
+        final ExecutorService executor = Executors.newCachedThreadPool();
+
+        List<Future<RuntimeException>> results = Lists.newArrayList();
+
+        for (int i = 0; i < pushNums; i ++) {
+            results.add(executor.submit(new PushWorker(executor)));
+        }
+
+        int fetchedNode = 0;
+        for (Future<RuntimeException> e : results){
+            if (e.get() == null)
+                fetchedNode ++;
+            else {
+                assertTrue(e.get() instanceof VoldemortException);
+            }
+
+        }
+
+        assertTrue(fetchedNode <= 1);
+
+        MockFetcher.setSleepTime(0);
+    }
+
+    private class PushWorker implements Callable<RuntimeException> {
+
+        private ExecutorService executor;
+
+        public PushWorker(ExecutorService executor){ this.executor = executor; }
+
+        @Override
+        public RuntimeException call(){
+            AdminStoreSwapper swapper = new AdminStoreSwapper(cluster,
+                    executor,adminClient, 1000000, false, false);
+
+            long currentVersion = adminClient.readonlyOps.getROCurrentVersion(0,
+                    Lists.newArrayList(STORE_NAME))
+                    .get(STORE_NAME);
+
+            File temporaryDir = createTempROFolder();
+
+            RuntimeException result = null;
+            try {
+                swapper.swapStoreData(STORE_NAME, temporaryDir.getAbsolutePath(), currentVersion + 1);
+            }catch (RuntimeException e){
+                result = e;
+            }
+
+            return result;
         }
     }
 

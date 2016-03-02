@@ -167,7 +167,7 @@ public class HdfsFetcher implements FileFetcher {
      *
      * FIXME: Refactor test code with dependency injection or scope restrictions so this function is not public.
      *
-     * @deprecated Do not use for production code, use {@link #fetch(String, String, voldemort.server.protocol.admin.AsyncOperationStatus, String, long, voldemort.store.metadata.MetadataStore)} instead.
+     * @deprecated Do not use for production code, use {@link #fetch(String, String, voldemort.server.protocol.admin.AsyncOperationStatus, String, long, voldemort.store.metadata.MetadataStore, Long diskQuotaSizeInKB)} instead.
      */
     @Deprecated
     @Override
@@ -180,7 +180,7 @@ public class HdfsFetcher implements FileFetcher {
      *
      * FIXME: Refactor test code with dependency injection or scope restrictions so this function is not public.
      *
-     * @deprecated Do not use for production code, use {@link #fetch(String, String, voldemort.server.protocol.admin.AsyncOperationStatus, String, long, voldemort.store.metadata.MetadataStore)} instead.
+     * @deprecated Do not use for production code, use {@link #fetch(String, String, voldemort.server.protocol.admin.AsyncOperationStatus, String, long, voldemort.store.metadata.MetadataStore, Long diskQuotaSizeInKB)} instead.
      */
     @Deprecated
     @Override
@@ -194,28 +194,17 @@ public class HdfsFetcher implements FileFetcher {
                       AsyncOperationStatus status,
                       String storeName,
                       long pushVersion,
-                      MetadataStore metadataStore) throws Exception {
-        AdminClient adminClient = null;
-        try {
-            adminClient = new AdminClient(metadataStore.getCluster());
+                      MetadataStore metadataStore,
+                      Long  diskQuotaSizeInKB) throws Exception {
 
-            Versioned<String> diskQuotaSize = adminClient.quotaMgmtOps.getQuotaForNode(storeName,
-                                                                                       QuotaType.STORAGE_SPACE,
-                                                                                       metadataStore.getNodeId());
-            Long diskQuotaSizeInKB = (diskQuotaSize == null) ? null : (Long.parseLong(diskQuotaSize.getValue()));
-            logger.info("Starting fetch for : " + sourceFileUrl);
-            return fetchFromSource(sourceFileUrl,
-                                   destinationFile,
-                                   status,
-                                   storeName,
-                                   pushVersion,
-                                   diskQuotaSizeInKB,
-                                   metadataStore);
-        } finally {
-            if(adminClient != null) {
-                IOUtils.closeQuietly(adminClient);
-            }
-        }
+        logger.info("Starting fetch for : " + sourceFileUrl);
+        return fetchFromSource(sourceFileUrl,
+                               destinationFile,
+                               status,
+                               storeName,
+                               pushVersion,
+                               diskQuotaSizeInKB,
+                               metadataStore);
     }
 
     private File fetchFromSource(String sourceFileUrl,
@@ -477,6 +466,7 @@ public class HdfsFetcher implements FileFetcher {
         HdfsFetcher fetcher = new HdfsFetcher(config);
 
         String destDir = null;
+        Long diskQuotaSizeInKB;
         if(args.length >= 4) {
             fetcher.voldemortConfig.setReadOnlyKeytabPath(args[1]);
             fetcher.voldemortConfig.setReadOnlyKerberosUser(args[2]);
@@ -484,6 +474,11 @@ public class HdfsFetcher implements FileFetcher {
         }
         if(args.length >= 5)
             destDir = args[4];
+
+        if(args.length >= 6)
+            diskQuotaSizeInKB = Long.parseLong(args[5]);
+        else
+            diskQuotaSizeInKB = null;
 
         // for testing we want to be able to download a single file
         allowFetchingOfSingleFile = true;
@@ -497,7 +492,7 @@ public class HdfsFetcher implements FileFetcher {
         if(destDir == null)
             destDir = System.getProperty("java.io.tmpdir") + File.separator + start;
 
-        File location = fetcher.fetch(url, destDir, null, null, -1, null);
+        File location = fetcher.fetch(url, destDir, null, null, -1, null, diskQuotaSizeInKB);
 
         double rate = size * Time.MS_PER_SECOND / (double) (System.currentTimeMillis() - start);
         NumberFormat nf = NumberFormat.getInstance();
