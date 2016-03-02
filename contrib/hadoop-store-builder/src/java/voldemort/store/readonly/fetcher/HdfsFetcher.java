@@ -195,9 +195,10 @@ public class HdfsFetcher implements FileFetcher {
                       String storeName,
                       long pushVersion,
                       MetadataStore metadataStore) throws Exception {
+        // FIXME: Stop using an admin client to talk to yourself, silly Voldemort!
         AdminClient adminClient = null;
         try {
-            adminClient = new AdminClient(metadataStore.getCluster());
+            adminClient = AdminClient.createTempAdminClient(voldemortConfig, metadataStore.getCluster(), 1);
 
             Versioned<String> diskQuotaSize = adminClient.quotaMgmtOps.getQuotaForNode(storeName,
                                                                                        QuotaType.STORAGE_SPACE,
