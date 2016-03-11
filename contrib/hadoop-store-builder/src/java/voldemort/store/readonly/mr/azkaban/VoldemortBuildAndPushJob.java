@@ -1,12 +1,12 @@
 /*
  * Copyright 2008-2013 LinkedIn, Inc
- * 
+ *
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not
  * use this file except in compliance with the License. You may obtain a copy of
  * the License at
- * 
+ *
  * http://www.apache.org/licenses/LICENSE-2.0
- * 
+ *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
  * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
@@ -317,10 +317,10 @@ public class VoldemortBuildAndPushJob extends AbstractJob {
     }
 
     /**
-     * 
+     *
      * Compare two clusters to see if they have the equal number of partitions,
      * equal number of nodes and each node hosts the same partition ids.
-     * 
+     *
      * @param lhs Left hand side Cluster object
      * @param rhs Right hand side cluster object
      * @return True if the clusters are congruent (equal number of partitions,
@@ -353,10 +353,10 @@ public class VoldemortBuildAndPushJob extends AbstractJob {
 
     /**
      * Check if all cluster objects in the list are congruent.
-     * 
+     *
      * @param clusterUrls of cluster objects
      * @return
-     * 
+     *
      */
     private void allClustersEqual(final List<String> clusterUrls) {
         Validate.notEmpty(clusterUrls, "clusterUrls cannot be null");
@@ -611,7 +611,7 @@ public class VoldemortBuildAndPushJob extends AbstractJob {
                 if(props.containsKey(HADOOP_JOB_UGI)) {
                     jobConf.set(HADOOP_JOB_UGI, props.getString(HADOOP_JOB_UGI));
                 }
-                log.info("Informing about delete start ..." + buildOutputDir);
+                log.info("Cleaning up: Deleting BnP output and temp files from HDFS: " + buildOutputDir);
                 HadoopUtils.deletePathIfExists(jobConf, buildOutputDir);
                 log.info("Deleted " + buildOutputDir);
             }

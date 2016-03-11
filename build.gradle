@@ -217,7 +217,7 @@ shadowJar {
 }
 
 import com.github.jengelman.gradle.plugins.shadow.tasks.ShadowJar
-task protobufJar(type: ShadowJar) {    
+task protobufJar(type: ShadowJar) {
     baseName = projectName + "-protobuf"
 
     manifest {
@@ -240,7 +240,7 @@ task protobufJar(type: ShadowJar) {
     relocate 'com.google.protobuf', 'voldemort.shadow.2.3.0.com.google.protobuf'
     // Since BDB is included via compile files option, shadow does not support
     // excluding them. https://github.com/johnrengelman/shadow/issues/142
-    // Once shadow supports excluding them, it can be excluded. There are 
+    // Once shadow supports excluding them, it can be excluded. There are
     // Complex ways to exclude it, but not worth it.
     relocate 'com.sleepycat' , 'voldemort.shadow.5.0.88.com.sleepycat'
 }
@@ -662,6 +662,24 @@ idea {
   module {
     downloadJavadoc = true
     downloadSources = true
+
+    // Generate source folders and test folders for contrib,
+    // so that we don't get warning: Wrong package statement
+    // in Intellij IDEA.
+    // Get all the sub directories
+    File[] subDirs = new File('contrib').listFiles()
+    for (File aFile : subDirs) {
+        String subDirPath = aFile.getPath()
+        String sourceFolder = subDirPath + '/src/java'
+        String testFolder = subDirPath + '/test'
+        // add those folders into 'sourceDirs' and 'testSourceDirs' respectively
+        if (new File(sourceFolder).exists()) {
+            sourceDirs += file(sourceFolder)
+        }
+        if (new File(testFolder).exists()) {
+            testSourceDirs += file(testFolder)
+        }
+    }
   }
 }
 
