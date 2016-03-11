@@ -1858,11 +1858,12 @@ public class AdminClient implements Closeable {
          * @param newStoreDef StoreDefinition to make sure exists on all online Voldemort Servers
          * @param localProcessName Name of the process interested in creating the store
          *                         (for example: Build and Push), used for debugging purposes.
+         * @param createStore whether or not add new store if sotres are not found in the cluster.
          * @throws UnreachableStoreException Thrown if one or more server was unreachable. Can
          *                                   potentially be ignored, in certain use cases.
          * @throws VoldemortException Thrown if a server contains an incompatible StoreDefinitions.
          */
-        public void verifyOrAddStore(StoreDefinition newStoreDef, String localProcessName)
+        public void verifyOrAddStore(StoreDefinition newStoreDef, String localProcessName, boolean createStore)
                 throws UnreachableStoreException, VoldemortException {
             if (!newStoreDef.getType().equals(ReadOnlyStorageConfiguration.TYPE_NAME)) {
                 throw new VoldemortException("verifyOrAddStore() is intended only for Read-Only stores!");
@@ -1994,6 +1995,9 @@ public class AdminClient implements Closeable {
                 }
             }
 
+            if (!createStore && !nodesMissingNewStore.isEmpty())
+                throw new VoldemortException("Store: " + newStoreDef.getName() + " is not found in the current cluster.");
+
             storeMgmtOps.addStore(newStoreDef, nodesMissingNewStore);
 
             if (unreachableNodes.size() > 0) {
@@ -2009,6 +2013,10 @@ public class AdminClient implements Closeable {
                 }
                 throw new UnreachableStoreException(errorMessage);
             }
+        }
+
+        public void verifyOrAddStore(StoreDefinition newStoreDef, String localProcessName) {
+            verifyOrAddStore(newStoreDef, localProcessName, true);
         }
 
         private String diffMessage(StoreDefinition newStoreDef, StoreDefinition remoteStoreDef, String localProcessName) {

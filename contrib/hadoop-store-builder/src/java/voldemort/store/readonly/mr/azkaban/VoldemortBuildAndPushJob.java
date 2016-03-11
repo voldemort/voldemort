@@ -110,6 +110,7 @@ public class VoldemortBuildAndPushJob extends AbstractJob {
     public final static String PUSH_CLUSTER = "push.cluster";
     public final static String PUSH_STORE_OWNERS = "push.store.owners";
     public final static String PUSH_STORE_DESCRIPTION = "push.store.description";
+    public final static String ENABLE_STORE_CREATION = "enable.store.creation";
     // push.optional
     public final static String PUSH_HTTP_TIMEOUT_SECONDS = "push.http.timeout.seconds";
     public final static String PUSH_VERSION = "push.version";
@@ -164,6 +165,7 @@ public class VoldemortBuildAndPushJob extends AbstractJob {
     private final boolean pushHighAvailability;
     private final List<Closeable> closeables = Lists.newArrayList();
     private final ExecutorService executorService;
+    private final boolean enableStoreCreation;
 
     // Mutable state
     private StoreDefinition storeDef;
@@ -265,6 +267,9 @@ public class VoldemortBuildAndPushJob extends AbstractJob {
         // By default, Push HA will be enabled if the server says so.
         // If the job sets Push HA to false, then it will be disabled, no matter what the server asks for.
         this.pushHighAvailability = props.getBoolean(VoldemortConfig.PUSH_HA_ENABLED, true);
+
+        //By default, BnP plugin is able to create new store during the push if sotres are not found at the cluster.
+        this.enableStoreCreation = props.getBoolean(ENABLE_STORE_CREATION, true);
 
         // Initializing hooks
         this.heartBeatHookIntervalTime = props.getInt(HEARTBEAT_HOOK_INTERVAL_MS, 60000);
@@ -929,7 +934,7 @@ public class VoldemortBuildAndPushJob extends AbstractJob {
         StoreDefinition newStoreDef = VoldemortUtils.getStoreDef(newStoreDefXml);
 
         try {
-            adminClientPerCluster.get(clusterURL).storeMgmtOps.verifyOrAddStore(newStoreDef, "BnP config/data");
+            adminClientPerCluster.get(clusterURL).storeMgmtOps.verifyOrAddStore(newStoreDef, "BnP config/data", enableStoreCreation);
         } catch (UnreachableStoreException e) {
             // When we can't reach some node, we just skip it and won't create the store on it.
             // Next time BnP is run while the node is up, it will get the store created.
