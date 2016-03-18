@@ -1634,7 +1634,7 @@ public class AdminServiceRequestHandler implements RequestHandler {
         try {
             // adding a store requires decoding the passed in store string
             StoreDefinitionsMapper mapper = new StoreDefinitionsMapper();
-            StoreDefinition def = mapper.readStore(new StringReader(request.getStoreDefinition()));
+            List<StoreDefinition> defs = mapper.readStore(new StringReader(request.getStoreDefinition()));
 
             adminClient = new AdminClient(metadataStore.getCluster());
 
@@ -1644,46 +1644,51 @@ public class AdminServiceRequestHandler implements RequestHandler {
                 // stores.xml file out otherwise. (see
                 // ConfigurationStorageEngine.put for details)
 
-                if(!storeRepository.hasLocalStore(def.getName())) {
-                    if(def.getReplicationFactor() > metadataStore.getCluster().getNumberOfNodes()) {
-                        throw new StoreOperationFailureException("Cannot add a store whose replication factor ( "
-                                                                 + def.getReplicationFactor()
-                                                                 + " ) is greater than the number of nodes ( "
-                                                                 + metadataStore.getCluster()
-                                                                                .getNumberOfNodes()
-                                                                 + " )");
-                    }
+                for (StoreDefinition def : defs) {
 
-                    logger.info("Adding new store '" + def.getName() + "'");
-                    // open the store
-                    StorageEngine<ByteArray, byte[], byte[]> engine = storageService.openStore(def);
+                    if (!storeRepository.hasLocalStore(def.getName())) {
+                        if (def.getReplicationFactor() > metadataStore.getCluster().getNumberOfNodes()) {
+                            throw new StoreOperationFailureException("Cannot add a store "
+                                    + def.getName()
+                                    + " whose replication factor ( "
+                                    + def.getReplicationFactor()
+                                    + " ) is greater than the number of nodes ( "
+                                    + metadataStore.getCluster()
+                                    .getNumberOfNodes()
+                                    + " )");
+                        }
 
-                    // update stores list in metadata store (this also has the
-                    // effect of updating the stores.xml file)
-                    try {
-                        metadataStore.addStoreDefinition(def);
+                        logger.info("Adding new store '" + def.getName() + "'");
+                        // open the store
+                        StorageEngine<ByteArray, byte[], byte[]> engine = storageService.openStore(def);
+
+                        // update stores list in metadata store (this also has the
+                        // effect of updating the stores.xml file)
+                        try {
+                            metadataStore.addStoreDefinition(def);
 
                         /*
                          * set quota to a default value as specified in the
                          * server configs
                          */
-                        adminClient.quotaMgmtOps.setQuotaForNode(def.getName(),
-                                                                 QuotaType.STORAGE_SPACE,
-                                                                 metadataStore.getNodeId(),
-                                                                 voldemortConfig.getDefaultStorageSpaceQuotaInKB());
-                    } catch(Exception e) {
-                        // rollback open store operation
-                        boolean isReadOnly = ReadOnlyStorageConfiguration.TYPE_NAME.equals(def.getType());
-                        storageService.removeEngine(engine, isReadOnly, def.getType(), true);
-                        throw new VoldemortException(e);
-                    }
+                            adminClient.quotaMgmtOps.setQuotaForNode(def.getName(),
+                                    QuotaType.STORAGE_SPACE,
+                                    metadataStore.getNodeId(),
+                                    voldemortConfig.getDefaultStorageSpaceQuotaInKB());
+                        } catch (Exception e) {
+                            // rollback open store operation
+                            boolean isReadOnly = ReadOnlyStorageConfiguration.TYPE_NAME.equals(def.getType());
+                            storageService.removeEngine(engine, isReadOnly, def.getType(), true);
+                            throw new VoldemortException(e);
+                        }
 
-                    logger.info("Successfully added new store '" + def.getName() + "'");
-                } else {
-                    logger.error("Failure to add a store with the same name '" + def.getName()
-                                 + "'");
-                    throw new StoreOperationFailureException(String.format("Store '%s' already exists on this server",
-                                                                           def.getName()));
+                        logger.info("Successfully added new store '" + def.getName() + "'");
+                    } else {
+                        logger.error("Failure to add a store with the same name '" + def.getName()
+                                + "'");
+                        throw new StoreOperationFailureException(String.format("Store '%s' already exists on this server",
+                                def.getName()));
+                    }
                 }
             }
         } catch(VoldemortException e) {

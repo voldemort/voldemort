@@ -141,7 +141,7 @@ public class VoldemortUtils {
     }
 
     public static StoreDefinition getStoreDef(String xml) {
-        return new StoreDefinitionsMapper().readStore(new StringReader(xml));
+        return new StoreDefinitionsMapper().readStore(new StringReader(xml)).get(0);
     }
 
     public static String modifyURL(String originalUrl, String newProtocol, int newPort) {
