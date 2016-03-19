@@ -1237,20 +1237,18 @@ public class AdminClient implements Closeable {
         public void updateRemoteMetadata(Collection<Integer> remoteNodeIds,
                                          String key,
                                          Versioned<String> value) {
-            /*
-             * Assume everything will be fine, increment the metadata version
-             * for the key Would not harm even if the operation fails
-             */
-            if(key.equals(SystemStoreConstants.CLUSTER_VERSION_KEY)
-               || key.equals(SystemStoreConstants.STORES_VERSION_KEY)) {
-                metadataMgmtOps.updateMetadataversion(remoteNodeIds, key);
-            }
             for(Integer currentNodeId: remoteNodeIds) {
                 logger.info("Setting " + key + " for "
                             + getAdminClientCluster().getNodeById(currentNodeId).getHost() + ":"
                             + getAdminClientCluster().getNodeById(currentNodeId).getId());
                 updateRemoteMetadata(currentNodeId, key, value);
             }
+
+            if(key.equals(SystemStoreConstants.CLUSTER_VERSION_KEY)
+               || key.equals(SystemStoreConstants.STORES_VERSION_KEY)) {
+                metadataMgmtOps.updateMetadataversion(remoteNodeIds, key);
+            }
+
         }
 
         /**
@@ -1396,10 +1394,17 @@ public class AdminClient implements Closeable {
                                              String storesKey,
                                              Versioned<String> storesValue) {
 
-            /*
-             * We first increment the metadata version for the cluster and the
-             * stores which does not harm even if the operation fail
-             */
+            for(Integer currentNodeId: remoteNodeIds) {
+                logger.info("Setting " + clusterKey + " and " + storesKey + " for "
+                            + getAdminClientCluster().getNodeById(currentNodeId).getHost() + ":"
+                            + getAdminClientCluster().getNodeById(currentNodeId).getId());
+                updateRemoteMetadataPair(currentNodeId,
+                                         clusterKey,
+                                         clusterValue,
+                                         storesKey,
+                                         storesValue);
+            }
+
             if(clusterKey.equals(SystemStoreConstants.CLUSTER_VERSION_KEY)) {
                 metadataMgmtOps.updateMetadataversion(remoteNodeIds, clusterKey);
             }
@@ -1419,16 +1424,7 @@ public class AdminClient implements Closeable {
                     }
                 }
             }
-            for(Integer currentNodeId: remoteNodeIds) {
-                logger.info("Setting " + clusterKey + " and " + storesKey + " for "
-                            + getAdminClientCluster().getNodeById(currentNodeId).getHost() + ":"
-                            + getAdminClientCluster().getNodeById(currentNodeId).getId());
-                updateRemoteMetadataPair(currentNodeId,
-                                         clusterKey,
-                                         clusterValue,
-                                         storesKey,
-                                         storesValue);
-            }
+
         }
 
         /**
