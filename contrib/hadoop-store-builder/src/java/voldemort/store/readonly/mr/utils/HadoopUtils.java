@@ -33,7 +33,12 @@ import java.util.TreeMap;
 import java.util.regex.Pattern;
 
 import org.apache.hadoop.conf.Configuration;
-import org.apache.hadoop.fs.*;
+import org.apache.hadoop.fs.CommonConfigurationKeys;
+import org.apache.hadoop.fs.FileStatus;
+import org.apache.hadoop.fs.FileSystem;
+import org.apache.hadoop.fs.Path;
+import org.apache.hadoop.fs.PathFilter;
+import org.apache.hadoop.hdfs.web.HftpFileSystem;
 import org.apache.hadoop.io.SequenceFile;
 import org.apache.hadoop.io.Text;
 import org.apache.hadoop.mapred.FileInputFormat;
@@ -47,8 +52,8 @@ import voldemort.serialization.json.JsonTypeDefinition;
 import voldemort.server.VoldemortConfig;
 import voldemort.store.readonly.fetcher.ConfigurableSocketFactory;
 import voldemort.utils.ExceptionUtils;
-import voldemort.utils.UndefinedPropertyException;
 import voldemort.utils.Props;
+import voldemort.utils.UndefinedPropertyException;
 
 /**
  * Helper functions for Hadoop
@@ -317,7 +322,9 @@ public class HadoopUtils {
         return directory;
     }
 
-    private static Configuration getConfiguration(VoldemortConfig voldemortConfig, String sourceFileUrl) {
+    private static Configuration getConfiguration(VoldemortConfig voldemortConfig, Path source) {
+        String sourceScheme = source.toUri().getScheme();
+
         final Configuration hadoopConfig = new Configuration();
         hadoopConfig.setInt(ConfigurableSocketFactory.SO_RCVBUF, voldemortConfig.getFetcherBufferSize());
         hadoopConfig.setInt(ConfigurableSocketFactory.SO_TIMEOUT, voldemortConfig.getFetcherSocketTimeout());
@@ -326,10 +333,13 @@ public class HadoopUtils {
         hadoopConfig.set("hadoop.security.group.mapping",
                    "org.apache.hadoop.security.ShellBasedUnixGroupsMapping");
 
+        String disableCacheName = String.format("fs.%s.impl.disable.cache", sourceScheme);
+        hadoopConfig.setBoolean(disableCacheName, true);
+
         String hadoopConfigPath = voldemortConfig.getHadoopConfigPath();
-        boolean isHftpBasedFetch = sourceFileUrl.length() > 4 &&
-                sourceFileUrl.substring(0, 4).equals("hftp");
-        logger.info("URL : " + sourceFileUrl + " and hftp protocol enabled = " + isHftpBasedFetch);
+        boolean isHftpBasedFetch = sourceScheme.equals(HftpFileSystem.SCHEME);
+
+        logger.info("URL : " + source + " and hftp protocol enabled = " + isHftpBasedFetch);
         logger.info("Hadoop path = " + hadoopConfigPath + " , keytab path = "
                             + voldemortConfig.getReadOnlyKeytabPath() + " , kerberos principal = "
                             + voldemortConfig.getReadOnlyKerberosUser());
@@ -359,8 +369,8 @@ public class HadoopUtils {
 
     public static FileSystem getHadoopFileSystem(VoldemortConfig voldemortConfig, String sourceFileUrl)
             throws Exception {
-        final Configuration config = getConfiguration(voldemortConfig, sourceFileUrl);
-        final Path path = new Path(sourceFileUrl);
+        final Path source = new Path(sourceFileUrl);
+        final Configuration config = getConfiguration(voldemortConfig, source);
         final int maxAttempts = voldemortConfig.getReadOnlyFetchRetryCount();
         final String keytabPath = voldemortConfig.getReadOnlyKeytabPath();
         FileSystem fs = null;
@@ -393,10 +403,10 @@ public class HadoopUtils {
                     }
                 }
 
-                fs = path.getFileSystem(config);
+                fs = source.getFileSystem(config);
 
                 // Just a small operation to make sure the FileSystem instance works.
-                fs.exists(path);
+                fs.exists(source);
 
                 // Congrats for making it this far. Pass go and collect $200.
                 break;
