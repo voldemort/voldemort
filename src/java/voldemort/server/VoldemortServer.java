@@ -382,7 +382,13 @@ public class VoldemortServer extends AbstractService {
         JNAUtils.tryMlockall();
         logger.info("Starting " + basicServices.size() + " services.");
         long start = System.currentTimeMillis();
-        boolean goOnline = true;
+
+        boolean goOnline;
+        if (getMetadataStore().getServerStateUnlocked() == MetadataStore.VoldemortState.OFFLINE_SERVER)
+            goOnline = false;
+        else
+            goOnline = true;
+
         for(VoldemortService service: basicServices) {
             try {
                 service.start();
@@ -391,6 +397,7 @@ public class VoldemortServer extends AbstractService {
                 goOnline = false;
             }
         }
+
         if (goOnline) {
             startOnlineServices();
         } else {
