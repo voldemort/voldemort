@@ -20,9 +20,15 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotSame;
 import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
 
 import java.io.File;
 import java.io.IOException;
+import java.io.PrintWriter;
+import java.net.ConnectException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Iterator;
@@ -30,6 +36,7 @@ import java.util.List;
 import java.util.Properties;
 import java.util.concurrent.atomic.AtomicBoolean;
 
+import com.sun.mail.iap.ConnectionException;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
@@ -39,18 +46,22 @@ import org.junit.runners.Parameterized.Parameters;
 
 import voldemort.ServerTestUtils;
 import voldemort.VoldemortException;
+import voldemort.client.protocol.VoldemortFilter;
 import voldemort.client.protocol.admin.AdminClient;
 import voldemort.client.protocol.admin.AdminClientConfig;
 import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
+import voldemort.server.VoldemortConfig;
 import voldemort.server.VoldemortServer;
 import voldemort.store.Store;
 import voldemort.store.StoreDefinition;
+import voldemort.store.UnreachableStoreException;
 import voldemort.store.metadata.MetadataStore;
 import voldemort.store.slop.Slop;
 import voldemort.store.socket.SocketStoreFactory;
 import voldemort.store.socket.clientrequest.ClientRequestExecutorPool;
 import voldemort.utils.ByteArray;
+import voldemort.utils.pool.ExcessiveInvalidResourcesException;
 import voldemort.versioning.Versioned;
 import voldemort.xml.StoreDefinitionsMapper;
 
@@ -238,8 +249,29 @@ public class OfflineStateTest {
         assertTrue(testOnlineTraffic());
     }
 
+    private void verifyNewServer(VoldemortServer originalServer) throws Exception{
+        String baseDirPath = originalServer.getVoldemortConfig().getVoldemortHome();
+        String parentDirPath = Paths.get(baseDirPath).getParent().toString();
+        List<StoreDefinition> storeDefs = originalServer.getMetadataStore().getStoreDefList();
+        VoldemortServer newServer = null;
+        try {
+            VoldemortConfig config =
+                    ServerTestUtils.createServerConfigWithDefs(useNio, 0, parentDirPath, cluster, storeDefs, new Properties());
+            newServer = ServerTestUtils.startVoldemortServer(socketStoreFactory, config, cluster, false);
+            ServerTestUtils.waitForServerStart(socketStoreFactory, newServer.getIdentityNode());
+            fail("should have thrown an connection exception");
+        }catch (UnreachableStoreException e){
+            assertEquals(ConnectException.class, e.getCause().getClass());
+        }
+
+        newServer.goOnline();
+        servers[0] = newServer;
+
+        assertTrue(testOnlineTraffic());
+    }
+
     @Test
-    public void testStateTransitions() throws InterruptedException {
+    public void testStateTransitions() throws Exception {
         AdminClient client = getAdminClient();
         assertTrue(testOnlineTraffic());
         assertTrue(testSlopStreaming());
@@ -261,5 +293,48 @@ public class OfflineStateTest {
         toNormalState(client);
         assertTrue(testOnlineTraffic());
         assertTrue(testSlopStreaming());
+    }
+
+    /**
+     *This test simulates the situation when Voldemort server is close under offline mode,
+     *the new server instance should read server state from the local file and start under respective modes.
+     */
+
+    @Test
+    public void testStartingOfflineServeres() throws Exception {
+        VoldemortServer server = getVoldemortServer(0);
+        server.goOffline();
+        server.stop();
+
+        verifyNewServer(server);
+    }
+
+    /**
+     * This test simulates the situation when Voldemort server is turn off accidentally.
+     * We manually modify local metadata config files in order to boot up server in offline mode.
+     */
+    @Test
+    public void testStartingOfflineServeresManually() throws Exception {
+        VoldemortServer server = getVoldemortServer(0);
+        server.stop();
+
+        String[] metadatafileNames =
+                {"partition.streaming.enabled", "readonly.fetch.enabled", "server.state", "slop.streaming.enabled"};
+        PrintWriter writer = null;
+
+        for (String fileName : metadatafileNames){
+            //modify .temp files
+            writer = new PrintWriter(new File(server.getVoldemortConfig().getVoldemortHome() + "/config/.temp/" + fileName));
+            if (fileName != "server.state")
+                writer.print("false");
+            else
+                writer.print("OFFLINE_SERVER");
+            writer.close();
+
+            //delete .version files
+            Files.delete(Paths.get(server.getVoldemortConfig().getVoldemortHome() + "/config/.version/" + fileName));
+        }
+
+        verifyNewServer(server);
     }
 }
