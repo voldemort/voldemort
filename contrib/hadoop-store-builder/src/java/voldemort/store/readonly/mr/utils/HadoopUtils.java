@@ -32,8 +32,14 @@ import java.util.Properties;
 import java.util.TreeMap;
 import java.util.regex.Pattern;
 
+import org.apache.commons.io.IOUtils;
 import org.apache.hadoop.conf.Configuration;
-import org.apache.hadoop.fs.*;
+import org.apache.hadoop.fs.CommonConfigurationKeys;
+import org.apache.hadoop.fs.FileStatus;
+import org.apache.hadoop.fs.FileSystem;
+import org.apache.hadoop.fs.Path;
+import org.apache.hadoop.fs.PathFilter;
+import org.apache.hadoop.hdfs.web.HftpFileSystem;
 import org.apache.hadoop.io.SequenceFile;
 import org.apache.hadoop.io.Text;
 import org.apache.hadoop.mapred.FileInputFormat;
@@ -47,8 +53,8 @@ import voldemort.serialization.json.JsonTypeDefinition;
 import voldemort.server.VoldemortConfig;
 import voldemort.store.readonly.fetcher.ConfigurableSocketFactory;
 import voldemort.utils.ExceptionUtils;
-import voldemort.utils.UndefinedPropertyException;
 import voldemort.utils.Props;
+import voldemort.utils.UndefinedPropertyException;
 
 /**
  * Helper functions for Hadoop
@@ -317,7 +323,9 @@ public class HadoopUtils {
         return directory;
     }
 
-    private static Configuration getConfiguration(VoldemortConfig voldemortConfig, String sourceFileUrl) {
+    private static Configuration getConfiguration(VoldemortConfig voldemortConfig, Path source) {
+        String sourceScheme = source.toUri().getScheme();
+
         final Configuration hadoopConfig = new Configuration();
         hadoopConfig.setInt(ConfigurableSocketFactory.SO_RCVBUF, voldemortConfig.getFetcherBufferSize());
         hadoopConfig.setInt(ConfigurableSocketFactory.SO_TIMEOUT, voldemortConfig.getFetcherSocketTimeout());
@@ -326,10 +334,34 @@ public class HadoopUtils {
         hadoopConfig.set("hadoop.security.group.mapping",
                    "org.apache.hadoop.security.ShellBasedUnixGroupsMapping");
 
+        // sourceScheme is null for file based paths, used in testing.
+        if(sourceScheme != null) {
+            /*
+             * Hadoop FileSystem class caches the FileSystem objects based on
+             * the scheme , authority and UserGroupInformation.
+             * 
+             * The default config was to generate new UserGroupInformation for
+             * each call, so the cache will be never hit. In the case where the
+             * FileSystem is not closed correctly, it will leak handles.
+             * 
+             * But if the UserGroupInformation is re-used, it will cause the
+             * FileSystem object to be shared between HdfsFetcher /
+             * HdfsFailedFetchLock. Each Voldemort HdfsFetcher/HAFailedFetchLock
+             * lock closes the fileSystem object at the end, though others might
+             * still be using it. This causes random failures.
+             * 
+             * Since it does not work in both the cases, the Caching is
+             * disabled. The caching should be only enabled if the
+             * UserGroupInformation is to be re-used and the close bug is fixed.
+             */
+            String disableCacheName = String.format("fs.%s.impl.disable.cache", sourceScheme);
+            hadoopConfig.setBoolean(disableCacheName, true);
+        }
+
         String hadoopConfigPath = voldemortConfig.getHadoopConfigPath();
-        boolean isHftpBasedFetch = sourceFileUrl.length() > 4 &&
-                sourceFileUrl.substring(0, 4).equals("hftp");
-        logger.info("URL : " + sourceFileUrl + " and hftp protocol enabled = " + isHftpBasedFetch);
+        boolean isHftpBasedFetch = HftpFileSystem.SCHEME.equals(sourceScheme);
+
+        logger.info("URL : " + source + " and hftp protocol enabled = " + isHftpBasedFetch);
         logger.info("Hadoop path = " + hadoopConfigPath + " , keytab path = "
                             + voldemortConfig.getReadOnlyKeytabPath() + " , kerberos principal = "
                             + voldemortConfig.getReadOnlyKerberosUser());
@@ -359,8 +391,8 @@ public class HadoopUtils {
 
     public static FileSystem getHadoopFileSystem(VoldemortConfig voldemortConfig, String sourceFileUrl)
             throws Exception {
-        final Configuration config = getConfiguration(voldemortConfig, sourceFileUrl);
-        final Path path = new Path(sourceFileUrl);
+        final Path source = new Path(sourceFileUrl);
+        final Configuration config = getConfiguration(voldemortConfig, source);
         final int maxAttempts = voldemortConfig.getReadOnlyFetchRetryCount();
         final String keytabPath = voldemortConfig.getReadOnlyKeytabPath();
         FileSystem fs = null;
@@ -387,23 +419,28 @@ public class HadoopUtils {
                             lastLoginTime = System.currentTimeMillis();
                             logger.info("I have logged in as " + currentHadoopUser.getUserName());
                         } else {
+                            // FileSystem caching is disabled. If enabled, the code has a known bug
+                            // FileSystem returns the cached object per scheme, authority and user
+                            // This causes the FileSystem object to be shared among multiple fetches/lock
+                            // But each owner closes the FileSystem at the end and surprising others still using it.
+
                             // reloginFromKeytab() will not actually do anything unless the token is close to expiring.
                             currentHadoopUser.reloginFromKeytab();
                         }
                     }
                 }
 
-                fs = path.getFileSystem(config);
+                fs = source.getFileSystem(config);
 
                 // Just a small operation to make sure the FileSystem instance works.
-                fs.exists(path);
-
-                // Congrats for making it this far. Pass go and collect $200.
+                fs.exists(source);
                 break;
             } catch(VoldemortException e) {
+                IOUtils.closeQuietly(fs);
                 // We only intend to catch and retry Hadoop-related exceptions, not Voldemort ones.
                 throw e;
             } catch(Exception e) {
+                IOUtils.closeQuietly(fs);
                 if (ExceptionUtils.recursiveClassEquals(e, AuthenticationException.class)) {
                     logger.info("Got an AuthenticationException from HDFS. " +
                                         "Will retry to login from scratch, on next attempt.", e);

@@ -1,6 +1,8 @@
 package voldemort.store.readonly.swapper;
 
-import com.google.common.collect.Sets;
+import java.io.IOException;
+import java.util.Set;
+
 import org.apache.commons.io.IOUtils;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FSDataOutputStream;
@@ -10,14 +12,14 @@ import org.apache.hadoop.fs.FileUtil;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.security.AccessControlException;
 import org.apache.log4j.Logger;
+
 import voldemort.VoldemortException;
 import voldemort.server.VoldemortConfig;
 import voldemort.store.readonly.mr.utils.HadoopUtils;
 import voldemort.utils.ExceptionUtils;
 import voldemort.utils.Props;
 
-import java.io.IOException;
-import java.util.Set;
+import com.google.common.collect.Sets;
 
 /**
  * An implementation of the {@link FailedFetchLock} that uses HDFS as a global lock.
@@ -108,7 +110,12 @@ public class HdfsFailedFetchLock extends FailedFetchLock {
     public HdfsFailedFetchLock(VoldemortConfig config, Props props) throws Exception {
         super(config, props);
         fileSystem = HadoopUtils.getHadoopFileSystem(config, clusterDir);
-        initDirs();
+        try {
+            initDirs();
+        } catch(Exception ex) {
+            IOUtils.closeQuietly(this.fileSystem);
+            throw ex;
+        }
     }
 
     private void initDirs() throws Exception {
