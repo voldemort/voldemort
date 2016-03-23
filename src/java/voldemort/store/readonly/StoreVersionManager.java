@@ -1,13 +1,16 @@
 package voldemort.store.readonly;
 
-import com.google.common.collect.Maps;
-import org.apache.log4j.Logger;
-import voldemort.store.PersistenceFailureException;
-
 import java.io.File;
 import java.io.FileFilter;
 import java.io.IOException;
 import java.util.Map;
+
+import org.apache.log4j.Logger;
+
+import voldemort.store.PersistenceFailureException;
+import voldemort.utils.Utils;
+
+import com.google.common.collect.Maps;
 
 /**
  * This class helps manage stores that have multiple versions of their data set.
@@ -233,12 +236,23 @@ public class StoreVersionManager {
      * @throws PersistenceFailureException if the requested version cannot be found.
      */
     private File getDisabledMarkerFile(long version) throws PersistenceFailureException {
+        File versionDir;
         File[] versionDirArray = ReadOnlyUtils.getVersionDirs(rootDir, version, version);
         if (versionDirArray.length == 0) {
-            throw new PersistenceFailureException("getDisabledMarkerFile did not find the requested version directory" +
-                                                  " on disk. Version: " + version + ", rootDir: " + rootDir);
+            versionDir = new File(rootDir, "version-" + Long.toString(version));
+            if(versionDir.exists() == false) {
+                try {
+                    Utils.mkdirs(versionDir);
+                } catch(Exception ex) {
+                    throw new PersistenceFailureException("getDisabledMarkerFile did not find the requested version directory"
+                                                          + " on disk. Version: " + version  + ", rootDir: " + rootDir,
+                                                          ex);
+                }
+            }
+        } else {
+            versionDir = versionDirArray[0];
         }
-        File disabledMarkerFile = new File(versionDirArray[0], DISABLED_MARKER_NAME);
+        File disabledMarkerFile = new File(versionDir, DISABLED_MARKER_NAME);
         return disabledMarkerFile;
     }
 

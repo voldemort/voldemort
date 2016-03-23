@@ -1978,10 +1978,25 @@ public class AdminServiceRequestHandler implements RequestHandler {
         }
 
         if (response.getDisableSuccess()) {
-            // Then we also want to put the server in offline mode
+            // Voldemort Client can detect and handle failure only at a server
+            // level. Disabling a store inside Server is not possible . Client
+            // creates connection to the server and shares the same connection
+            // for multiple stores. Client failure detection is based on this
+            // connection error. So entire server will be marked as offline for
+            // now.
+
+            boolean roFetchState = metadataStore.getReadOnlyFetchEnabledUnlocked();
+
             VAdminProto.SetOfflineStateRequest offlineStateRequest =
                     VAdminProto.SetOfflineStateRequest.newBuilder().setOfflineMode(true).build();
             handleSetOfflineState(offlineStateRequest);
+
+            if(roFetchState) {
+                // When server is marked as offline, Read Only Fetch is
+                // disabled. If it is a temporary error, enabling the read only
+                // fetch shortens the recovery time for the Voldemort Server.
+                metadataStore.setReadOnlyFetchEnabled(true);
+            }
         }
 
         return response.build();

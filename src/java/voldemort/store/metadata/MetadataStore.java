@@ -726,6 +726,17 @@ public class MetadataStore extends AbstractStorageEngine<ByteArray, byte[], byte
         }
     }
 
+    public void setReadOnlyFetchEnabled(boolean state) {
+        writeLock.lock();
+        try {
+            put(READONLY_FETCH_ENABLED_KEY, state);
+            initCache(READONLY_FETCH_ENABLED_KEY);
+        } finally {
+            writeLock.unlock();
+        }
+
+    }
+
     public boolean getReadOnlyFetchEnabledUnlocked() {
 
         return Boolean.parseBoolean(metadataCache.get(READONLY_FETCH_ENABLED_KEY)
