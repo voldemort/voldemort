@@ -1,12 +1,12 @@
 /*
  * Copyright 2008-2009 LinkedIn, Inc
- * 
+ *
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not
  * use this file except in compliance with the License. You may obtain a copy of
  * the License at
- * 
+ *
  * http://www.apache.org/licenses/LICENSE-2.0
- * 
+ *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
  * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
@@ -33,8 +33,8 @@ import voldemort.store.readonly.checksum.CheckSum.CheckSumType;
 
 /**
  * Tests for the HDFS-based fetcher
- * 
- * 
+ *
+ *
  */
 public class HdfsFetcherTest extends TestCase {
 
@@ -167,5 +167,292 @@ public class HdfsFetcherTest extends TestCase {
         assertNotNull(fetchedFile);
         checkSumFile.delete();
 
+    }
+
+    public void testAggStatsWithValidFile() throws Exception {
+        HdfsFetcherAggStats stats = HdfsFetcherAggStats.getStats();
+        long totalBytesFetchedBefore = stats.getTotalBytesFetched();
+        long totalFetchRetriesBefore = stats.getTotalFetchRetries();
+        long totalCheckSumFailuresBefore = stats.getTotalCheckSumFailures();
+        long totalFileReadFailuresBefore = stats.getTotalFileReadFailures();
+        long totalAuthenticationFailuresBefore = stats.getTotalAuthenticationFailures();
+        long totalFileNotFoundFailuresBefore = stats.getTotalFileNotFoundFailures();
+        long totalQuotaExceedFailuresBefore = stats.getTotalQuotaExceedFailures();
+        long totalUnauthorizedStoreFailuresBefore = stats.getTotalUnauthorizedStoreFailures();
+        long totalParallelFetchesBefore = stats.getParallelFetches();
+        long totalFetchesBefore = stats.getTotalFetches();
+        long totalIncompleteFetchesBefore = stats.getTotalIncompleteFetches();
+        double totalDataFetchRateBefore = stats.getTotalDataFetchRate();
+
+        // Generate 0_0.[index | data] and their corresponding metadata
+        File testSourceDirectory = TestUtils.createTempDir();
+        File testDestinationDirectory = TestUtils.createTempDir();
+
+        // Missing metadata file
+        File indexFile = new File(testSourceDirectory, "0_0.index");
+        FileUtils.writeByteArrayToFile(indexFile, TestUtils.randomBytes(100));
+
+        File dataFile = new File(testSourceDirectory, "0_0.data");
+        FileUtils.writeByteArrayToFile(dataFile, TestUtils.randomBytes(400));
+
+        File metadataFile = new File(testSourceDirectory, ".metadata");
+        ReadOnlyStorageMetadata metadata = new ReadOnlyStorageMetadata();
+        metadata.add(ReadOnlyStorageMetadata.FORMAT, ReadOnlyStorageFormat.READONLY_V2.getCode());
+        metadata.add(ReadOnlyStorageMetadata.CHECKSUM,
+                new String(Hex.encodeHex(CheckSumTests.calculateCheckSum(testSourceDirectory.listFiles(),
+                        CheckSumType.MD5))));
+        FileUtils.writeStringToFile(metadataFile, metadata.toJsonString());
+
+        HdfsFetcher fetcher = new HdfsFetcher();
+        File fetchedFile = fetcher.fetch(testSourceDirectory.getAbsolutePath(),
+                testDestinationDirectory.getAbsolutePath() + "1");
+        assertNotNull(fetchedFile);
+        assertEquals(fetchedFile.getAbsolutePath(), testDestinationDirectory.getAbsolutePath()
+                + "1");
+
+        // The total bytes fetched includes meta data file as well.
+        assertEquals(totalBytesFetchedBefore + 500 + metadata.toJsonString().length(), stats.getTotalBytesFetched());
+        assertEquals(totalFetchRetriesBefore, stats.getTotalFetchRetries());
+        assertEquals(totalCheckSumFailuresBefore, stats.getTotalCheckSumFailures());
+        assertEquals(totalFileReadFailuresBefore, stats.getTotalFileReadFailures());
+        assertEquals(totalAuthenticationFailuresBefore, stats.getTotalAuthenticationFailures());
+        assertEquals(totalFileNotFoundFailuresBefore, stats.getTotalFileNotFoundFailures());
+        assertEquals(totalQuotaExceedFailuresBefore, stats.getTotalQuotaExceedFailures());
+        assertEquals(totalUnauthorizedStoreFailuresBefore, stats.getTotalUnauthorizedStoreFailures());
+        assertEquals(totalParallelFetchesBefore, stats.getParallelFetches());
+        assertEquals(totalFetchesBefore + 1, stats.getTotalFetches());
+        assertEquals(totalIncompleteFetchesBefore, stats.getTotalIncompleteFetches());
+        assertEquals(totalDataFetchRateBefore, stats.getTotalDataFetchRate());
+    }
+
+    public void testAggStatsWithInvalidMetaFile() throws Exception {
+        HdfsFetcherAggStats stats = HdfsFetcherAggStats.getStats();
+        long totalBytesFetchedBefore = stats.getTotalBytesFetched();
+        long totalFetchRetriesBefore = stats.getTotalFetchRetries();
+        long totalCheckSumFailuresBefore = stats.getTotalCheckSumFailures();
+        long totalFileReadFailuresBefore = stats.getTotalFileReadFailures();
+        long totalAuthenticationFailuresBefore = stats.getTotalAuthenticationFailures();
+        long totalFileNotFoundFailuresBefore = stats.getTotalFileNotFoundFailures();
+        long totalQuotaExceedFailuresBefore = stats.getTotalQuotaExceedFailures();
+        long totalUnauthorizedStoreFailuresBefore = stats.getTotalUnauthorizedStoreFailures();
+        long totalParallelFetchesBefore = stats.getParallelFetches();
+        long totalFetchesBefore = stats.getTotalFetches();
+        long totalIncompleteFetchesBefore = stats.getTotalIncompleteFetches();
+        double totalDataFetchRateBefore = stats.getTotalDataFetchRate();
+
+        long fileReadError = HdfsFetcherAggStats.getStats().getTotalFileReadFailures();
+        long storeFetch = HdfsFetcherAggStats.getStats().getTotalFetches();
+        long incompleteFetch = HdfsFetcherAggStats.getStats().getTotalIncompleteFetches();
+
+        File testSourceDirectory = TestUtils.createTempDir();
+        File testDestinationDirectory = TestUtils.createTempDir();
+
+        // Missing metadata file
+        File indexFile = new File(testSourceDirectory, "0_0.index");
+        FileUtils.writeByteArrayToFile(indexFile, TestUtils.randomBytes(100));
+
+        File dataFile = new File(testSourceDirectory, "0_0.data");
+        FileUtils.writeByteArrayToFile(dataFile, TestUtils.randomBytes(400));
+
+        HdfsFetcher fetcher = new HdfsFetcher();
+
+        // Write bad metadata file
+        File metadataFile = new File(testSourceDirectory, ".metadata");
+        FileUtils.writeByteArrayToFile(metadataFile, TestUtils.randomBytes(100));
+        try {
+            File fetchedFile = fetcher.fetch(testSourceDirectory.getAbsolutePath(),
+                    testDestinationDirectory.getAbsolutePath() + "1");
+            fail("Should have thrown an exception since metadata file is corrupt");
+        } catch(VoldemortException e) {}
+        metadataFile.delete();
+
+        // The total bytes fetched includes meta data file as well.
+        assertEquals(totalBytesFetchedBefore + 100, stats.getTotalBytesFetched());
+        assertEquals(totalFetchRetriesBefore, stats.getTotalFetchRetries());
+        assertEquals(totalCheckSumFailuresBefore, stats.getTotalCheckSumFailures());
+        assertEquals(totalFileReadFailuresBefore + 1, stats.getTotalFileReadFailures());
+        assertEquals(totalAuthenticationFailuresBefore, stats.getTotalAuthenticationFailures());
+        assertEquals(totalFileNotFoundFailuresBefore, stats.getTotalFileNotFoundFailures());
+        assertEquals(totalQuotaExceedFailuresBefore, stats.getTotalQuotaExceedFailures());
+        assertEquals(totalUnauthorizedStoreFailuresBefore, stats.getTotalUnauthorizedStoreFailures());
+        assertEquals(totalParallelFetchesBefore, stats.getParallelFetches());
+        assertEquals(totalFetchesBefore + 1, stats.getTotalFetches());
+        assertEquals(totalIncompleteFetchesBefore + 1, stats.getTotalIncompleteFetches());
+        assertEquals(totalDataFetchRateBefore, stats.getTotalDataFetchRate());
+    }
+
+    public void testAggStatsWithQuotaExceedException() throws Exception {
+        HdfsFetcherAggStats stats = HdfsFetcherAggStats.getStats();
+        long totalBytesFetchedBefore = stats.getTotalBytesFetched();
+        long totalFetchRetriesBefore = stats.getTotalFetchRetries();
+        long totalCheckSumFailuresBefore = stats.getTotalCheckSumFailures();
+        long totalFileReadFailuresBefore = stats.getTotalFileReadFailures();
+        long totalAuthenticationFailuresBefore = stats.getTotalAuthenticationFailures();
+        long totalFileNotFoundFailuresBefore = stats.getTotalFileNotFoundFailures();
+        long totalQuotaExceedFailuresBefore = stats.getTotalQuotaExceedFailures();
+        long totalUnauthorizedStoreFailuresBefore = stats.getTotalUnauthorizedStoreFailures();
+        long totalParallelFetchesBefore = stats.getParallelFetches();
+        long totalFetchesBefore = stats.getTotalFetches();
+        long totalIncompleteFetchesBefore = stats.getTotalIncompleteFetches();
+        double totalDataFetchRateBefore = stats.getTotalDataFetchRate();
+
+        // Generate 0_0.[index | data] and their corresponding metadata
+        File testSourceDirectory = TestUtils.createTempDir();
+        File testDestinationDirectory = TestUtils.createTempDir();
+
+        // Missing metadata file
+        File indexFile = new File(testSourceDirectory, "0_0.index");
+        FileUtils.writeByteArrayToFile(indexFile, TestUtils.randomBytes(1000));
+
+        File dataFile = new File(testSourceDirectory, "0_0.data");
+        FileUtils.writeByteArrayToFile(dataFile, TestUtils.randomBytes(4000));
+
+        File metadataFile = new File(testSourceDirectory, ".metadata");
+        ReadOnlyStorageMetadata metadata = new ReadOnlyStorageMetadata();
+        metadata.add(ReadOnlyStorageMetadata.FORMAT, ReadOnlyStorageFormat.READONLY_V2.getCode());
+        metadata.add(ReadOnlyStorageMetadata.CHECKSUM,
+                new String(Hex.encodeHex(CheckSumTests.calculateCheckSum(testSourceDirectory.listFiles(),
+                        CheckSumType.MD5))));
+        metadata.add(ReadOnlyStorageMetadata.DISK_SIZE_IN_BYTES, "5000");
+        FileUtils.writeStringToFile(metadataFile, metadata.toJsonString());
+
+        HdfsFetcher fetcher = new HdfsFetcher();
+        File fetchedFile = null;
+        try {
+            fetchedFile = fetcher.fetch(testSourceDirectory.getAbsolutePath(),
+                    testDestinationDirectory.getAbsolutePath() + "1", 1);
+        } catch (Exception e)
+        {}
+        assertNull(fetchedFile);
+
+        // The total bytes fetched includes meta data file as well.
+        assertEquals(totalBytesFetchedBefore + metadata.toJsonString().length(), stats.getTotalBytesFetched());
+        assertEquals(totalFetchRetriesBefore, stats.getTotalFetchRetries());
+        assertEquals(totalCheckSumFailuresBefore, stats.getTotalCheckSumFailures());
+        assertEquals(totalFileReadFailuresBefore, stats.getTotalFileReadFailures());
+        assertEquals(totalAuthenticationFailuresBefore, stats.getTotalAuthenticationFailures());
+        assertEquals(totalFileNotFoundFailuresBefore, stats.getTotalFileNotFoundFailures());
+        assertEquals(totalQuotaExceedFailuresBefore + 1, stats.getTotalQuotaExceedFailures());
+        assertEquals(totalUnauthorizedStoreFailuresBefore, stats.getTotalUnauthorizedStoreFailures());
+        assertEquals(totalParallelFetchesBefore, stats.getParallelFetches());
+        assertEquals(totalFetchesBefore + 1, stats.getTotalFetches());
+        assertEquals(totalIncompleteFetchesBefore + 1, stats.getTotalIncompleteFetches());
+        assertEquals(totalDataFetchRateBefore, stats.getTotalDataFetchRate());
+    }
+
+    public void testAggStatsWithUnauthorizedStoreException() throws Exception {
+        HdfsFetcherAggStats stats = HdfsFetcherAggStats.getStats();
+        long totalBytesFetchedBefore = stats.getTotalBytesFetched();
+        long totalFetchRetriesBefore = stats.getTotalFetchRetries();
+        long totalCheckSumFailuresBefore = stats.getTotalCheckSumFailures();
+        long totalFileReadFailuresBefore = stats.getTotalFileReadFailures();
+        long totalAuthenticationFailuresBefore = stats.getTotalAuthenticationFailures();
+        long totalFileNotFoundFailuresBefore = stats.getTotalFileNotFoundFailures();
+        long totalQuotaExceedFailuresBefore = stats.getTotalQuotaExceedFailures();
+        long totalUnauthorizedStoreFailuresBefore = stats.getTotalUnauthorizedStoreFailures();
+        long totalParallelFetchesBefore = stats.getParallelFetches();
+        long totalFetchesBefore = stats.getTotalFetches();
+        long totalIncompleteFetchesBefore = stats.getTotalIncompleteFetches();
+        double totalDataFetchRateBefore = stats.getTotalDataFetchRate();
+
+        // Generate 0_0.[index | data] and their corresponding metadata
+        File testSourceDirectory = TestUtils.createTempDir();
+        File testDestinationDirectory = TestUtils.createTempDir();
+
+        // Missing metadata file
+        File indexFile = new File(testSourceDirectory, "0_0.index");
+        FileUtils.writeByteArrayToFile(indexFile, TestUtils.randomBytes(100));
+
+        File dataFile = new File(testSourceDirectory, "0_0.data");
+        FileUtils.writeByteArrayToFile(dataFile, TestUtils.randomBytes(400));
+
+        File metadataFile = new File(testSourceDirectory, ".metadata");
+        ReadOnlyStorageMetadata metadata = new ReadOnlyStorageMetadata();
+        metadata.add(ReadOnlyStorageMetadata.FORMAT, ReadOnlyStorageFormat.READONLY_V2.getCode());
+        metadata.add(ReadOnlyStorageMetadata.CHECKSUM,
+                new String(Hex.encodeHex(CheckSumTests.calculateCheckSum(testSourceDirectory.listFiles(),
+                        CheckSumType.MD5))));
+        metadata.add(ReadOnlyStorageMetadata.DISK_SIZE_IN_BYTES, "5000");
+        FileUtils.writeStringToFile(metadataFile, metadata.toJsonString());
+
+        HdfsFetcher fetcher = new HdfsFetcher();
+        File fetchedFile = null;
+        try {
+            fetchedFile = fetcher.fetch(testSourceDirectory.getAbsolutePath(),
+                    testDestinationDirectory.getAbsolutePath() + "1", 0);
+        } catch (Exception e)
+        {}
+        assertNull(fetchedFile);
+
+        // The total bytes fetched includes meta data file as well.
+        assertEquals(totalBytesFetchedBefore + metadata.toJsonString().length(), stats.getTotalBytesFetched());
+        assertEquals(totalFetchRetriesBefore, stats.getTotalFetchRetries());
+        assertEquals(totalCheckSumFailuresBefore, stats.getTotalCheckSumFailures());
+        assertEquals(totalFileReadFailuresBefore, stats.getTotalFileReadFailures());
+        assertEquals(totalAuthenticationFailuresBefore, stats.getTotalAuthenticationFailures());
+        assertEquals(totalFileNotFoundFailuresBefore, stats.getTotalFileNotFoundFailures());
+        assertEquals(totalQuotaExceedFailuresBefore, stats.getTotalQuotaExceedFailures());
+        assertEquals(totalUnauthorizedStoreFailuresBefore + 1, stats.getTotalUnauthorizedStoreFailures());
+        assertEquals(totalParallelFetchesBefore, stats.getParallelFetches());
+        assertEquals(totalFetchesBefore + 1, stats.getTotalFetches());
+        assertEquals(totalIncompleteFetchesBefore + 1, stats.getTotalIncompleteFetches());
+        assertEquals(totalDataFetchRateBefore, stats.getTotalDataFetchRate());
+    }
+
+    public void testAggStatsWithCheckSumFailure() throws Exception {
+        HdfsFetcherAggStats stats = HdfsFetcherAggStats.getStats();
+        long totalBytesFetchedBefore = stats.getTotalBytesFetched();
+        long totalFetchRetriesBefore = stats.getTotalFetchRetries();
+        long totalCheckSumFailuresBefore = stats.getTotalCheckSumFailures();
+        long totalFileReadFailuresBefore = stats.getTotalFileReadFailures();
+        long totalAuthenticationFailuresBefore = stats.getTotalAuthenticationFailures();
+        long totalFileNotFoundFailuresBefore = stats.getTotalFileNotFoundFailures();
+        long totalQuotaExceedFailuresBefore = stats.getTotalQuotaExceedFailures();
+        long totalUnauthorizedStoreFailuresBefore = stats.getTotalUnauthorizedStoreFailures();
+        long totalParallelFetchesBefore = stats.getParallelFetches();
+        long totalFetchesBefore = stats.getTotalFetches();
+        long totalIncompleteFetchesBefore = stats.getTotalIncompleteFetches();
+        double totalDataFetchRateBefore = stats.getTotalDataFetchRate();
+
+        // Generate 0_0.[index | data] and their corresponding metadata
+        File testSourceDirectory = TestUtils.createTempDir();
+        File testDestinationDirectory = TestUtils.createTempDir();
+
+        // Missing metadata file
+        File indexFile = new File(testSourceDirectory, "0_0.index");
+        FileUtils.writeByteArrayToFile(indexFile, TestUtils.randomBytes(100));
+
+        File dataFile = new File(testSourceDirectory, "0_0.data");
+        FileUtils.writeByteArrayToFile(dataFile, TestUtils.randomBytes(400));
+
+        File metadataFile = new File(testSourceDirectory, ".metadata");
+        ReadOnlyStorageMetadata metadata = new ReadOnlyStorageMetadata();
+        metadata.add(ReadOnlyStorageMetadata.FORMAT, ReadOnlyStorageFormat.READONLY_V2.getCode());
+        metadata.add(ReadOnlyStorageMetadata.CHECKSUM_TYPE, CheckSum.toString(CheckSumType.MD5));
+        metadata.add(ReadOnlyStorageMetadata.CHECKSUM, "1234");
+        FileUtils.writeStringToFile(metadataFile, metadata.toJsonString());
+
+        HdfsFetcher fetcher = new HdfsFetcher();
+        File fetchedFile = null;
+        try {
+            fetchedFile = fetcher.fetch(testSourceDirectory.getAbsolutePath(),
+                    testDestinationDirectory.getAbsolutePath() + "1");
+        } catch (Exception e)
+        {}
+        assertNull(fetchedFile);
+
+        // The total bytes fetched includes meta data file as well.
+        assertEquals(totalBytesFetchedBefore + 500 + metadata.toJsonString().length(), stats.getTotalBytesFetched());
+        assertEquals(totalFetchRetriesBefore, stats.getTotalFetchRetries());
+        assertEquals(totalCheckSumFailuresBefore + 1, stats.getTotalCheckSumFailures());
+        assertEquals(totalFileReadFailuresBefore, stats.getTotalFileReadFailures());
+        assertEquals(totalAuthenticationFailuresBefore, stats.getTotalAuthenticationFailures());
+        assertEquals(totalFileNotFoundFailuresBefore, stats.getTotalFileNotFoundFailures());
+        assertEquals(totalQuotaExceedFailuresBefore, stats.getTotalQuotaExceedFailures());
+        assertEquals(totalUnauthorizedStoreFailuresBefore, stats.getTotalUnauthorizedStoreFailures());
+        assertEquals(totalParallelFetchesBefore, stats.getParallelFetches());
+        assertEquals(totalFetchesBefore + 1, stats.getTotalFetches());
+        assertEquals(totalIncompleteFetchesBefore + 1, stats.getTotalIncompleteFetches());
+        assertEquals(totalDataFetchRateBefore, stats.getTotalDataFetchRate());
     }
 }

@@ -17,6 +17,7 @@
 package voldemort.store.readonly.fetcher;
 
 import java.io.File;
+import java.io.FileNotFoundException;
 import java.text.NumberFormat;
 import java.util.Arrays;
 import java.util.List;
@@ -215,7 +216,12 @@ public class HdfsFetcher implements FileFetcher {
         FileSystem fs = null;
         sourceFileUrl = VoldemortUtils
             .modifyURL(sourceFileUrl, voldemortConfig.getModifiedProtocol(), voldemortConfig.getModifiedPort());
+        // Flag to indicate whether the fetch is complete or not
+        boolean isCompleteFetch = false;
         try {
+            // Record as one store fetch
+            HdfsCopyStats.storeFetch();
+
             fs = HadoopUtils.getHadoopFileSystem(voldemortConfig, sourceFileUrl);
             final Path rootPath = new Path(sourceFileUrl);
             File destination = new File(destinationFile);
@@ -228,13 +234,15 @@ public class HdfsFetcher implements FileFetcher {
             boolean isFile = fs.isFile(rootPath);
 
             stats = new HdfsCopyStats(sourceFileUrl,
-                                      destination,
-                                      false, // stats file initially disabled, to fetch just the first metadata file
-                                      maxVersionsStatsFile,
-                                      isFile,
-                                      null);
+                    destination,
+                    false, // stats file initially disabled, to fetch just the first metadata file
+                    maxVersionsStatsFile,
+                    isFile,
+                    null,
+                    storeName);
             jmxName = JmxUtils.registerMbean("hdfs-copy-" + copyCount.getAndIncrement(), stats);
             logger.info("Starting fetch for : " + sourceFileUrl);
+
 
             FetchStrategy fetchStrategy = new BasicFetchStrategy(this,
                                                                  fs,
@@ -300,7 +308,8 @@ public class HdfsFetcher implements FileFetcher {
                         enableStatsFile,
                         maxVersionsStatsFile,
                         isFile,
-                        new HdfsPathInfo(directoriesToFetch));
+                        new HdfsPathInfo(directoriesToFetch),
+                        storeName);
 
                 fetchStrategy = new BasicFetchStrategy(this,
                                                        fs,
@@ -314,10 +323,12 @@ public class HdfsFetcher implements FileFetcher {
                     if(directoryToFetch.validateCheckSum(fileCheckSumMap)) {
                         logger.info("Completed fetch: " + sourceFileUrl);
                     } else {
+                        stats.checkSumFailed();
                         logger.error("Checksum did not match for " + directoryToFetch.toString() + " !");
                         return null;
                     }
                 }
+                isCompleteFetch = true;
                 return destination;
             } else if (allowFetchingOfSingleFile) {
                 /** This code path is only used by {@link #main(String[])} */
@@ -327,6 +338,7 @@ public class HdfsFetcher implements FileFetcher {
                 File copyLocation = new File(destination, fileName);
                 fetchStrategy.fetch(file, copyLocation, CheckSumType.NONE);
                 logger.info("Completed fetch : " + sourceFileUrl);
+                isCompleteFetch = true;
                 return destination;
             } else {
                 logger.error("Source " + rootPath.toString() + " should be a directory");
@@ -336,6 +348,10 @@ public class HdfsFetcher implements FileFetcher {
             if(stats != null) {
                 stats.reportError("File fetcher failed for destination " + destinationFile, e);
             }
+            // Since AuthenticationException may happen before stats object initialization (HadoopUtils.getHadoopFileSystem),
+            // we use the static method to capture all the exceptions here.
+            HdfsCopyStats.reportExceptionForStats(e);
+
             if(e instanceof VoldemortException) {
                 throw e;
             } else {
@@ -347,6 +363,9 @@ public class HdfsFetcher implements FileFetcher {
 
             if(stats != null) {
                 stats.complete();
+            }
+            if (!isCompleteFetch) {
+                HdfsCopyStats.incompleteFetch();
             }
 
             if(fs != null) {
