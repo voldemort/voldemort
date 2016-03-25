@@ -212,11 +212,12 @@ public class StoreSwapperTest {
 
         int pushNums = 4;
         final ExecutorService executor = Executors.newCachedThreadPool();
+        File tempDir = createTempROFolder();
 
         List<Future<RuntimeException>> results = Lists.newArrayList();
 
         for (int i = 0; i < pushNums; i ++) {
-            results.add(executor.submit(new PushWorker(executor)));
+            results.add(executor.submit(new PushWorker(executor, tempDir)));
         }
 
         int fetchedNode = 0;
@@ -237,8 +238,12 @@ public class StoreSwapperTest {
     private class PushWorker implements Callable<RuntimeException> {
 
         private ExecutorService executor;
+        private File tempDir;
 
-        public PushWorker(ExecutorService executor){ this.executor = executor; }
+        public PushWorker(ExecutorService executor, File tempDir){
+            this.executor = executor;
+            this.tempDir = tempDir;
+        }
 
         @Override
         public RuntimeException call(){
@@ -249,11 +254,11 @@ public class StoreSwapperTest {
                     Lists.newArrayList(STORE_NAME))
                     .get(STORE_NAME);
 
-            File temporaryDir = createTempROFolder();
+
 
             RuntimeException result = null;
             try {
-                swapper.swapStoreData(STORE_NAME, temporaryDir.getAbsolutePath(), currentVersion + 1);
+                swapper.swapStoreData(STORE_NAME, tempDir.getAbsolutePath(), currentVersion + 1);
             }catch (RuntimeException e){
                 result = e;
             }
