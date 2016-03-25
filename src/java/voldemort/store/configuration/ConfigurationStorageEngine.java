@@ -143,17 +143,19 @@ public class ConfigurationStorageEngine extends AbstractStorageEngine<String, St
         }
         // Check for obsolete version
         File[] files = getDirectory(key).listFiles();
-        for(File file: files) {
-            if(file.getName().equals(key)) {
-                VectorClock clock = readVersion(key);
-                if(value.getVersion().compare(clock) == Occurred.AFTER) {
-                    // continue
-                } else if(value.getVersion().compare(clock) == Occurred.BEFORE) {
-                    throw new ObsoleteVersionException("A successor version " + clock
-                                                       + "  to this " + value.getVersion()
-                                                       + " exists for key " + key);
-                } else if(value.getVersion().compare(clock) == Occurred.CONCURRENTLY) {
-                    throw new ObsoleteVersionException("Concurrent Operation not allowed on Metadata.");
+        if(files != null) {
+            for(File file: files) {
+                if(file.getName().equals(key)) {
+                    VectorClock clock = readVersion(key);
+                    if(value.getVersion().compare(clock) == Occurred.AFTER) {
+                        // continue
+                    } else if(value.getVersion().compare(clock) == Occurred.BEFORE) {
+                        throw new ObsoleteVersionException("A successor version " + clock
+                                                           + "  to this " + value.getVersion()
+                                                           + " exists for key " + key);
+                    } else if(value.getVersion().compare(clock) == Occurred.CONCURRENTLY) {
+                        throw new ObsoleteVersionException("Concurrent Operation not allowed on Metadata.");
+                    }
                 }
             }
         }
