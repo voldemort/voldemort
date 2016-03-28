@@ -1,7 +1,9 @@
 package voldemort.store.readonly.fetcher;
 
+import java.io.BufferedInputStream;
 import java.io.BufferedOutputStream;
 import java.io.File;
+import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.FilterInputStream;
 import java.io.IOException;
@@ -15,11 +17,12 @@ import org.apache.commons.io.IOUtils;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.log4j.Logger;
 
+import voldemort.VoldemortException;
 import voldemort.server.protocol.admin.AsyncOperationStatus;
 import voldemort.server.protocol.admin.AsyncOperationStoppedException;
 import voldemort.store.readonly.checksum.CheckSum;
 import voldemort.store.readonly.checksum.CheckSum.CheckSumType;
-import voldemort.utils.ExceptionUtils;
+import voldemort.utils.ByteUtils;
 
 
 public class BasicFetchStrategy implements FetchStrategy {
@@ -82,6 +85,7 @@ public class BasicFetchStrategy implements FetchStrategy {
     private byte[] copyFileWithCheckSum(HdfsFile source, File dest, CheckSumType checkSumType)
             throws IOException {
         byte[] checkSum = null;
+        CheckSum bufferCheckSumGenerator = null;
         logger.debug("Starting copy of " + source + " to " + dest);
 
         // Check if its Gzip compressed
@@ -96,11 +100,12 @@ public class BasicFetchStrategy implements FetchStrategy {
             boolean success = false;
             long totalBytesRead = 0;
             boolean fsOpened = false;
+            bufferCheckSumGenerator = null;
+
             try {
-                CheckSum fileCheckSumGenerator = null;
                 // Create a per file checksum generator
                 if (checkSumType != null) {
-                    fileCheckSumGenerator = CheckSum.getInstance(checkSumType);
+                    bufferCheckSumGenerator = CheckSum.getInstance(checkSumType);
                 }
 
                 logger.info("Starting attempt #" + attempt + "/" + fetcher.getMaxAttempts() +
@@ -138,8 +143,8 @@ public class BasicFetchStrategy implements FetchStrategy {
                     }
 
                     // Update the per file checksum
-                    if(fileCheckSumGenerator != null) {
-                        fileCheckSumGenerator.update(buffer, 0, read);
+                    if(bufferCheckSumGenerator != null) {
+                        bufferCheckSumGenerator.update(buffer, 0, read);
                     }
 
                     stats.recordBytesWritten(read);
@@ -170,8 +175,8 @@ public class BasicFetchStrategy implements FetchStrategy {
                         }
                     }
                 }
-                if(fileCheckSumGenerator != null) {
-                    checkSum = fileCheckSumGenerator.getCheckSum();
+                if(bufferCheckSumGenerator != null) {
+                    checkSum = bufferCheckSumGenerator.getCheckSum();
                 }
                 stats.reportFileDownloaded(dest,
                                            startTimeMS,
@@ -208,6 +213,28 @@ public class BasicFetchStrategy implements FetchStrategy {
                 }
             }
         }
+
+        //second time checksum validation. Check if the local file is consistent with the buffer
+        if (bufferCheckSumGenerator != null){
+            CheckSum fileCheckSumGenerator = CheckSum.getInstance(checkSumType);
+            BufferedInputStream in = new BufferedInputStream(new FileInputStream(dest));
+            int read;
+
+            try {
+                while ((read = in.read(buffer)) >= 0) {
+                    fileCheckSumGenerator.update(buffer, 0, read);
+                }
+
+                if (ByteUtils.compare(fileCheckSumGenerator.getCheckSum(), checkSum) != 0)
+                    throw new VoldemortException("Local file: " + dest.getAbsolutePath() +
+                            " checksum (" + ByteUtils.toHexString(fileCheckSumGenerator.getCheckSum()) +
+                            ") does not match with the checksum in the buffer (" +
+                            ByteUtils.toHexString(fileCheckSumGenerator.getCheckSum()) + ")");
+            }finally {
+                IOUtils.closeQuietly(in);
+            }
+        }
+
         return checkSum;
     }
 
