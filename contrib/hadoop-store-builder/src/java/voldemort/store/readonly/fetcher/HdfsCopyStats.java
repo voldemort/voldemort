@@ -2,6 +2,7 @@ package voldemort.store.readonly.fetcher;
 
 import java.io.BufferedWriter;
 import java.io.File;
+import java.io.FileNotFoundException;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.io.PrintWriter;
@@ -11,10 +12,15 @@ import java.util.Comparator;
 import java.util.Date;
 
 import org.apache.commons.io.IOUtils;
+import org.apache.hadoop.security.authentication.client.AuthenticationException;
 import org.apache.log4j.Logger;
 
+import org.apache.log4j.spi.ThrowableInformation;
 import voldemort.annotations.jmx.JmxGetter;
+import voldemort.store.quota.QuotaExceededException;
+import voldemort.store.readonly.UnauthorizedStoreException;
 import voldemort.utils.ByteUtils;
+import voldemort.utils.ExceptionUtils;
 import voldemort.utils.Time;
 
 /**
@@ -36,6 +42,10 @@ public class HdfsCopyStats {
     public static final String STATS_DIRECTORY = ".stats";
     private final SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss.SSS");
     private static final Logger logger = Logger.getLogger(HdfsCopyStats.class);
+
+    // Store name for the data pull
+    private String storeName = null;
+
 
     private static void deleteExtraStatsFiles(File statsDirectory, int maxStatsFile) {
         if(maxStatsFile <= 0) {
@@ -143,14 +153,18 @@ public class HdfsCopyStats {
                          boolean enableStatsFile,
                          int maxVersionsStatsFile,
                          boolean isFileCopy,
-                         HdfsPathInfo pathInfo) {
+                         HdfsPathInfo pathInfo,
+                         String storeName) {
         this.sourceFile = source;
         this.totalBytesTransferred = 0L;
         this.bytesTransferredSinceLastReport = 0L;
         this.pathInfo = pathInfo;
+        this.storeName = storeName;
         this.lastReportNs = System.nanoTime();
         this.startTimeMS = System.currentTimeMillis();
         initializeStatsFile(destination, enableStatsFile, maxVersionsStatsFile, isFileCopy);
+        // Register the current HdfsCopyStats to the aggregated stats
+        HdfsFetcherAggStats.getStats().addStoreCopyStats(storeName, this);
     }
 
     public void recordBytesWritten(long bytesWritten) {
@@ -161,6 +175,41 @@ public class HdfsCopyStats {
     public void recordBytesTransferred(long bytesTransferred) {
         this.totalBytesTransferred += bytesTransferred;
         this.bytesTransferredSinceLastReport += bytesTransferred;
+        // Update the aggregated stats for total bytes transferred
+        HdfsFetcherAggStats.getStats().recordBytesTransferred(bytesTransferred);
+    }
+
+    public static void storeFetch() {
+        HdfsFetcherAggStats.getStats().storeFetch();
+    }
+    public void singleFileFetchStart(boolean isRetry) {
+        HdfsFetcherAggStats.getStats().singleFileFetchStart(isRetry);
+    }
+
+    public void singleFileFetchEnd() {
+        HdfsFetcherAggStats.getStats().singleFileFetchEnd();
+    }
+
+    public void checkSumFailed() {
+        HdfsFetcherAggStats.getStats().checkSumFailed();
+    }
+
+    public static void reportExceptionForStats(Exception e) {
+        if (ExceptionUtils.recursiveClassEquals(e, AuthenticationException.class)) {
+            HdfsFetcherAggStats.getStats().authenticateFailed();
+        } else if (e instanceof QuotaExceededException) {
+            HdfsFetcherAggStats.getStats().quotaCheckFailed();
+        } else if (e instanceof UnauthorizedStoreException) {
+            HdfsFetcherAggStats.getStats().unauthorizedStorePush();
+        } else if (e instanceof FileNotFoundException) {
+            HdfsFetcherAggStats.getStats().fileNotFound();
+        } else {
+            HdfsFetcherAggStats.getStats().fileReadFailed();
+        }
+    }
+
+    public static void incompleteFetch() {
+        HdfsFetcherAggStats.getStats().incompleteFetch();
     }
 
     public void reset() {
@@ -241,6 +290,8 @@ public class HdfsCopyStats {
         if(statsFileWriter != null) {
             IOUtils.closeQuietly(statsFileWriter);
         }
+        // Remove the current HdfsCopyStats object from the registry for the aggregated stats
+        HdfsFetcherAggStats.getStats().removeStoreCopyStats(storeName);
     }
 
     public double getPercentCopied() {

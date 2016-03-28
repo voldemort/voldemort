@@ -19,7 +19,6 @@ import voldemort.server.protocol.admin.AsyncOperationStatus;
 import voldemort.server.protocol.admin.AsyncOperationStoppedException;
 import voldemort.store.readonly.checksum.CheckSum;
 import voldemort.store.readonly.checksum.CheckSum.CheckSumType;
-import voldemort.utils.ExceptionUtils;
 
 
 public class BasicFetchStrategy implements FetchStrategy {
@@ -96,6 +95,8 @@ public class BasicFetchStrategy implements FetchStrategy {
             boolean success = false;
             long totalBytesRead = 0;
             boolean fsOpened = false;
+
+            stats.singleFileFetchStart(attempt != 1);
             try {
                 CheckSum fileCheckSumGenerator = null;
                 // Create a per file checksum generator
@@ -201,6 +202,8 @@ public class BasicFetchStrategy implements FetchStrategy {
                     throw e;
                 }
             } finally {
+                stats.singleFileFetchEnd();
+
                 IOUtils.closeQuietly(output);
                 IOUtils.closeQuietly(input);
                 if(success) {
