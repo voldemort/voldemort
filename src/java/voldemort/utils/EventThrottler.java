@@ -1,12 +1,12 @@
 /*
  * Copyright 2013 LinkedIn, Inc
- * 
+ *
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not
  * use this file except in compliance with the License. You may obtain a copy of
  * the License at
- * 
+ *
  * http://www.apache.org/licenses/LICENSE-2.0
- * 
+ *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
  * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
@@ -15,6 +15,7 @@
  */
 package voldemort.utils;
 
+import io.tehuti.Metric;
 import io.tehuti.metrics.MetricConfig;
 import io.tehuti.metrics.MetricsRepository;
 import io.tehuti.metrics.Quota;
@@ -28,14 +29,14 @@ import java.util.concurrent.TimeUnit;
 
 /**
  * A class to throttle Events to a certain rate
- * 
+ *
  * This class takes a maximum rate in events/sec and a minimum interval over
  * which to check the rate. The rate is measured over two rolling windows: one
  * full window, and one in-flight window. Each window is bounded to the provided
  * interval in ms, therefore, the total interval measured over is up to twice
  * the provided interval parameter. If the current event rate exceeds the maximum,
  * the call to {@link #maybeThrottle(int)} will block long enough to equalize it.
- * 
+ *
  * This is a generalized IoThrottler as it existed before, which can be used to
  * throttle Bytes read or written, number of entries scanned, etc.
  */
@@ -45,6 +46,8 @@ public class EventThrottler {
     private static final Logger logger = Logger.getLogger(EventThrottler.class);
     private static final long DEFAULT_CHECK_INTERVAL_MS = 1000;
     private static final String THROTTLER_NAME = "event-throttler";
+    // Suffix for rate metrics
+    private static final String RATE_METRIC_SUFFIX = ".rate";
 
     private final long maxRatePerSecond;
 
@@ -98,7 +101,7 @@ public class EventThrottler {
                 // Then we want this EventThrottler to be independent.
                 this.metricsRepository = new MetricsRepository(time);
                 this.rateSensor = metricsRepository.sensor(THROTTLER_NAME, rateConfig);
-                rateSensor.add(THROTTLER_NAME + ".rate", rate, rateConfig);
+                rateSensor.add(THROTTLER_NAME + RATE_METRIC_SUFFIX, rate, rateConfig);
             } else {
                 // Then we want to share the EventThrottler's limit with other instances having the same name.
                 this.metricsRepository = sharedMetricsRepository;
@@ -109,7 +112,7 @@ public class EventThrottler {
                     } else {
                         // Create it once for all EventThrottlers sharing that name
                         this.rateSensor = sharedMetricsRepository.sensor(throttlerName);
-                        this.rateSensor.add(throttlerName + ".rate", rate, rateConfig);
+                        this.rateSensor.add(throttlerName + RATE_METRIC_SUFFIX, rate, rateConfig);
                     }
                 }
             }
@@ -129,7 +132,7 @@ public class EventThrottler {
 
     /**
      * Sleeps if necessary to slow down the caller.
-     * 
+     *
      * @param eventsSeen Number of events seen since last invocation. Basis for
      *        determining whether its necessary to sleep.
      */
@@ -167,5 +170,19 @@ public class EventThrottler {
                 }
             }
         }
+    }
+
+    /**
+     * Get throttle rate by name from the shared metric repository.
+     *
+     * @param throttleName Shared throttle name
+     * @return throttle rate value, and will return 0 if the throttle name doesn't exist.
+     */
+    public static double getSharedThrottleRate(String throttleName) {
+        Metric m = sharedMetricsRepository.getMetric(throttleName + RATE_METRIC_SUFFIX);
+        if (m == null) {
+            return 0;
+        }
+        return m.value();
     }
 }

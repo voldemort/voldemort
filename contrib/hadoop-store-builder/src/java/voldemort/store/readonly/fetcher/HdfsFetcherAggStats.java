@@ -180,11 +180,14 @@ public class HdfsFetcherAggStats {
 
     @JmxGetter(name = "totalDataFetchRate", description = "The total data fetch rate right now.")
     public synchronized double getTotalDataFetchRate() {
+        return HdfsFetcher.getDataFetchRate();
+        /*
         double fetchRate = 0;
         for (HdfsCopyStats copyStats : copyStatsMap.values()) {
             fetchRate += copyStats.getBytesTransferredPerSecond();
         }
 
         return fetchRate;
+        */
     }
 }

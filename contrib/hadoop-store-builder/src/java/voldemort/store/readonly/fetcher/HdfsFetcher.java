@@ -76,6 +76,9 @@ public class HdfsFetcher implements FileFetcher {
     private final EventThrottler throttler;
     private final VoldemortConfig voldemortConfig;
 
+    // Throttle name for all the hdfs data pull
+    private static final String GLOBAL_HDFS_FETCHER_THROTTLE_NAME = "hdfs-fetcher-node-throttler";
+
     /**
      * This is the constructor invoked via reflection from
      * {@link AdminServiceRequestHandler#setFetcherClass(voldemort.server.VoldemortConfig)}
@@ -138,8 +141,8 @@ public class HdfsFetcher implements FileFetcher {
         if(maxBytesPerSecond != null && maxBytesPerSecond > 0) {
             this.maxBytesPerSecond = maxBytesPerSecond;
             this.throttler = new EventThrottler(this.maxBytesPerSecond,
-                                                throttlerIntervalMs,
-                                                "hdfs-fetcher-node-throttler");
+                    throttlerIntervalMs,
+                    GLOBAL_HDFS_FETCHER_THROTTLE_NAME);
             throttlerInfo = "throttler with global rate = " + maxBytesPerSecond + " bytes / sec";
         } else {
             this.maxBytesPerSecond = null;
@@ -449,6 +452,15 @@ public class HdfsFetcher implements FileFetcher {
         } else {
             logger.debug("store: " + storeName + " is a Non Quota type store.");
         }
+    }
+
+    /**
+     * Get the data fetch rate for all the HDFS data pull.
+     *
+     * @return HDFS data fetch rate (byte per second)
+     */
+    public static double getDataFetchRate() {
+        return EventThrottler.getSharedThrottleRate(GLOBAL_HDFS_FETCHER_THROTTLE_NAME);
     }
 
     public Long getReportingIntervalBytes() {
