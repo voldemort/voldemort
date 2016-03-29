@@ -2,21 +2,35 @@ package voldemort.store.readonly.fetcher;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 
 import java.io.File;
+import java.io.FileNotFoundException;
+import java.io.IOException;
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Random;
 import java.util.Set;
 
+import org.apache.hadoop.security.authentication.client.AuthenticationException;
+import org.junit.Assert;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
 import org.junit.runners.Parameterized.Parameters;
+import voldemort.store.quota.QuotaExceededException;
+import voldemort.store.readonly.UnauthorizedStoreException;
+
+import java.lang.reflect.Type;
+import java.lang.Exception;
 
 @RunWith(Parameterized.class)
 public class HdfsCopyStatsTest {
@@ -56,11 +70,11 @@ public class HdfsCopyStatsTest {
             // linux timestamp has second granularity, so sleep for a second
             Thread.sleep(1000);
             HdfsCopyStats stats = new HdfsCopyStats(testSourceDir.getAbsolutePath(),
-                                                    destination,
-                                                    enableStatsFile,
-                                                    maxStatsFile,
-                                                    isFileCopy,
-                                                    HdfsPathInfo.getTestObject(1000));
+                    destination,
+                    enableStatsFile,
+                    maxStatsFile,
+                    isFileCopy,
+                    HdfsPathInfo.getTestObject(1000));
 
             if(stats.getStatsFile() != null) {
                 expectedStatsFile.add(stats.getStatsFile().getName());
@@ -123,5 +137,79 @@ public class HdfsCopyStatsTest {
             HdfsFetcherAdvancedTest.deleteDir(testSourceDir);
         if(statsDir != null)
             HdfsFetcherAdvancedTest.deleteDir(statsDir);
+    }
+
+    @Test
+    public void testRecordBytesTransferred() {
+        HdfsCopyStats stats = new HdfsCopyStats(null,
+                null,
+                false,
+                3,
+                false,
+                null);
+        long totalAggBytesFetchedBefore = HdfsFetcherAggStats.getStats().getTotalBytesFetched();
+        stats.recordBytesTransferred(100);
+        stats.complete();
+
+        assertEquals(100, stats.getBytesTransferredSinceLastReport(), 0);
+        assertEquals(100, stats.getBytesTransferredSinceLastReport(), 0);
+        assertEquals(100, stats.getTotalBytesTransferred(), 0);
+        assertEquals(totalAggBytesFetchedBefore + 100, HdfsFetcherAggStats.getStats().getTotalBytesFetched(), 0);
+    }
+
+    private Map<String, Long> buildMethodResultMap(long authenticateFailedRes,
+                                      long fileNotFoundRes,
+                                      long fileReadFailedRes,
+                                      long quotaCheckFailedRes,
+                                      long unauthorizedStorePushRes) {
+        Map<String, Long> resMap = new HashMap<String, Long>();
+        resMap.put("getTotalAuthenticationFailures", new Long(authenticateFailedRes));
+        resMap.put("getTotalFileNotFoundFailures", new Long(fileNotFoundRes));
+        resMap.put("getTotalFileReadFailures", new Long(fileReadFailedRes));
+        resMap.put("getTotalQuotaExceedFailures", new Long(quotaCheckFailedRes));
+        resMap.put("getTotalUnauthorizedStoreFailures", new Long(unauthorizedStorePushRes));
+
+        return resMap;
+    }
+
+    private Map<String, Long> invokeInternalMethod(HdfsFetcherAggStats stats, Set<String> methodNames)
+            throws NoSuchMethodException, InvocationTargetException, IllegalAccessException {
+        Map<String, Long> res = new HashMap<String, Long>();
+        for (String methodName : methodNames) {
+            Long methodRes = (Long)stats.getClass().getMethod(methodName).invoke(stats);
+            res.put(methodName, methodRes);
+        }
+
+        return res;
+    }
+
+    @Test
+    public void testReportExceptionForStats()
+            throws NoSuchMethodException, InvocationTargetException, IllegalAccessException {
+        Map<Exception, Map> config = new HashMap<Exception, Map>();
+        config.put(new Exception(new AuthenticationException("test")), buildMethodResultMap(1, 0, 0, 0, 0));
+        config.put(new FileNotFoundException(), buildMethodResultMap(0, 1, 0, 0, 0));
+        config.put(new IOException(), buildMethodResultMap(0, 0, 1, 0, 0));
+        config.put(new QuotaExceededException("test"), buildMethodResultMap(0, 0, 0, 1, 0));
+        config.put(new UnauthorizedStoreException("test"), buildMethodResultMap(0, 0, 0, 0, 1));
+
+        HdfsFetcherAggStats aggStats = HdfsFetcherAggStats.getStats();
+
+        for (Map.Entry<Exception, Map> entry : config.entrySet()) {
+            Exception e = entry.getKey();
+            Map<String, Long> methodResMap = entry.getValue();
+            Set<String> methodSet = methodResMap.keySet();
+            // Get result before invocation
+            Map<String, Long> beforeRes = invokeInternalMethod(aggStats, methodSet);
+            HdfsCopyStats.reportExceptionForStats(e);
+            // Get result after invocation
+            Map<String, Long> afterRes = invokeInternalMethod(aggStats, methodSet);
+            // Compare the difference
+            for (String methodName : methodSet) {
+                String msg = "Method expects " + methodResMap.get(methodName) + " with exception: " + e.getClass().getName();
+                assertEquals(msg, methodResMap.get(methodName).longValue(),
+                        afterRes.get(methodName).longValue() - beforeRes.get(methodName).longValue());
+            }
+        }
     }
 }

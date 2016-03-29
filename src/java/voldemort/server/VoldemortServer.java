@@ -1,12 +1,12 @@
 /*
  * Copyright 2008-2013 LinkedIn, Inc
- * 
+ *
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not
  * use this file except in compliance with the License. You may obtain a copy of
  * the License at
- * 
+ *
  * http://www.apache.org/licenses/LICENSE-2.0
- * 
+ *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
  * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
@@ -65,10 +65,10 @@ import com.google.common.collect.Lists;
 
 /**
  * This is the main server, it bootstraps all the services.
- * 
+ *
  * It can be embedded or run directly via it's main method.
- * 
- * 
+ *
+ *
  */
 public class VoldemortServer extends AbstractService {
 
@@ -104,7 +104,7 @@ public class VoldemortServer extends AbstractService {
     /**
      * Constructor is used exclusively by tests. I.e., this is not a code path
      * that is exercised in production.
-     * 
+     *
      * @param config
      * @param cluster
      */
@@ -120,7 +120,7 @@ public class VoldemortServer extends AbstractService {
         // update cluster details in metaDataStore
         ConfigurationStorageEngine metadataInnerEngine = new ConfigurationStorageEngine("metadata-config-store",
                                                                                         voldemortConfig.getMetadataDirectory());
-        
+
         List<Versioned<String>> clusterXmlValue = metadataInnerEngine.get(MetadataStore.CLUSTER_KEY,
                                                                           null);
 
@@ -161,7 +161,7 @@ public class VoldemortServer extends AbstractService {
     /**
      * Compare the configured hostname with all the ip addresses and hostnames
      * for the server node, and log a warning if there is a mismatch.
-     * 
+     *
      */
     // TODO: VoldemortServer should throw exception if cluster xml, node id, and
     // server's state are not all mutually consistent.
@@ -347,7 +347,7 @@ public class VoldemortServer extends AbstractService {
             jmxService = new JmxService(this, this.metadata.getCluster(), storeRepository, services);
             services.add(jmxService);
         }
-        
+
         return ImmutableList.copyOf(services);
     }
 
@@ -410,7 +410,7 @@ public class VoldemortServer extends AbstractService {
     /**
      * Attempt to shutdown the server. As much shutdown as possible will be
      * completed, even if intermediate errors are encountered.
-     * 
+     *
      * @throws VoldemortException
      */
     @Override

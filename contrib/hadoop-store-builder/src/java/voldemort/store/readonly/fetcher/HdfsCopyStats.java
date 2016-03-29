@@ -2,6 +2,7 @@ package voldemort.store.readonly.fetcher;
 
 import java.io.BufferedWriter;
 import java.io.File;
+import java.io.FileNotFoundException;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.io.PrintWriter;
@@ -11,10 +12,15 @@ import java.util.Comparator;
 import java.util.Date;
 
 import org.apache.commons.io.IOUtils;
+import org.apache.hadoop.security.authentication.client.AuthenticationException;
 import org.apache.log4j.Logger;
 
+import org.apache.log4j.spi.ThrowableInformation;
 import voldemort.annotations.jmx.JmxGetter;
+import voldemort.store.quota.QuotaExceededException;
+import voldemort.store.readonly.UnauthorizedStoreException;
 import voldemort.utils.ByteUtils;
+import voldemort.utils.ExceptionUtils;
 import voldemort.utils.Time;
 
 /**
@@ -36,6 +42,8 @@ public class HdfsCopyStats {
     public static final String STATS_DIRECTORY = ".stats";
     private final SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss.SSS");
     private static final Logger logger = Logger.getLogger(HdfsCopyStats.class);
+
+    private static final HdfsFetcherAggStats aggStats = HdfsFetcherAggStats.getStats();
 
     private static void deleteExtraStatsFiles(File statsDirectory, int maxStatsFile) {
         if(maxStatsFile <= 0) {
@@ -161,6 +169,41 @@ public class HdfsCopyStats {
     public void recordBytesTransferred(long bytesTransferred) {
         this.totalBytesTransferred += bytesTransferred;
         this.bytesTransferredSinceLastReport += bytesTransferred;
+        // Update the aggregated stats for total bytes transferred
+        aggStats.recordBytesTransferred(bytesTransferred);
+    }
+
+    public static void storeFetch() {
+        aggStats.storeFetch();
+    }
+    public void singleFileFetchStart(boolean isRetry) {
+        aggStats.singleFileFetchStart(isRetry);
+    }
+
+    public void singleFileFetchEnd() {
+        aggStats.singleFileFetchEnd();
+    }
+
+    public void checkSumFailed() {
+        aggStats.checkSumFailed();
+    }
+
+    public static void reportExceptionForStats(Exception e) {
+        if (ExceptionUtils.recursiveClassEquals(e, AuthenticationException.class)) {
+            aggStats.authenticateFailed();
+        } else if (e instanceof QuotaExceededException) {
+            aggStats.quotaCheckFailed();
+        } else if (e instanceof UnauthorizedStoreException) {
+            aggStats.unauthorizedStorePush();
+        } else if (e instanceof FileNotFoundException) {
+            aggStats.fileNotFound();
+        } else {
+            aggStats.fileReadFailed();
+        }
+    }
+
+    public static void incompleteFetch() {
+        aggStats.incompleteFetch();
     }
 
     public void reset() {

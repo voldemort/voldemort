@@ -1,12 +1,12 @@
 /*
  * Copyright 2012 LinkedIn, Inc
- * 
+ *
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not
  * use this file except in compliance with the License. You may obtain a copy of
  * the License at
- * 
+ *
  * http://www.apache.org/licenses/LICENSE-2.0
- * 
+ *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
  * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
@@ -28,8 +28,8 @@ import voldemort.utils.JmxUtils;
 
 /**
  * Some convenient statistics to track about the store
- * 
- * 
+ *
+ *
  */
 public class StoreStats {
 
@@ -41,7 +41,7 @@ public class StoreStats {
 
     // RequestCounter config
     private static final boolean useHistogram = true;
-    private static final long timeWindow = 60000;
+    public static final long timeWindow = 60000;
 
     public StoreStats(String storeName) {
         this(storeName, null);
@@ -142,7 +142,7 @@ public class StoreStats {
 
     /**
      * Method to service public recording APIs
-     * 
+     *
      * @param op Operation being tracked
      * @param timeNS Duration of operation
      * @param numEmptyResponses Number of empty responses being sent back,
