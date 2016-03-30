@@ -1,12 +1,12 @@
 /*
  * Copyright 2013 LinkedIn, Inc
- * 
+ *
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not
  * use this file except in compliance with the License. You may obtain a copy of
  * the License at
- * 
+ *
  * http://www.apache.org/licenses/LICENSE-2.0
- * 
+ *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
  * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
@@ -28,14 +28,14 @@ import java.util.concurrent.TimeUnit;
 
 /**
  * A class to throttle Events to a certain rate
- * 
+ *
  * This class takes a maximum rate in events/sec and a minimum interval over
  * which to check the rate. The rate is measured over two rolling windows: one
  * full window, and one in-flight window. Each window is bounded to the provided
  * interval in ms, therefore, the total interval measured over is up to twice
  * the provided interval parameter. If the current event rate exceeds the maximum,
  * the call to {@link #maybeThrottle(int)} will block long enough to equalize it.
- * 
+ *
  * This is a generalized IoThrottler as it existed before, which can be used to
  * throttle Bytes read or written, number of entries scanned, etc.
  */
@@ -129,7 +129,7 @@ public class EventThrottler {
 
     /**
      * Sleeps if necessary to slow down the caller.
-     * 
+     *
      * @param eventsSeen Number of events seen since last invocation. Basis for
      *        determining whether its necessary to sleep.
      */

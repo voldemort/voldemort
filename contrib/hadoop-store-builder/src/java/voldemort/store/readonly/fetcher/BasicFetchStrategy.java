@@ -102,6 +102,7 @@ public class BasicFetchStrategy implements FetchStrategy {
             boolean fsOpened = false;
             bufferCheckSumGenerator = null;
 
+            stats.singleFileFetchStart(attempt != 1);
             try {
                 // Create a per file checksum generator
                 if (checkSumType != null) {
@@ -206,6 +207,8 @@ public class BasicFetchStrategy implements FetchStrategy {
                     throw e;
                 }
             } finally {
+                stats.singleFileFetchEnd();
+
                 IOUtils.closeQuietly(output);
                 IOUtils.closeQuietly(input);
                 if(success) {

@@ -1,12 +1,12 @@
 /*
  * Copyright 2008-2009 LinkedIn, Inc
- * 
+ *
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not
  * use this file except in compliance with the License. You may obtain a copy of
  * the License at
- * 
+ *
  * http://www.apache.org/licenses/LICENSE-2.0
- * 
+ *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
  * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
@@ -112,7 +112,7 @@ public class HdfsFetcherAdvancedTest {
 
     /**
      * Create a temporary directory that is a child of the given directory
-     * 
+     *
      * @param parent The parent directory
      * @return The temporary directory
      */
@@ -216,11 +216,11 @@ public class HdfsFetcherAdvancedTest {
         File destination = new File(testDestDir.getAbsolutePath() + "1");
 
         stats = new HdfsCopyStats(sourceString,
-                                  destination,
-                                  enableStatsFile,
-                                  5,
-                                  false,
-                                  hdfsPathInfo);
+                destination,
+                enableStatsFile,
+                5,
+                false,
+                hdfsPathInfo);
         copyLocation = new File(destination, finalIndexFileName);
 
         Utils.mkdirs(destination);
@@ -280,7 +280,7 @@ public class HdfsFetcherAdvancedTest {
 
     /*
      * Tests that HdfsFetcher can correctly fetch a file in happy path
-     * 
+     *
      * Checks for both checksum and correctness in case of decompression.
      */
     @Test
@@ -505,7 +505,7 @@ public class HdfsFetcherAdvancedTest {
     /*
      * Tests that HdfsFetcher can correctly fetch a file when there is an
      * IOException, specifically an EofException during the fetch
-     * 
+     *
      * For a compressed input, exception is acceptable.
      */
     @Test
@@ -569,7 +569,7 @@ public class HdfsFetcherAdvancedTest {
     /*
      * Tests that HdfsFetcher can correctly handle when there is an
      * RuntimeException
-     * 
+     *
      * Expected- the exception should be consumed without spilling it over
      */
 
@@ -594,12 +594,12 @@ public class HdfsFetcherAdvancedTest {
     /*
      * Tests that corrupted compressed stream triggers exception when servers
      * starts to decompress.
-     * 
+     *
      * 1. We produce random bytes in index and data files
-     * 
+     *
      * 2. We rename them to end with ".gz" to simulate corrupted compressed
      * streams
-     * 
+     *
      * 3. We run the fetcher. Fetcher would see the ".gz" extension and starts
      * decompressing and does not find right GZIP headers . Thus produces
      * exception.
