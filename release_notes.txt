@@ -1,3 +1,16 @@
+Release 1.10.14 3/29/2016
+* Report metrics for Scheduler and Async Service
+* better error message thrown when pushing to a store with storage quota 0
+* Resolved concurrency push conflict
+* Added a configurable flag on the BnP side that can disable store creation
+* Fixed build.gradle
+* Fixed a NPE thrown by the StorageEngineService on startup with views
+* Added server state checking when bringing it back
+* Fixed memory leaking issue in Hdfs FileSystem when fetching
+* AdminClient updates version after updating the data
+* Added second checksum validation when receiving data
+* Added more more aggregatedmetrics for HDFS data
+
 Release 1.10.13 on 2/8/2016
 * Unit Test fixes for ClientRequestExecutorPool
 * ShadowJar with Protobuf dependency
