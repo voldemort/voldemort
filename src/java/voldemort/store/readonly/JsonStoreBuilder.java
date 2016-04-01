@@ -36,6 +36,7 @@ import java.util.Map.Entry;
 import java.util.Random;
 import java.util.Set;
 
+import com.google.common.io.BaseEncoding;
 import joptsimple.OptionParser;
 import joptsimple.OptionSet;
 
@@ -46,10 +47,7 @@ import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
 import voldemort.routing.RoutingStrategy;
 import voldemort.routing.RoutingStrategyFactory;
-import voldemort.serialization.DefaultSerializerFactory;
-import voldemort.serialization.Serializer;
-import voldemort.serialization.SerializerDefinition;
-import voldemort.serialization.SerializerFactory;
+import voldemort.serialization.*;
 import voldemort.serialization.json.EndOfFileException;
 import voldemort.serialization.json.JsonReader;
 import voldemort.store.StoreDefinition;
@@ -68,8 +66,8 @@ import com.google.common.collect.Maps;
 
 /**
  * Build a read-only store from given input.
- * 
- * 
+ *
+ *
  */
 public class JsonStoreBuilder {
 
@@ -100,8 +98,8 @@ public class JsonStoreBuilder {
                             boolean gzipIntermediate) {
         if(cluster.getNumberOfNodes() < storeDefinition.getReplicationFactor())
             throw new IllegalStateException("Number of nodes is " + cluster.getNumberOfNodes()
-                                            + " but the replication factor is "
-                                            + storeDefinition.getReplicationFactor() + ".");
+                    + " but the replication factor is "
+                    + storeDefinition.getReplicationFactor() + ".");
         this.reader = reader;
         this.cluster = cluster;
         this.storeDefinition = storeDefinition;
@@ -120,7 +118,7 @@ public class JsonStoreBuilder {
 
     /**
      * Main method to run on a input text file
-     * 
+     *
      * @param args see USAGE for details
      * @throws IOException
      */
@@ -128,39 +126,39 @@ public class JsonStoreBuilder {
         OptionParser parser = new OptionParser();
         parser.accepts("help", "print usage information");
         parser.accepts("cluster", "[REQUIRED] path to cluster xml config file")
-              .withRequiredArg()
-              .describedAs("cluster.xml");
+                .withRequiredArg()
+                .describedAs("cluster.xml");
         parser.accepts("stores", "[REQUIRED] path to stores xml config file")
-              .withRequiredArg()
-              .describedAs("stores.xml");
+                .withRequiredArg()
+                .describedAs("stores.xml");
         parser.accepts("name", "[REQUIRED] store name").withRequiredArg().describedAs("store name");
         parser.accepts("buffer", "[REQUIRED] number of key/value pairs to buffer in memory")
-              .withRequiredArg()
-              .ofType(Integer.class);
+                .withRequiredArg()
+                .ofType(Integer.class);
         parser.accepts("input", "[REQUIRED] input file to read from")
-              .withRequiredArg()
-              .describedAs("input-file");
+                .withRequiredArg()
+                .describedAs("input-file");
         parser.accepts("output", "[REQUIRED] directory to output stores to")
-              .withRequiredArg()
-              .describedAs("output directory");
+                .withRequiredArg()
+                .describedAs("output directory");
         parser.accepts("threads", "number of threads").withRequiredArg().ofType(Integer.class);
         parser.accepts("chunks",
-                       "number of chunks [per node, per partition, per partition + replica]")
-              .withRequiredArg()
-              .ofType(Integer.class);
+                "number of chunks [per node, per partition, per partition + replica]")
+                .withRequiredArg()
+                .ofType(Integer.class);
         parser.accepts("io-buffer-size", "size of i/o buffers in bytes")
-              .withRequiredArg()
-              .ofType(Integer.class);
+                .withRequiredArg()
+                .ofType(Integer.class);
         parser.accepts("temp-dir", "temporary directory for sorted file pieces")
-              .withRequiredArg()
-              .describedAs("temp dir");
+                .withRequiredArg()
+                .describedAs("temp dir");
         parser.accepts("gzip", "compress intermediate chunk files");
         parser.accepts("format",
-                       "read-only store format [" + ReadOnlyStorageFormat.READONLY_V0.getCode()
-                               + "," + ReadOnlyStorageFormat.READONLY_V1.getCode() + ","
-                               + ReadOnlyStorageFormat.READONLY_V2.getCode() + "]")
-              .withRequiredArg()
-              .ofType(String.class);
+                "read-only store format [" + ReadOnlyStorageFormat.READONLY_V0.getCode()
+                        + "," + ReadOnlyStorageFormat.READONLY_V1.getCode() + ","
+                        + ReadOnlyStorageFormat.READONLY_V2.getCode() + "]")
+                .withRequiredArg()
+                .ofType(String.class);
         OptionSet options = parser.parse(args);
 
         if(options.has("help")) {
@@ -169,12 +167,12 @@ public class JsonStoreBuilder {
         }
 
         Set<String> missing = CmdUtils.missing(options,
-                                               "cluster",
-                                               "stores",
-                                               "name",
-                                               "buffer",
-                                               "input",
-                                               "output");
+                "cluster",
+                "stores",
+                "name",
+                "buffer",
+                "input",
+                "output");
         if(missing.size() > 0) {
             System.err.println("Missing required arguments: " + Joiner.on(", ").join(missing));
             parser.printHelpOn(System.err);
@@ -191,16 +189,16 @@ public class JsonStoreBuilder {
         int chunks = CmdUtils.valueOf(options, "chunks", 2);
         int ioBufferSize = CmdUtils.valueOf(options, "io-buffer-size", 1000000);
         ReadOnlyStorageFormat storageFormat = ReadOnlyStorageFormat.fromCode(CmdUtils.valueOf(options,
-                                                                                              "format",
-                                                                                              ReadOnlyStorageFormat.READONLY_V2.getCode()));
+                "format",
+                ReadOnlyStorageFormat.READONLY_V2.getCode()));
         boolean gzipIntermediate = options.has("gzip");
         File tempDir = new File(CmdUtils.valueOf(options,
-                                                 "temp-dir",
-                                                 System.getProperty("java.io.tmpdir")));
+                "temp-dir",
+                System.getProperty("java.io.tmpdir")));
 
         try {
             JsonReader reader = new JsonReader(new BufferedReader(new FileReader(inputFile),
-                                                                  ioBufferSize));
+                    ioBufferSize));
             Cluster cluster = new ClusterMapper().readCluster(new BufferedReader(new FileReader(clusterFile)));
             StoreDefinition storeDef = null;
             List<StoreDefinition> stores = new StoreDefinitionsMapper().readStoreList(new BufferedReader(new FileReader(storeDefFile)));
@@ -216,19 +214,19 @@ public class JsonStoreBuilder {
                 Utils.croak("Directory \"" + outputDir.getAbsolutePath() + "\" does not exist.");
 
             RoutingStrategy routingStrategy = new RoutingStrategyFactory().updateRoutingStrategy(storeDef,
-                                                                                                 cluster);
+                    cluster);
 
             new JsonStoreBuilder(reader,
-                                 cluster,
-                                 storeDef,
-                                 routingStrategy,
-                                 outputDir,
-                                 tempDir,
-                                 sortBufferSize,
-                                 numThreads,
-                                 chunks,
-                                 ioBufferSize,
-                                 gzipIntermediate).build(storageFormat);
+                    cluster,
+                    storeDef,
+                    routingStrategy,
+                    outputDir,
+                    tempDir,
+                    sortBufferSize,
+                    numThreads,
+                    chunks,
+                    ioBufferSize,
+                    gzipIntermediate).build(storageFormat);
         } catch(FileNotFoundException e) {
             Utils.croak(e.getMessage());
         }
@@ -255,8 +253,8 @@ public class JsonStoreBuilder {
 
     public void buildVersion0() throws IOException {
         logger.info("Building store " + storeDefinition.getName() + " for "
-                    + cluster.getNumberOfNodes() + " nodes with " + numChunks
-                    + " chunks per node and type " + ReadOnlyStorageFormat.READONLY_V0);
+                + cluster.getNumberOfNodes() + " nodes with " + numChunks
+                + " chunks per node and type " + ReadOnlyStorageFormat.READONLY_V0);
 
         // initialize nodes
         Map<Integer, DataOutputStream[]> indexes = new HashMap<Integer, DataOutputStream[]>();
@@ -272,7 +270,7 @@ public class JsonStoreBuilder {
             BufferedWriter writer = new BufferedWriter(new FileWriter(new File(nodeDir, ".metadata")));
             ReadOnlyStorageMetadata metadata = new ReadOnlyStorageMetadata();
             metadata.add(ReadOnlyStorageMetadata.FORMAT,
-                         ReadOnlyStorageFormat.READONLY_V0.getCode());
+                    ReadOnlyStorageFormat.READONLY_V0.getCode());
             writer.write(metadata.toJsonString());
             writer.close();
 
@@ -291,24 +289,24 @@ public class JsonStoreBuilder {
                 // Update Indexes
                 DataOutputStream[] indexesOutputStreamArray = indexes.get(nodeId);
                 indexesOutputStreamArray[chunk] = new DataOutputStream(new BufferedOutputStream(new FileOutputStream(indexFile),
-                                                                                                ioBufferSize));
+                        ioBufferSize));
 
                 // Update datas
                 DataOutputStream[] datasOutputStreamArray = datas.get(nodeId);
                 datasOutputStreamArray[chunk] = new DataOutputStream(new BufferedOutputStream(new FileOutputStream(dataFile),
-                                                                                              ioBufferSize));
+                        ioBufferSize));
             }
         }
 
         logger.info("Reading items...");
         int count = 0;
         ExternalSorter<KeyValuePair> sorter = new ExternalSorter<KeyValuePair>(new KeyValuePairSerializer(),
-                                                                               new KeyMd5Comparator(),
-                                                                               internalSortSize,
-                                                                               tempDir.getAbsolutePath(),
-                                                                               ioBufferSize,
-                                                                               numThreads,
-                                                                               gzipIntermediate);
+                new KeyMd5Comparator(),
+                internalSortSize,
+                tempDir.getAbsolutePath(),
+                ioBufferSize,
+                numThreads,
+                gzipIntermediate);
         JsonObjectIterator iter = new JsonObjectIterator(reader, storeDefinition);
         for(KeyValuePair pair: sorter.sorted(iter)) {
             List<Node> nodes = this.routingStrategy.routeRequest(pair.getKey());
@@ -352,8 +350,8 @@ public class JsonStoreBuilder {
 
     public void buildVersion1() throws IOException {
         logger.info("Building store " + storeDefinition.getName() + " for "
-                    + cluster.getNumberOfPartitions() + " partitions with " + numChunks
-                    + " chunks per partitions and type " + ReadOnlyStorageFormat.READONLY_V1);
+                + cluster.getNumberOfPartitions() + " partitions with " + numChunks
+                + " chunks per partitions and type " + ReadOnlyStorageFormat.READONLY_V1);
 
         // initialize nodes
         Map<Integer, DataOutputStream[]> indexes = new HashMap<Integer, DataOutputStream[]>();
@@ -379,7 +377,7 @@ public class JsonStoreBuilder {
             BufferedWriter writer = new BufferedWriter(new FileWriter(new File(nodeDir, ".metadata")));
             ReadOnlyStorageMetadata metadata = new ReadOnlyStorageMetadata();
             metadata.add(ReadOnlyStorageMetadata.FORMAT,
-                         ReadOnlyStorageFormat.READONLY_V1.getCode());
+                    ReadOnlyStorageFormat.READONLY_V1.getCode());
             writer.write(metadata.toJsonString());
             writer.close();
 
@@ -389,9 +387,9 @@ public class JsonStoreBuilder {
                 partitionIdToNodeId[partition] = node.getId();
                 for(int chunk = 0; chunk < numChunks; chunk++) {
                     File indexFile = new File(nodeDir, Integer.toString(partition) + "_"
-                                                       + Integer.toString(chunk) + ".index");
+                            + Integer.toString(chunk) + ".index");
                     File dataFile = new File(nodeDir, Integer.toString(partition) + "_"
-                                                      + Integer.toString(chunk) + ".data");
+                            + Integer.toString(chunk) + ".data");
 
                     DataOutputStream[] datasOutputStreamArray = datas.get(nodeId);
                     DataOutputStream[] indexesOutputStreamArray = indexes.get(nodeId);
@@ -399,9 +397,9 @@ public class JsonStoreBuilder {
 
                     positionsArray[globalChunk] = 0;
                     indexesOutputStreamArray[globalChunk] = new DataOutputStream(new BufferedOutputStream(new FileOutputStream(indexFile),
-                                                                                                          ioBufferSize));
+                            ioBufferSize));
                     datasOutputStreamArray[globalChunk] = new DataOutputStream(new BufferedOutputStream(new FileOutputStream(dataFile),
-                                                                                                        ioBufferSize));
+                            ioBufferSize));
                     globalChunk++;
                 }
 
@@ -411,12 +409,12 @@ public class JsonStoreBuilder {
         logger.info("Reading items...");
         int count = 0;
         ExternalSorter<KeyValuePair> sorter = new ExternalSorter<KeyValuePair>(new KeyValuePairSerializer(),
-                                                                               new KeyMd5Comparator(),
-                                                                               internalSortSize,
-                                                                               tempDir.getAbsolutePath(),
-                                                                               ioBufferSize,
-                                                                               numThreads,
-                                                                               gzipIntermediate);
+                new KeyMd5Comparator(),
+                internalSortSize,
+                tempDir.getAbsolutePath(),
+                ioBufferSize,
+                numThreads,
+                gzipIntermediate);
         JsonObjectIterator iter = new JsonObjectIterator(reader, storeDefinition);
         for(KeyValuePair pair: sorter.sorted(iter)) {
             byte[] keyMd5 = pair.getKeyMd5();
@@ -459,10 +457,10 @@ public class JsonStoreBuilder {
 
     public void buildVersion2() throws IOException {
         logger.info("Building store " + storeDefinition.getName() + " for "
-                    + cluster.getNumberOfPartitions() + " partitions, "
-                    + storeDefinition.getReplicationFactor() + " replica types, " + numChunks
-                    + " chunks per partitions per replica type and type "
-                    + ReadOnlyStorageFormat.READONLY_V2);
+                + cluster.getNumberOfPartitions() + " partitions, "
+                + storeDefinition.getReplicationFactor() + " replica types, " + numChunks
+                + " chunks per partitions per replica type and type "
+                + ReadOnlyStorageFormat.READONLY_V2);
 
         // Initialize files
         DataOutputStream[][] indexes = new DataOutputStream[cluster.getNumberOfPartitions()][];
@@ -470,30 +468,30 @@ public class JsonStoreBuilder {
         int[][] positions = new int[cluster.getNumberOfPartitions()][];
 
         File tempDirectory = new File(Utils.notNull(System.getProperty("java.io.tmpdir")),
-                                      "tempDir-" + Integer.toString(new Random().nextInt()));
+                "tempDir-" + Integer.toString(new Random().nextInt()));
         Utils.mkdirs(tempDirectory);
 
         for(int partitionId = 0; partitionId < cluster.getNumberOfPartitions(); partitionId++) {
             indexes[partitionId] = new DataOutputStream[storeDefinition.getReplicationFactor()
-                                                        * numChunks];
+                    * numChunks];
             datas[partitionId] = new DataOutputStream[storeDefinition.getReplicationFactor()
-                                                      * numChunks];
+                    * numChunks];
             positions[partitionId] = new int[storeDefinition.getReplicationFactor() * numChunks];
 
             int globalChunkId = 0;
             for(int repType = 0; repType < storeDefinition.getReplicationFactor(); repType++) {
                 for(int chunk = 0; chunk < numChunks; chunk++) {
                     File indexFile = new File(tempDirectory, Integer.toString(partitionId) + "_"
-                                                             + Integer.toString(repType) + "_"
-                                                             + Integer.toString(chunk) + ".index");
+                            + Integer.toString(repType) + "_"
+                            + Integer.toString(chunk) + ".index");
                     File dataFile = new File(tempDirectory, Integer.toString(partitionId) + "_"
-                                                            + Integer.toString(repType) + "_"
-                                                            + Integer.toString(chunk) + ".data");
+                            + Integer.toString(repType) + "_"
+                            + Integer.toString(chunk) + ".data");
                     positions[partitionId][globalChunkId] = 0;
                     indexes[partitionId][globalChunkId] = new DataOutputStream(new BufferedOutputStream(new FileOutputStream(indexFile),
-                                                                                                        ioBufferSize));
+                            ioBufferSize));
                     datas[partitionId][globalChunkId] = new DataOutputStream(new BufferedOutputStream(new FileOutputStream(dataFile),
-                                                                                                      ioBufferSize));
+                            ioBufferSize));
                     globalChunkId++;
                 }
             }
@@ -501,12 +499,12 @@ public class JsonStoreBuilder {
 
         logger.info("Reading items...");
         ExternalSorter<KeyValuePair> sorter = new ExternalSorter<KeyValuePair>(new KeyValuePairSerializer(),
-                                                                               new KeyMd5Comparator(),
-                                                                               internalSortSize,
-                                                                               tempDir.getAbsolutePath(),
-                                                                               ioBufferSize,
-                                                                               numThreads,
-                                                                               gzipIntermediate);
+                new KeyMd5Comparator(),
+                internalSortSize,
+                tempDir.getAbsolutePath(),
+                ioBufferSize,
+                numThreads,
+                gzipIntermediate);
         JsonObjectIterator iter = new JsonObjectIterator(reader, storeDefinition);
 
         int count = 0;
@@ -524,10 +522,10 @@ public class JsonStoreBuilder {
 
                     // First element, lets write it to map
                     previousElements.put(key,
-                                         Pair.create(ByteUtils.copy(currentElement.getKeyMd5(),
-                                                                    0,
-                                                                    2 * ByteUtils.SIZE_OF_INT),
-                                                     generateFirstElement(currentElement)));
+                            Pair.create(ByteUtils.copy(currentElement.getKeyMd5(),
+                                    0,
+                                    2 * ByteUtils.SIZE_OF_INT),
+                                    generateFirstElement(currentElement)));
 
                 } else {
 
@@ -536,9 +534,9 @@ public class JsonStoreBuilder {
                     // If the current element is same as previous element,
                     // append it...
                     if(ByteUtils.compare(previousElement.getFirst(),
-                                         currentElement.getKeyMd5(),
-                                         0,
-                                         2 * ByteUtils.SIZE_OF_INT) == 0) {
+                            currentElement.getKeyMd5(),
+                            0,
+                            2 * ByteUtils.SIZE_OF_INT) == 0) {
 
                         short numKeys = ByteUtils.readShort(previousElement.getSecond(), 0);
                         ByteArrayOutputStream stream = new ByteArrayOutputStream();
@@ -547,8 +545,8 @@ public class JsonStoreBuilder {
                         valueStream.writeShort(numKeys + 1);
                         // Append the previous tuples
                         valueStream.write(ByteUtils.copy(previousElement.getSecond(),
-                                                         ByteUtils.SIZE_OF_SHORT,
-                                                         previousElement.getSecond().length));
+                                ByteUtils.SIZE_OF_SHORT,
+                                previousElement.getSecond().length));
                         valueStream.writeInt(currentElement.getKey().length);
                         valueStream.writeInt(currentElement.getValue().length);
                         valueStream.write(currentElement.getKey());
@@ -557,8 +555,8 @@ public class JsonStoreBuilder {
                         valueStream.flush();
 
                         previousElements.put(key,
-                                             Pair.create(previousElement.getFirst(),
-                                                         stream.toByteArray()));
+                                Pair.create(previousElement.getFirst(),
+                                        stream.toByteArray()));
                     } else {
 
                         // ...else, flush the previous element to disk
@@ -570,10 +568,10 @@ public class JsonStoreBuilder {
 
                         // ...and add current element as previous element
                         previousElements.put(key,
-                                             Pair.create(ByteUtils.copy(currentElement.getKeyMd5(),
-                                                                        0,
-                                                                        2 * ByteUtils.SIZE_OF_INT),
-                                                         generateFirstElement(currentElement)));
+                                Pair.create(ByteUtils.copy(currentElement.getKeyMd5(),
+                                        0,
+                                        2 * ByteUtils.SIZE_OF_INT),
+                                        generateFirstElement(currentElement)));
                     }
 
                 }
@@ -611,7 +609,7 @@ public class JsonStoreBuilder {
             BufferedWriter writer = new BufferedWriter(new FileWriter(new File(nodeDir, ".metadata")));
             ReadOnlyStorageMetadata metadata = new ReadOnlyStorageMetadata();
             metadata.add(ReadOnlyStorageMetadata.FORMAT,
-                         ReadOnlyStorageFormat.READONLY_V2.getCode());
+                    ReadOnlyStorageFormat.READONLY_V2.getCode());
             writer.write(metadata.toJsonString());
             writer.close();
 
@@ -628,7 +626,7 @@ public class JsonStoreBuilder {
 
         // Start moving files over to their correct node
         RoutingStrategy strategy = new RoutingStrategyFactory().updateRoutingStrategy(storeDefinition,
-                                                                                      cluster);
+                cluster);
         Map<Integer, Integer> replicaMapping = cluster.getPartitionIdToNodeIdMap();
         for(File file: tempDirectory.listFiles()) {
             String fileName = file.getName();
@@ -637,7 +635,7 @@ public class JsonStoreBuilder {
                 int partitionId = Integer.parseInt(props[0]);
                 int replicaType = Integer.parseInt(props[1]);
                 int nodeId = replicaMapping.get(strategy.getReplicatingPartitionList(partitionId)
-                                                        .get(replicaType));
+                        .get(replicaType));
 
                 Utils.move(file, new File(nodeDirs.get(nodeId), fileName));
             }
@@ -664,7 +662,7 @@ public class JsonStoreBuilder {
     private void checkOverFlow(int chunk, int position) {
         if(position < 0)
             throw new VoldemortException("Chunk overflow: chunk " + chunk + " has exceeded "
-                                         + Integer.MAX_VALUE + " bytes.");
+                    + Integer.MAX_VALUE + " bytes.");
     }
 
     private static class KeyValuePairSerializer implements Serializer<KeyValuePair> {
@@ -717,10 +715,20 @@ public class JsonStoreBuilder {
             this.digest = ByteUtils.getDigest("MD5");
             this.keySerializerDefinition = storeDefinition.getKeySerializer();
             this.valueSerializerDefinition = storeDefinition.getValueSerializer();
-            this.keySerializer = (Serializer<Object>) factory.getSerializer(storeDefinition.getKeySerializer());
-            this.valueSerializer = (Serializer<Object>) factory.getSerializer(storeDefinition.getValueSerializer());
+
+            this.keySerializer=getSerializer(this.keySerializerDefinition, factory);
+            this.valueSerializer=getSerializer(this.valueSerializerDefinition, factory);
+
             this.keyCompressor = new CompressionStrategyFactory().get(keySerializerDefinition.getCompression());
             this.valueCompressor = new CompressionStrategyFactory().get(valueSerializerDefinition.getCompression());
+        }
+
+        private Serializer<Object> getSerializer(SerializerDefinition definition, SerializerFactory factory) {
+            if (definition.getName().equals(DefaultSerializerFactory.IDENTITY_SERIALIZER_TYPE_NAME)) {
+                return new Base64Serializer();
+            } else {
+                return (Serializer<Object>) factory.getSerializer(definition);
+            }
         }
 
         @Override
@@ -732,7 +740,7 @@ public class JsonStoreBuilder {
                     value = reader.read();
                 } catch(EndOfFileException e) {
                     throw new VoldemortException("Invalid file: reached end of file with key but no matching value.",
-                                                 e);
+                            e);
                 }
                 byte[] keyBytes = keySerializer.toBytes(key);
                 byte[] valueBytes = valueSerializer.toBytes(value);
@@ -758,6 +766,19 @@ public class JsonStoreBuilder {
         }
 
     }
+
+    public static class Base64Serializer implements Serializer<Object> {
+        @Override
+        public byte[] toBytes(Object object) {
+            return BaseEncoding.base64().decode((String)object);
+        }
+
+        @Override
+        public Object toObject(byte[] bytes) {
+            return BaseEncoding.base64().encode(bytes);
+        }
+    }
+
 
     public static class KeyMd5Comparator implements Comparator<KeyValuePair> {
 
@@ -794,7 +815,7 @@ public class JsonStoreBuilder {
         @Override
         public String toString() {
             return new String("Key - " + new String(this.key) + " - Value -  "
-                              + new String(this.value) + " - KeyMD5 - " + new String(this.keyMd5));
+                    + new String(this.value) + " - KeyMD5 - " + new String(this.keyMd5));
         }
     }
 
