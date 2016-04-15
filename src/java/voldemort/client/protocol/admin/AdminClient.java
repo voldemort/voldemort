@@ -25,6 +25,7 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.StringReader;
 import java.io.UnsupportedEncodingException;
+import java.net.ConnectException;
 import java.net.Socket;
 import java.net.SocketException;
 import java.nio.channels.Channels;
@@ -108,6 +109,7 @@ import voldemort.store.system.SystemStoreConstants;
 import voldemort.store.views.ViewStorageConfiguration;
 import voldemort.utils.ByteArray;
 import voldemort.utils.ByteUtils;
+import voldemort.utils.ExceptionUtils;
 import voldemort.utils.MetadataVersionStoreUtils;
 import voldemort.utils.NetworkClassLoader;
 import voldemort.utils.Pair;
@@ -1875,10 +1877,17 @@ public class AdminClient implements Closeable {
                 try {
                     // Get all StoreDefinitions from each nodes in the cluster
                     remoteStoreDefs = metadataMgmtOps.getRemoteStoreDefList(nodeId).getValue();
-                } catch (UnreachableStoreException e) {
-                    logger.warn("Failed to contact " + node.briefToString() + " in order to validate the StoreDefinition.");
-                    unreachableNodes.add(node);
-                    continue;
+                } catch (VoldemortException e) {
+                    // getRemoteStoreDefList() internally results in a socket pool checkout which can throw
+                    // SocketException and possibly other subclasses of IOException, so we check for IOException
+                    // to catch all of these cases...
+                    if (ExceptionUtils.recursiveClassEquals(e, UnreachableStoreException.class, IOException.class)) {
+                        logger.warn("Failed to contact " + node.briefToString() + " in order to validate the StoreDefinition.");
+                        unreachableNodes.add(node);
+                        continue;
+                    } else {
+                        throw e;
+                    }
                 }
 
                 // Go over all StoreDefinitions and see if one has the same name as the store we're trying to build

@@ -936,6 +936,7 @@ public class VoldemortBuildAndPushJob extends AbstractJob {
         try {
             adminClientPerCluster.get(clusterURL).storeMgmtOps.verifyOrAddStore(newStoreDef, "BnP config/data", enableStoreCreation);
         } catch (UnreachableStoreException e) {
+            log.info("verifyOrAddStore() failed on some nodes for clusterURL: " + clusterURL + " (this is harmless).", e);
             // When we can't reach some node, we just skip it and won't create the store on it.
             // Next time BnP is run while the node is up, it will get the store created.
         } // Other exceptions need to bubble up!

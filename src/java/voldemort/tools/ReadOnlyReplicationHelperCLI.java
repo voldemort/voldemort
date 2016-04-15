@@ -183,23 +183,23 @@ public class ReadOnlyReplicationHelperCLI {
             String storageFormat = null;
             if(storeDef.getReplicationFactor() <= 1) {
                 logger.error("Store " + storeName +
-			     " cannot be restored, as it has replication factor = "
-                             + storeDef.getReplicationFactor());
+                        " cannot be restored, as it has replication factor = "
+                        + storeDef.getReplicationFactor());
                 continue;
-	    }
-	    if(!storeDef.getType().equals(ReadOnlyStorageConfiguration.TYPE_NAME)) {
+            }
+            if(!storeDef.getType().equals(ReadOnlyStorageConfiguration.TYPE_NAME)) {
                 logger.error("Store " + storeName +
-			     " cannot be restored, as it has type = " +
-                             storeDef.getType() +
-			     " instead of " +
-			     ReadOnlyStorageConfiguration.TYPE_NAME);
+                        " cannot be restored, as it has type = " +
+                        storeDef.getType() +
+                        " instead of " +
+                        ReadOnlyStorageConfiguration.TYPE_NAME);
                 continue;
-	    }
+            }
 
             logger.info("Processing store " + storeName);
 
             RoutingStrategy strategy = new RoutingStrategyFactory().updateRoutingStrategy(storeDef,
-                                                                                          cluster);
+                    cluster);
 
             // Go over the entire partitions and find if the destination node
             // belong in the replication partition list
@@ -230,8 +230,8 @@ public class ReadOnlyReplicationHelperCLI {
                 Node sourceNode = cluster.getNodeForPartitionId(naryPartitionIds.get(0));
                 Integer sourceNodeId = sourceNode.getId();
                 Long version = adminClient.readonlyOps.getROCurrentVersion(sourceNodeId,
-                                                                           Arrays.asList(storeName))
-                                                      .get(storeName);
+                        Arrays.asList(storeName))
+                        .get(storeName);
 
                 // Now get all the file names from this node.
                 List<String> fileNames = null;
@@ -241,7 +241,7 @@ public class ReadOnlyReplicationHelperCLI {
                     fileNames = getROStorageFileListLocally(srcPartitionIds, strategy);
                 } else {
                     fileNames = adminClient.readonlyOps.getROStorageFileList(sourceNode.getId(),
-                                                                             storeName);
+                            storeName);
                 }
 
                 List<String> sourceFileNames = parseAndCompare(fileNames, masterPartitionId);
@@ -261,19 +261,19 @@ public class ReadOnlyReplicationHelperCLI {
                         // Now concat the parts together to create the file name
                         // on the destination node
                         String destFileName = partitionId.concat(SPLIT_LITERAL)
-                                                         .concat(replicaId)
-                                                         .concat(SPLIT_LITERAL)
-                                                         .concat(chunkId);
+                                .concat(replicaId)
+                                .concat(SPLIT_LITERAL)
+                                .concat(chunkId);
                         String sourceRelPath = storeName + "/version-" + version + "/"
-                                               + sourceFileName;
+                                + sourceFileName;
                         String destRelPath = storeName + "/version-" + version + "/" + destFileName;
 
                         infoList.add(sourceNode.getHost() + "," + sourceNode.getId() + ","
-                                     + sourceRelPath + "," + destRelPath);
+                                + sourceRelPath + "," + destRelPath);
                     }
                 } else {
                     logger.warn("Cannot find file for partition " + masterPartitionId
-                                + " on source node " + sourceNode.getId());
+                            + " on source node " + sourceNode.getId());
                 }
             }
         }
