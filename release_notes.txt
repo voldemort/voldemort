@@ -1,3 +1,8 @@
+Release 1.10.15 4/18/2016
+* Set-Metadata null Version error
+* Multi module gradle build for voldemort
+* The AdminClient's verifyOrAddStore is vulnerable to connectivity issues.
+
 Release 1.10.14 3/29/2016
 * Report metrics for Scheduler and Async Service
 * better error message thrown when pushing to a store with storage quota 0
