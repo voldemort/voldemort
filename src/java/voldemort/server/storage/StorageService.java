@@ -38,7 +38,6 @@ import javax.management.MBeanOperationInfo;
 import javax.management.MBeanServer;
 import javax.management.ObjectName;
 
-import com.google.common.collect.Lists;
 import org.apache.log4j.Logger;
 
 import voldemort.VoldemortException;
@@ -110,7 +109,6 @@ import voldemort.utils.ByteArray;
 import voldemort.utils.ClosableIterator;
 import voldemort.utils.ConfigurationException;
 import voldemort.utils.DaemonThreadFactory;
-import voldemort.utils.EventThrottler;
 import voldemort.utils.JmxUtils;
 import voldemort.utils.Pair;
 import voldemort.utils.ReflectUtils;
@@ -121,6 +119,8 @@ import voldemort.utils.Utils;
 import voldemort.versioning.VectorClock;
 import voldemort.versioning.VectorClockInconsistencyResolver;
 import voldemort.versioning.Versioned;
+
+import com.google.common.collect.Lists;
 
 /**
  * The service responsible for managing all storage types
@@ -1008,21 +1008,12 @@ public class StorageService extends AbstractService {
         // allow only one cleanup job at a time
         Date startTime = cal.getTime();
 
-        int maxReadRate = storeDef.hasRetentionScanThrottleRate() ? storeDef.getRetentionScanThrottleRate()
-                                                                 : Integer.MAX_VALUE;
-
-        logger.info("Scheduling data retention cleanup job for store '" + storeDef.getName()
-                    + "' at " + startTime + " with retention scan throttle rate:" + maxReadRate
-                    + " Entries/second.");
-
-        EventThrottler throttler = new EventThrottler(maxReadRate);
+        logger.info("Scheduling data retention cleanup job for store '" + storeDef.getName() + "' at " + startTime);
 
         Runnable cleanupJob = new DataCleanupJob<ByteArray, byte[], byte[]>(engine,
                                                                             scanPermitWrapper,
-                                                                            storeDef.getRetentionDays()
-                                                                                    * Time.MS_PER_DAY,
+                                                                            storeDef.getName(),
                                                                             SystemTime.INSTANCE,
-                                                                            throttler,
                                                                             metadata);
         if(voldemortConfig.isJmxEnabled()) {
             JmxUtils.registerMbean("DataCleanupJob-" + engine.getName(), cleanupJob);
@@ -1166,10 +1157,8 @@ public class StorageService extends AbstractService {
 
                             executor.execute(new DataCleanupJob<ByteArray, byte[], byte[]>(engine,
                                                                                            scanPermitWrapper,
-                                                                                           storeDef.getRetentionDays()
-                                                                                                   * Time.MS_PER_DAY,
+                                                                                           storeName,
                                                                                            SystemTime.INSTANCE,
-                                                                                           new EventThrottler(entryScanThrottleRate),
                                                                                            metadata));
                         } else {
                             logger.error("forceCleanupOldData() No permit available to run cleanJob already running multiple instance."
