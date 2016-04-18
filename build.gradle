@@ -266,7 +266,7 @@ task copyDeps(type: Copy) {
 }
 
 task zip (type: Zip) {
-    dependsOn copySources, copyDeps
+    dependsOn copySources, copyDeps, contribJar, protobufJar
     baseName = projectName
 
     from(distDir) {
@@ -282,7 +282,7 @@ task zip (type: Zip) {
 }
 
 task tar (type: Tar) {
-    dependsOn copySources, copyDeps
+    dependsOn copySources, copyDeps, contribJar, protobufJar
     compression = Compression.GZIP
     baseName = projectName
     extension = "tar.gz"
