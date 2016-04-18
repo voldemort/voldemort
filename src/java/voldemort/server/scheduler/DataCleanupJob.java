@@ -20,9 +20,11 @@ import java.util.concurrent.atomic.AtomicLong;
 
 import org.apache.log4j.Logger;
 
+import voldemort.VoldemortException;
 import voldemort.annotations.jmx.JmxGetter;
 import voldemort.server.storage.ScanPermitWrapper;
 import voldemort.store.StorageEngine;
+import voldemort.store.StoreDefinition;
 import voldemort.store.metadata.MetadataStore;
 import voldemort.store.metadata.MetadataStore.VoldemortState;
 import voldemort.utils.ClosableIterator;
@@ -44,9 +46,8 @@ public class DataCleanupJob<K, V, T> implements Runnable {
 
     private final StorageEngine<K, V, T> store;
     private final ScanPermitWrapper cleanupPermits;
-    private final long maxAgeMs;
+    private final String storeName;
     private final Time time;
-    private final EventThrottler throttler;
     private long totalEntriesScanned = 0;
     private AtomicLong scanProgressThisRun;
     private long totalEntriesDeleted = 0;
@@ -55,18 +56,17 @@ public class DataCleanupJob<K, V, T> implements Runnable {
 
     public DataCleanupJob(StorageEngine<K, V, T> store,
                           ScanPermitWrapper cleanupPermits,
-                          long maxAgeMs,
+                          String storeName,
                           Time time,
-                          EventThrottler throttler,
                           MetadataStore metadataStore) {
         this.store = Utils.notNull(store);
         this.cleanupPermits = Utils.notNull(cleanupPermits);
-        this.maxAgeMs = maxAgeMs;
-        this.time = time;
-        this.throttler = throttler;
+        this.storeName = Utils.notNull(storeName);
+        this.time = Utils.notNull(time);
+        this.metadataStore = Utils.notNull(metadataStore);
+
         this.scanProgressThisRun = new AtomicLong(0);
         this.deleteProgressThisRun = new AtomicLong(0);
-        this.metadataStore = metadataStore;
     }
 
     private boolean isServerInNormalState() {
@@ -97,11 +97,35 @@ public class DataCleanupJob<K, V, T> implements Runnable {
             return;
         }
 
+        StoreDefinition storeDef = null;
+        try {
+            storeDef = metadataStore.getStoreDef(storeName);
+        } catch (VoldemortException ex) {
+            logger.info("Error retrieving store " + storeName + " for data cleanup job ", ex);
+        }
+
+        if (storeDef == null) {
+            return;
+        }
+
+        Integer retentionDays = storeDef.getRetentionDays();
+        if (retentionDays != null && retentionDays > 0) {
+            logger.info("Store " + storeName
+                    + " does not have retention period set, skipping cleanup job . RetentionDays " + retentionDays);
+        }
+        long maxAgeMs = retentionDays * Time.MS_PER_DAY;
+        logger.info("Store " + storeName + " cleanup job is starting with RetentionDays " + retentionDays);
+
         acquireCleanupPermit(scanProgressThisRun, deleteProgressThisRun);
-        store.beginBatchModifications();
 
         ClosableIterator<Pair<K, Versioned<V>>> iterator = null;
         try {
+            int maxReadRate = storeDef.hasRetentionScanThrottleRate() ? storeDef.getRetentionScanThrottleRate()
+                    : Integer.MAX_VALUE;
+            EventThrottler throttler = new EventThrottler(maxReadRate);
+
+            store.beginBatchModifications();
+
             logger.info("Starting data cleanup on store \"" + store.getName() + "\"...");
             long now = time.getMilliseconds();
             iterator = store.entries();
