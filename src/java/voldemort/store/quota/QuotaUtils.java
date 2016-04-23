@@ -16,10 +16,24 @@
 
 package voldemort.store.quota;
 
+import java.io.UnsupportedEncodingException;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
 
+import voldemort.VoldemortApplicationException;
+import voldemort.server.StoreRepository;
+import voldemort.store.configuration.FileBackedCachingStorageEngine;
+import voldemort.store.system.SystemStoreConstants;
+import voldemort.utils.ByteArray;
+import voldemort.versioning.VectorClock;
+import voldemort.versioning.VectorClockUtils;
+import voldemort.versioning.Versioned;
+
+
 public class QuotaUtils {
+
+  private static final String QUOTA_STORE = SystemStoreConstants.SystemStoreName.voldsys$_store_quotas.toString();
 
     public static String makeQuotaKey(String storeName, QuotaType quotaType) {
         return String.format("%s.%s", storeName, quotaType.toString());
@@ -32,4 +46,47 @@ public class QuotaUtils {
         }
         return quotaTypes;
     }
+
+  private static FileBackedCachingStorageEngine getQuotaStore(StoreRepository repoistory) {
+    FileBackedCachingStorageEngine quotaStore =
+        (FileBackedCachingStorageEngine) repoistory.getStorageEngine(QUOTA_STORE);
+
+    if (quotaStore == null) {
+      throw new VoldemortApplicationException("Could not find the quota store for Store " + QUOTA_STORE);
+    }
+
+    return quotaStore;
+  }
+
+  private static ByteArray convertToByteArray(String value) {
+    try {
+      return new ByteArray(value.getBytes("UTF8"));
+    } catch (UnsupportedEncodingException ex) {
+      throw new VoldemortApplicationException("Error converting key to byte array " + value, ex);
+    }
+  }
+
+  public static Long getQuota(String storeName, QuotaType type, StoreRepository repoistory) {
+    FileBackedCachingStorageEngine quotaStore = getQuotaStore(repoistory);
+    String quotaKey = makeQuotaKey(storeName, QuotaType.STORAGE_SPACE);
+    String diskQuotaSize = quotaStore.cacheGet(quotaKey);
+    Long diskQuotaSizeInKB = (diskQuotaSize == null) ? null : Long.parseLong(diskQuotaSize);
+    return diskQuotaSizeInKB;
+  }
+
+  public static void setQuota(String storeName, QuotaType type, StoreRepository repository, Set<Integer> nodeIds,
+      long lquota) {
+    FileBackedCachingStorageEngine quotaStore = getQuotaStore(repository);
+    String quotaKey = makeQuotaKey(storeName, QuotaType.STORAGE_SPACE);
+    ByteArray keyArray = convertToByteArray(quotaKey);
+
+    List<Versioned<byte[]>> existingValue = quotaStore.get(keyArray, null);
+    String quotaValue = Long.toString(lquota);
+
+    ByteArray valueArray = convertToByteArray(quotaValue);
+    VectorClock newClock = VectorClockUtils.makeClockWithCurrentTime(nodeIds);
+    Versioned<byte[]> newValue = new Versioned<byte[]>(valueArray.get(), newClock);
+    quotaStore.put(keyArray, newValue, null);
+
+  }
 }

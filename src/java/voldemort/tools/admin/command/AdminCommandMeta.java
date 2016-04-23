@@ -49,6 +49,7 @@ import voldemort.server.rebalance.RebalancerState;
 import voldemort.store.StoreDefinition;
 import voldemort.store.metadata.MetadataStore;
 import voldemort.store.metadata.MetadataStore.VoldemortState;
+import voldemort.store.quota.QuotaType;
 import voldemort.store.readonly.ReadOnlyFileEntry;
 import voldemort.store.readonly.ReadOnlyStorageConfiguration;
 import voldemort.store.system.SystemStoreConstants;
@@ -273,7 +274,11 @@ public class AdminCommandMeta extends AbstractAdminCommand {
                 int groupCount = 0;
                 for(Map.Entry<Object, List<String>> entry: metadataValues.entrySet()) {
                     groupCount++;
-                    System.err.println("Nodes with same value for " + keyName + ". Id :"
+                    String keyToPrint = entry.getKey().toString() ;
+                    if(keyToPrint.length() > 50) {
+                      keyToPrint = keyToPrint.substring(0, 50) + "...truncated";
+                    }
+                    System.err.println("Nodes with same value " + keyToPrint +" for " + keyName + ". Id :"
                                        + groupCount);
                     nodesInResult.addAll(entry.getValue());
                     for(String nodeName: entry.getValue()) {
@@ -339,6 +344,12 @@ public class AdminCommandMeta extends AbstractAdminCommand {
         private static boolean checkGetStore(AdminClient adminClient,
                                          StoreDefinition storeDef,
                                          Node node) {
+
+            if (node.getPartitionIds().size() == 0) {
+              // No Partitions are assigned to this node.
+              return true;
+            }
+
             String storeName = storeDef.getName();
             try {
                 ByteArray randomKey = generateByteArrayKey(adminClient, storeDef, node.getId());
@@ -359,6 +370,7 @@ public class AdminCommandMeta extends AbstractAdminCommand {
                 return;
 
             boolean checkResult = true;
+            boolean isSizePresent = false;
             for(Map.Entry<String, Integer> storeAndReplicationFactor: roStoreToReplicationFactorMap.entrySet()) {
                 String storeName = storeAndReplicationFactor.getKey();
                 Integer replicationFactor = storeAndReplicationFactor.getValue();
@@ -386,6 +398,9 @@ public class AdminCommandMeta extends AbstractAdminCommand {
                     }
 
                     for(ReadOnlyFileEntry entry: fileEntries) {
+                       if(entry.getSize() > 0) {
+                         isSizePresent = true;
+                       }
                         if(fileToNodesMap.containsKey(entry) == false) {
                             fileToNodesMap.put(entry, new ArrayList<String>());
                         }
@@ -399,6 +414,11 @@ public class AdminCommandMeta extends AbstractAdminCommand {
                     if(nodes.size() == replicationFactor) {
                         // The file has the required replication factor.
                         continue;
+                    } else if(isSizePresent && entry.getSize() == 0){
+                       // 0 - sized files are created on the fly, when data and index is empty.
+                       // Old protocol does not send size, but if sizes are present, then
+                       // do not report the empty files
+                      continue;                     
                     } else {
                         System.out.println("    Store " + storeName + " File " + entry
                                            + " is expected in " + replicationFactor
@@ -424,7 +444,7 @@ public class AdminCommandMeta extends AbstractAdminCommand {
             Collection<Node> allNodes = adminClient.getAdminClientCluster().getNodes();
 
             for(String key: metaKeys) {
-                Map<String, Map<Object, List<String>>> storeDefToNodeMap = new HashMap<String, Map<Object, List<String>>>();
+                Map<String, Map<Object, List<String>>> storeDefToNodeMap = new HashMap<String, Map<Object, List<String>>>(); 
                 Map<Object, List<String>> metadataNodeValueMap = new HashMap<Object, List<String>>();
                 
                 Collection<String> allNodeNames = new ArrayList<String>();
@@ -486,6 +506,25 @@ public class AdminCommandMeta extends AbstractAdminCommand {
                         checkResult &= checkDiagnostics("Store " + storeName,
                                                         storeDefMap,
                                                         allNodeNames);
+                        for(QuotaType type : QuotaType.values()) {
+                          Map<Object, List<String>> quotaNodeValues = new HashMap<Object, List<String>>();
+                          String keyName = "Store:" + storeName + "_QuotaType_"+ type;
+                          for(Node node: allNodes) {                          
+                            String nodeName = "Host '" + node.getHost() + "' : ID " + node.getId();
+                            Versioned<String> quotaValue = adminClient.quotaMgmtOps.getQuotaForNode(storeName, type, node.getId());
+                            if(quotaValue == null || quotaValue.getValue() == null) {
+                              continue;
+                            }
+                            addMetadataValue( quotaNodeValues , quotaValue.getValue() , nodeName);
+                          }
+
+                          if(quotaNodeValues.size() > 0) {
+                            boolean result = checkDiagnostics(keyName,
+                                quotaNodeValues,
+                                allNodeNames);
+                            checkResult &= result;
+                          }
+                        }
                     }
                 }
 

@@ -29,6 +29,7 @@ public class ReadOnlyFileEntry implements Comparable<ReadOnlyFileEntry> {
 
     private final FileType type;
     private final int size;
+
     private final String name;
 
     public ReadOnlyFileEntry(String name, FileType type, int size) {
@@ -54,6 +55,10 @@ public class ReadOnlyFileEntry implements Comparable<ReadOnlyFileEntry> {
 
     public ReadOnlyFileEntry(String name, FileType type) {
         this(name, type, -1);
+    }
+
+    public int getSize() {
+      return size;
     }
 
     @Override

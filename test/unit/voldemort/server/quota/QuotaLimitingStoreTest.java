@@ -129,13 +129,12 @@ public class QuotaLimitingStoreTest {
     }
 
     private void setQuota(int throughPut) {
-        String throughPutStr = Integer.toString(throughPut);
         adminClient.quotaMgmtOps.setQuota("test",
-                                          QuotaType.GET_THROUGHPUT.toString(),
-                                          throughPutStr);
+                                          QuotaType.GET_THROUGHPUT,
+                                          throughPut);
         adminClient.quotaMgmtOps.setQuota("test",
-                                          QuotaType.PUT_THROUGHPUT.toString(),
-                                          throughPutStr);
+                                          QuotaType.PUT_THROUGHPUT,
+                                          throughPut);
     }
 
     private void unSetQuota() {
