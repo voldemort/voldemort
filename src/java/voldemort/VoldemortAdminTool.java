@@ -85,6 +85,7 @@ import voldemort.store.compress.CompressionStrategy;
 import voldemort.store.compress.CompressionStrategyFactory;
 import voldemort.store.metadata.MetadataStore;
 import voldemort.store.metadata.MetadataStore.VoldemortState;
+import voldemort.store.quota.QuotaType;
 import voldemort.store.quota.QuotaUtils;
 import voldemort.store.readonly.ReadOnlyStorageConfiguration;
 import voldemort.store.system.SystemStoreConstants;
@@ -945,7 +946,7 @@ public class VoldemortAdminTool {
             Utils.croak("Store " + storeName + " not in cluster.");
         }
 
-        adminClient.quotaMgmtOps.setQuota(storeName, quotaType, quotaValue);
+        adminClient.quotaMgmtOps.setQuota(storeName, QuotaType.valueOf(quotaType), Long.parseLong(quotaValue));
     }
 
     private static void executeUnsetQuota(AdminClient adminClient,
