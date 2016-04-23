@@ -69,7 +69,6 @@ import voldemort.store.StoreDefinition;
 import voldemort.store.StoreDefinitionBuilder;
 import voldemort.store.StoreOperationFailureException;
 import voldemort.store.backup.NativeBackupable;
-import voldemort.store.configuration.FileBackedCachingStorageEngine;
 import voldemort.store.metadata.MetadataStore;
 import voldemort.store.mysql.MysqlStorageEngine;
 import voldemort.store.quota.QuotaType;
@@ -84,7 +83,6 @@ import voldemort.store.readonly.swapper.FailedFetchLock;
 import voldemort.store.slop.SlopStorageEngine;
 import voldemort.store.stats.StreamingStats;
 import voldemort.store.stats.StreamingStats.Operation;
-import voldemort.store.system.SystemStoreConstants;
 import voldemort.utils.ByteArray;
 import voldemort.utils.ByteUtils;
 import voldemort.utils.ClosableIterator;
@@ -1092,11 +1090,7 @@ public class AdminServiceRequestHandler implements RequestHandler {
                         + storeName + " Generated version " + pushVersion);
             }
 
-            FileBackedCachingStorageEngine quotaStore = (FileBackedCachingStorageEngine)
-                    storeRepository.getStorageEngine(SystemStoreConstants.SystemStoreName.voldsys$_store_quotas.toString());
-            String quotaKey = QuotaUtils.makeQuotaKey(storeName, QuotaType.STORAGE_SPACE);
-            String diskQuotaSize = quotaStore.cacheGet(quotaKey);
-            Long diskQuotaSizeInKB = (diskQuotaSize == null) ? null : Long.parseLong(diskQuotaSize);
+            Long diskQuotaSizeInKB = QuotaUtils.getQuota(storeName, QuotaType.STORAGE_SPACE, storeRepository);
 
             ReadOnlyStoreFetchOperation operation = new ReadOnlyStoreFetchOperation(requestId,
                                                                                     metadataStore,
@@ -1662,15 +1656,14 @@ public class AdminServiceRequestHandler implements RequestHandler {
                     // effect of updating the stores.xml file)
                     try {
                         metadataStore.addStoreDefinition(def);
+                        
+                        long defaultQuota = voldemortConfig.getDefaultStorageSpaceQuotaInKB();
 
-                        /*
-                         * set quota to a default value as specified in the
-                         * server configs
-                         */
-                        adminClient.quotaMgmtOps.setQuotaForNode(def.getName(),
-                                                                 QuotaType.STORAGE_SPACE,
-                                                                 metadataStore.getNodeId(),
-                                                                 voldemortConfig.getDefaultStorageSpaceQuotaInKB());
+                        QuotaUtils.setQuota(def.getName(), 
+                                            QuotaType.STORAGE_SPACE, 
+                                            storeRepository, 
+                                            metadataStore.getCluster().getNodeIds(),
+                                            defaultQuota);
                     } catch(Exception e) {
                         // rollback open store operation
                         boolean isReadOnly = ReadOnlyStorageConfiguration.TYPE_NAME.equals(def.getType());

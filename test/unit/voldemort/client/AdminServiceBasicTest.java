@@ -41,6 +41,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Properties;
+import java.util.Random;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -70,6 +71,7 @@ import voldemort.serialization.IdentitySerializer;
 import voldemort.serialization.SerializerDefinition;
 import voldemort.serialization.StringSerializer;
 import voldemort.server.RequestRoutingType;
+import voldemort.server.VoldemortConfig;
 import voldemort.server.VoldemortServer;
 import voldemort.store.InvalidMetadataException;
 import voldemort.store.Store;
@@ -136,12 +138,13 @@ public class AdminServiceBasicTest {
     private StoreClient<String, String> storeClient;
 
     private final boolean useNio;
-
     private final boolean onlineRetention;
+    private final long defaultStoreQuota;
 
     public AdminServiceBasicTest(boolean useNio, boolean onlineRetention) {
         this.useNio = useNio;
         this.onlineRetention = onlineRetention;
+        this.defaultStoreQuota = new Random().nextInt(10000000);
     }
 
     @Parameters
@@ -159,6 +162,7 @@ public class AdminServiceBasicTest {
         serverProperties.setProperty("client.max.connections.per.node", "20");
         serverProperties.setProperty("enforce.retention.policy.on.read",
                                      Boolean.toString(onlineRetention));
+        serverProperties.setProperty(VoldemortConfig.DEFAULT_STORAGE_SPACE_QUOTA_IN_KB, Long.toString(defaultStoreQuota));
         cluster = ServerTestUtils.startVoldemortCluster(numServers,
                                                         servers,
                                                         partitionMap,
@@ -527,7 +531,13 @@ public class AdminServiceBasicTest {
         // Restore the old set of store definitions
         client.metadataMgmtOps.updateRemoteStoreDefList(nodeId, originalStoreDefinitions.getValue());
 
-        doClientOperation();
+        doClientOperation();    
+    }
+    
+    private void validateQuota(String storeName){
+      AdminClient adminClient = getAdminClient();
+      Versioned<String> value = adminClient.quotaMgmtOps.getQuota(storeName, QuotaType.STORAGE_SPACE.toString());
+      assertEquals("Default storage quota does not match", Long.toString(defaultStoreQuota), value.getValue());
     }
 
     @Test
@@ -569,6 +579,7 @@ public class AdminServiceBasicTest {
                                                  .setRequiredWrites(1)
                                                  .build();
         adminClient.storeMgmtOps.addStore(definition);
+        validateQuota(definition.getName());
 
         // now test the store
         StoreClientFactory factory = new SocketStoreClientFactory(new ClientConfig().setBootstrapUrls(cluster.getNodeById(0)
@@ -611,6 +622,7 @@ public class AdminServiceBasicTest {
                                                  .build();
 
         adminClient.storeMgmtOps.addStore(definition);
+        validateQuota(definition.getName());
 
         // Retrieve list of read-only stores
         List<String> storeNames = Lists.newArrayList();

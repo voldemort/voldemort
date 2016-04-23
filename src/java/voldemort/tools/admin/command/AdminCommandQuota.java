@@ -513,6 +513,7 @@ public class AdminCommandQuota extends AbstractAdminCommand {
             allNodes = options.has(AdminParserUtils.OPT_ALL_NODES);
             if(options.has(AdminParserUtils.OPT_NODE)) {
                 nodeIds = (List<Integer>) options.valuesOf(AdminParserUtils.OPT_NODE);
+                allNodes = false;
             }
             if(options.has(AdminParserUtils.OPT_CONFIRM)) {
                 confirm = true;
@@ -528,7 +529,11 @@ public class AdminCommandQuota extends AbstractAdminCommand {
             System.out.println("  " + Joiner.on(", ").join(storeNames));
             System.out.println("Location:");
             System.out.println("  bootstrap url = " + url);
-            System.out.println("  node = all nodes");
+            if (allNodes || nodeIds == null) {
+                System.out.println("  node = all nodes");
+            } else {
+                System.out.println("  node = " + Joiner.on(", ").join(nodeIds));
+            }
 
             // execute command
             if(!AdminToolUtils.askConfirm(confirm, "set quota")) {
@@ -566,8 +571,8 @@ public class AdminCommandQuota extends AbstractAdminCommand {
                         Map.Entry entry = (Map.Entry) iter.next();
                         if(nodeIds == null) {
                             adminClient.quotaMgmtOps.setQuota(storeName,
-                                                              (String) entry.getKey(),
-                                                              (String) entry.getValue());
+                                                              QuotaType.valueOf((String) entry.getKey()),
+                                                              Long.parseLong((String) entry.getValue()));
                         } else {
                             for(Integer nodeId: nodeIds) {
                                 adminClient.quotaMgmtOps.setQuotaForNode(storeName,

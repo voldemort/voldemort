@@ -64,7 +64,6 @@ public class ReplaceNodeCLI {
         this.newUrl = newUrl;
         this.skipRestore = skipRestore;
         this.parallelism = parallelism;
-
         init();
     }
 
@@ -73,6 +72,10 @@ public class ReplaceNodeCLI {
         this.newAdminClient = new AdminClient(this.newUrl);
 
         this.cluster = adminClient.getAdminClientCluster();
+
+        // Validate node exists in the old cluster
+        this.cluster.getNodeById(nodeId);
+        
         this.newCluster = newAdminClient.getAdminClientCluster();
 
         if(newCluster.getNumberOfNodes() > 1) {
@@ -116,12 +119,12 @@ public class ReplaceNodeCLI {
                                                                                                     key);
                 String xml = xmlVersionedValue.getValue();
                 metadataXMLsInNodes.put(i.intValue(), xml);
-            } catch(UnreachableStoreException e) {
+            } catch(Exception e) {
                 if(i.intValue() == nodeId) {
-                    logger.info("Ignoring unreachable store error on the node being replaced "
+                    logger.info("Ignoring exception on the node being replaced "
                                 + nodeId, e);
                 } else {
-                    throw e;
+                    throw new VoldemortApplicationException("Error retrieving metadata XML from the Node " + i, e);
                 }
             }
         }
