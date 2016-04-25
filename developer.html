@@ -66,14 +66,13 @@ Here is how to submit a change using git:
   </li>
   <li>Use the following gradle commands for the regular tasks
   <ul>
-    <li>./gradlew jar -&gt; builds the jar</li>
-    <li>./gradlew war -&gt; builds the war</li>
+    <li>./gradlew build -x test -&gt; builds the jar</li>
     <li>./gradlew junitAll -&gt; builds and runs the unit tests (
       mandatory before committing)</li>
     <li>./gradlew junitLong -&gt; builds and run the long running
       tests like rebalance and others. Required for big changes.</li>
     <li>./gradlew clean -&gt; cleans the build outputs.</li>
-    <li>./gradlew jar zip tar -&gt; creates a tar ball and zip. We found it is convenient to copy the tar balls to remote machine, launch a client/admin shell for devops related tasks.<br>
+    <li>./gradlew build zip tar -x test  -&gt; creates a tar ball and zip. We found it is convenient to copy the tar balls to remote machine, launch a client/admin shell for devops related tasks.<br>
     </li>
   </ul></li>
   <li>Commit your changes:
