@@ -4,7 +4,7 @@ title: Build And Push - Voldemort
 ---
 
 
-<h1>Build and Push Jobs for Voldemort Read Only Stores</h1>
+<h1>Build & Push Jobs for Voldemort Read-Only</h1>
 
 <h2>Introduction </h2>
 
@@ -25,33 +25,23 @@ title: Build And Push - Voldemort
     <li>Push the Voldemort store to push.cluster</li>
   </ol>
 
-<h4> Azkaban Job </h4>
+<h4>Getting Started</h4>
+<p>First, you should clone and build the latest version of Voldemort, as described in the <a href="quickstart.html">Quickstart</a> guide. The "server.properties" file on the Voldemort server needs to have the following entry:</p>
+<div style="background: #f8f8f8; overflow:auto;width:auto;color:black;background:white;border:solid gray;border-width:.1em .1em .1em .8em;padding:.2em .6em;">
+	<pre style="margin: 0; line-height: 125%">file.fetcher.class=voldemort.store.readonly.fetcher.HdfsFetcher</pre></div>
+<p>This instructs the server to use that class while fetching files from Hadoop during the push phase.</p>
 
-<p>The Build and Push Job is an Azkaban job. Azkaban is a workflow scheduler used at LinkedIn [2]. You provide a job file to Azkaban with a set of properties and the jars and Azkaban executes this job.</p>
-<p>You can <a href="tarballs/hhw-new-version.tar.gz">download</a> the tarball. Then untar it</p>
+<p>Then, from the root of the Voldemort git repository, you can generate a fat jar containing all of the dependencies that the Build and Push job needs with the following command:</p>
+<pre>
+	./gradlew bnpJar
+</pre>
 
-<div style="background: #202020; overflow:auto;width:auto;color:white;background:black;border:solid gray;border-width:.1em .1em .1em .8em;padding:.2em .6em;">
-  <pre style="margin: 0; line-height: 125%"><span style="color: #d0d0d0">tar -xvf build-and-push.tar.gz</span></pre>
-</div>
+<p>After that, you can launch the BnP job from your local machine using the following command:</p>
+<pre>
+	./bin/run-bnp.sh &lt;config_file&gt;
+</pre>
 
-<h5>Structure </h5>
-
-<dl>
-  <dt>/conf</dt>
-  <dd>All Azkaban .job and .properties files must go in this directory.</dd>
-  <dt>/lib</dt>
-  <dd>All .jar files should go into this directory.</dd>
-  <dt>/src</dt>
-  <dd>All code should go into this directory. This includes Java, as well as scripting languages and shell scripts.</dd>
-  <dt>/test</dt>
-  <dd>Any testing code should be placed in this folder.</dd>
-</dl>
-
-<p>PS: In case you are running Voldemort Server locally before you start the Voldemort server ensure that the server.properties file has the following entry</p>
-  <div style="background: #f8f8f8; overflow:auto;width:auto;color:black;background:white;border:solid gray;border-width:.1em .1em .1em .8em;padding:.2em .6em;">
-	<pre style="margin: 0; line-height: 125%">file.fetcher.class=voldemort.store.readonly.fetcher.HdfsFetcher</pre>
-  </div>
-<p>This instructs the server to use that class while fetching files from Hadoop during the push phase</p>
+<p>The config_file argument should point to the path of a text file containing configuration parameters for the BnP job. Below are two such example configurations.</p>
 
 <h4>Pushing JSON Data - Job File</h4>
 
@@ -99,47 +89,22 @@ build.output.dir=/tmp</pre>
   <li>avro.value.field=localizedFirstNames This specifies the field to be used as the value</li>
 </ol>
 
-<h4>Running the Job</h4>
-
-<div style="background: #202020; overflow:auto;width:auto;color:white;background:black;border:solid gray;border-width:.1em .1em .1em .8em;padding:.2em .6em;">
-    <pre style="margin: 0; line-height: 125%"><span style="color: #d0d0d0">ant</span>
-</pre>
-</div>
-<p>Then after compiling on your hadoop gateway/local machine copy the directory and execute the following command:</p>
-<div style="background: #202020; overflow:auto;width:auto;color:white;background:black;border:solid gray;border-width:.1em .1em .1em .8em;padding:.2em .6em;">
-  <pre style="margin: 0; line-height: 125%"><span style="color: #d0d0d0">./run-job dist/build-and-push-1.00-all.jar -j dist/package/ -c dist/package/ --ignore-deps &lt;job name&gt;</span></pre>
-</div>
-<p>You need to change the input/output paths along with the ugi name,store name and server location. You can then query the voldemort server to see the new store entries</p>
-
 <h4>File Format</h4>
 
 <p>We use a custom data and index format for the Read-Only store.</p>
-<p>Ony every Node you will find a node directory containing one or mutliple data and index files with the following naming convention:</p>
+<p>On every Node you will find a node directory containing one or mutliple data and index files with the following naming convention:</p>
 <!-- HTML generated using hilite.me -->
 <div style="background: #f8f8f8; overflow:auto;width:auto;color:black;background:white;border:solid gray;border-width:.1em .1em .1em .8em;padding:.2em .6em;">
   <pre style="margin: 0; line-height: 125%">partition_id.replica_id.chunkset_id</pre>
 </div>
 
-<h4>Troubleshoot</h4>
+<h4>Troubleshooting</h4>
 
-<h5>Chunk size issue: </h5>
-<dl>
-  <dt>Symptom (possible): </dt>
-  <dd>Caused by: java.io.IOException: Job failed! :</dd>
-  <dt>Cause: </dt>
-  <dd>Check the number of mappers and / or reducers (limit = 10000). If they're over the limit, use the num.chunks parameter to reduce number of chunks and hence #mappers, reducer</dd>
-</dl>
-
-
-<h5> Size limit  Chunk overflow exception: chunk  </h5>
-<dl>
-  <dt>Cause: </dt>
-  <dd>Each chunk data file is capped at 2 Gb and hence you may want to increase the num.chunks to break it down into multiple chunks</dd>
-</dl>
+If you have any issues with Voldemort Read-Only or the BnP job, please reach out to the open-source community on the <a href="https://groups.google.com/forum/#!forum/project-voldemort">Voldemort mailing list</a>.
 
 <h4>References</h4>
 
 <ol>
     <li><a href="http://static.usenix.org/events/fast12/tech/full_papers/Sumbaly.pdf">Serving Large-scale Batch Computed Data with Project Voldemort</a></li>
-    <li><a href="http://data.linkedin.com/opensource/azkaban">Azkaban</a></li>
+    <li><a href="http://azkaban.github.io/azkaban/docs/latest/#voldemortbuildandpush-type">Configuring the Build and Push job as an Azkaban plugin</a></li>
 </ol>
