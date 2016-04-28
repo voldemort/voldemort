@@ -35,6 +35,7 @@ public class ReplaceNodeTest {
 
 
     private static final String ORIGINAL_STORES_XML = "test/common/voldemort/config/stores-rw-replication.xml";
+    private static final String EMPTY_STORES_XML = "test/common/voldemort/config/empty-stores.xml";
     
     private static final String STORE322_NAME = "test322";
     private static final String STORE211_NAME = "test211";
@@ -101,12 +102,12 @@ public class ReplaceNodeTest {
         otherServers = new VoldemortServer[replacementServerCount];
         ServerTestUtils.startVoldemortCluster(replacementServerCount,
                                               otherServers,
-                                                                replacementPartitionMap,
-                                                                replacementSocketStoreFactory,
-                                                                USE_NIO,
-                                                                null,
-                                				ORIGINAL_STORES_XML,
-                                                                serverProperties);
+                                              replacementPartitionMap,
+                                              replacementSocketStoreFactory,
+                                              USE_NIO,
+                                              null,
+                                              EMPTY_STORES_XML,
+                                              serverProperties);
     }
 
     @After
