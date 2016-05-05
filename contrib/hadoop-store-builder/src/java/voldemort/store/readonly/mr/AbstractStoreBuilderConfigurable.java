@@ -1,12 +1,12 @@
 /*
  * Copyright 2008-2009 LinkedIn, Inc
- * 
+ *
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not
  * use this file except in compliance with the License. You may obtain a copy of
  * the License at
- * 
+ *
  * http://www.apache.org/licenses/LICENSE-2.0
- * 
+ *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
  * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
@@ -37,6 +37,8 @@ import voldemort.xml.StoreDefinitionsMapper;
  */
 abstract public class AbstractStoreBuilderConfigurable {
 
+    public static final String NUM_CHUNKS = "num.chunks";
+
     private int numChunks;
     private Cluster cluster;
     private StoreDefinition storeDef;
@@ -51,9 +53,12 @@ abstract public class AbstractStoreBuilderConfigurable {
             throw new IllegalStateException("Expected to find only a single store, but found multiple!");
         this.storeDef = storeDefs.get(0);
 
-        this.numChunks = conf.getInt(VoldemortBuildAndPushJob.NUM_CHUNKS, -1);
-        if(this.numChunks < 1)
-            throw new VoldemortException(VoldemortBuildAndPushJob.NUM_CHUNKS + " not specified in the job conf.");
+        this.numChunks = conf.getInt(NUM_CHUNKS, -1);
+        if(this.numChunks < 1) {
+            // A bit of defensive code for good measure, but should never happen anymore, now that the config cannot
+            // be overridden by the user.
+            throw new VoldemortException(NUM_CHUNKS + " not specified in the MapReduce JobConf (should NEVER happen)");
+        }
 
         this.saveKeys = conf.getBoolean(VoldemortBuildAndPushJob.SAVE_KEYS, true);
         this.reducerPerBucket = conf.getBoolean(VoldemortBuildAndPushJob.REDUCER_PER_BUCKET, true);

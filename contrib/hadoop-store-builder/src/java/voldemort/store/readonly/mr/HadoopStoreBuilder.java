@@ -1,12 +1,12 @@
 /*
  * Copyright 2008-2009 LinkedIn, Inc
- * 
+ *
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not
  * use this file except in compliance with the License. You may obtain a copy of
  * the License at
- * 
+ *
  * http://www.apache.org/licenses/LICENSE-2.0
- * 
+ *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
  * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
@@ -70,7 +70,7 @@ import voldemort.xml.StoreDefinitionsMapper;
 
 /**
  * Builds a read-only voldemort store as a hadoop job from the given input data.
- * 
+ *
  */
 @SuppressWarnings("deprecation")
 public class HadoopStoreBuilder extends AbstractHadoopJob {
@@ -102,8 +102,7 @@ public class HadoopStoreBuilder extends AbstractHadoopJob {
 
     /**
      * Create the store builder
-     *
-     * @param name Name of the job
+     *  @param name Name of the job
      * @param props The Build and Push job's {@link Props}
      * @param baseJobConf A base configuration to start with
      * @param mapperClass The class to use as the mapper
@@ -111,23 +110,20 @@ public class HadoopStoreBuilder extends AbstractHadoopJob {
      * @param cluster The voldemort cluster for which the stores are being built
      * @param storeDef The store definition of the store
      * @param tempDir The temporary directory to use in hadoop for intermediate
-     *        reducer output
+*        reducer output
      * @param outputDir The directory in which to place the built stores
      * @param inputPath The path from which to read input data
      * @param checkSumType The checksum algorithm to use
      * @param saveKeys Boolean to signify if we want to save the key as well
      * @param reducerPerBucket Boolean to signify whether we want to have a
-     *        single reducer for a bucket ( thereby resulting in all chunk files
-     *        for a bucket being generated in a single reducer )
+*        single reducer for a bucket ( thereby resulting in all chunk files
+*        for a bucket being generated in a single reducer )
      * @param chunkSizeBytes Size of each chunks (ignored if numChunksOverride is > 0)
-     * @param numChunksOverride Number of chunks per bucket ( partition or partition
-     *        replica )
      * @param isAvro whether the data format is avro
      * @param minNumberOfRecords if job generates fewer records than this, fail.
      * @param buildPrimaryReplicasOnly if true: build each partition only once,
-     *                                 and store the files grouped by partition.
-     *                                 if false: build all replicas redundantly,
-     *                                 and store the files grouped by node.
+*                                 and store the files grouped by partition.
+*                                 if false: build all replicas redundantly,
      */
     public HadoopStoreBuilder(String name,
                               Props props,
@@ -143,7 +139,6 @@ public class HadoopStoreBuilder extends AbstractHadoopJob {
                               boolean saveKeys,
                               boolean reducerPerBucket,
                               long chunkSizeBytes,
-                              int numChunksOverride,
                               boolean isAvro,
                               Long minNumberOfRecords,
                               boolean buildPrimaryReplicasOnly) {
@@ -160,7 +155,6 @@ public class HadoopStoreBuilder extends AbstractHadoopJob {
         this.saveKeys = saveKeys;
         this.reducerPerBucket = reducerPerBucket;
         this.chunkSizeBytes = chunkSizeBytes;
-        this.numChunksOverride = numChunksOverride;
         this.isAvro = isAvro;
         this.minNumberOfRecords = minNumberOfRecords == null ? 1 : minNumberOfRecords;
         this.buildPrimaryReplicasOnly = buildPrimaryReplicasOnly;
@@ -266,14 +260,7 @@ public class HadoopStoreBuilder extends AbstractHadoopJob {
                 numReducers = numReducers * numChunks;
             }
 
-            if (this.numChunksOverride > 0) {
-                logger.info("The " + VoldemortBuildAndPushJob.NUM_CHUNKS + " setting is overridden " +
-                            "by config, so we'll use the override (" + this.numChunksOverride + ") " +
-                            "and discard the dynamically computed value (" + numChunks + ").");
-                numChunks = this.numChunksOverride;
-            }
-
-            conf.setInt(VoldemortBuildAndPushJob.NUM_CHUNKS, numChunks);
+            conf.setInt(AbstractStoreBuilderConfigurable.NUM_CHUNKS, numChunks);
             conf.setNumReduceTasks(numReducers);
 
             if(isAvro) {
@@ -413,15 +400,15 @@ public class HadoopStoreBuilder extends AbstractHadoopJob {
 
     /**
      * For the given node, following three actions are done:
-     * 
+     *
      * 1. Computes checksum of checksums
-     * 
+     *
      * 2. Computes total data size
-     * 
+     *
      * 3. Computes total index size
-     * 
+     *
      * Finally updates the metadata file with those information
-     * 
+     *
      * @param directoryName
      * @param outputFs
      * @param checkSumGenerator

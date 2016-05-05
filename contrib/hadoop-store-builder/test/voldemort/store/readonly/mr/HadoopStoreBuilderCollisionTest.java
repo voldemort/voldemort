@@ -11,7 +11,6 @@ import java.util.List;
 import java.util.Map;
 
 import org.apache.commons.io.FileUtils;
-import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.io.BytesWritable;
 import org.apache.hadoop.io.LongWritable;
@@ -56,7 +55,7 @@ import com.google.common.collect.Maps;
 /**
  * Test for {@link ReadOnlyStorageFormat}-READONLY_V2 where-in we try to
  * generate collisions and check if edge cases are caught correctly
- * 
+ *
  */
 @SuppressWarnings("deprecation")
 public class HadoopStoreBuilderCollisionTest {
@@ -239,7 +238,6 @@ public class HadoopStoreBuilderCollisionTest {
                                                             true,
                                                             false,
                                                             1024 * 1024 * 1024,
-                                                            -1,
                                                             false,
                                                             null,
                                                             false);

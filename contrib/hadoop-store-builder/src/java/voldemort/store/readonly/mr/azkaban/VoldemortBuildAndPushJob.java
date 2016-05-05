@@ -122,7 +122,6 @@ public class VoldemortBuildAndPushJob extends AbstractJob {
     // others.optional
     public final static String KEY_SELECTION = "key.selection";
     public final static String VALUE_SELECTION = "value.selection";
-    public final static String NUM_CHUNKS = "num.chunks";
     public final static String BUILD = "build";
     public final static String PUSH = "push";
     public final static String VOLDEMORT_FETCHER_PROTOCOL = "voldemort.fetcher.protocol";
@@ -703,7 +702,6 @@ public class VoldemortBuildAndPushJob extends AbstractJob {
                                                             props.getBoolean(SAVE_KEYS, true),
                                                             props.getBoolean(REDUCER_PER_BUCKET, true),
                                                             props.getInt(BUILD_CHUNK_SIZE, 1024 * 1024 * 1024),
-                                                            props.getInt(NUM_CHUNKS, -1),
                                                             this.isAvroJob,
                                                             this.minNumberOfRecords,
                                                             this.buildPrimaryReplicasOnly);

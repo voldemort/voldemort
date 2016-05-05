@@ -26,6 +26,7 @@ import voldemort.routing.RoutingStrategyType;
 import voldemort.store.StoreDefinition;
 import voldemort.store.readonly.checksum.CheckSum;
 import voldemort.store.readonly.mr.AbstractCollectorWrapper;
+import voldemort.store.readonly.mr.AbstractStoreBuilderConfigurable;
 import voldemort.store.readonly.mr.BuildAndPushMapper;
 import voldemort.store.readonly.mr.azkaban.VoldemortBuildAndPushJob;
 import voldemort.store.readonly.utils.ReadOnlyTestUtils;
@@ -79,7 +80,7 @@ public class HadoopStoreWriterTest {
 
         // Setup before each test method
         conf = new JobConf();
-        conf.setInt(VoldemortBuildAndPushJob.NUM_CHUNKS, 2);
+        conf.setInt(AbstractStoreBuilderConfigurable.NUM_CHUNKS, numChunks);
         conf.set("final.output.dir", tmpOutPutDirectory.getAbsolutePath());
         conf.set("mapred.output.dir", tmpOutPutDirectory.getAbsolutePath());
         conf.set("mapred.task.id", "1234");

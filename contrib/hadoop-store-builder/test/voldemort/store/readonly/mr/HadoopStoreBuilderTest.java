@@ -28,7 +28,6 @@ import java.util.Map;
 
 import org.apache.commons.codec.binary.Hex;
 import org.apache.commons.io.FileUtils;
-import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.io.LongWritable;
 import org.apache.hadoop.io.Text;
@@ -168,7 +167,6 @@ public class HadoopStoreBuilderTest {
                                                             saveKeys,
                                                             false,
                                                             64 * 1024,
-                                                            -1,
                                                             false,
                                                             0L,
                                                             false);
@@ -246,7 +244,6 @@ public class HadoopStoreBuilderTest {
                                                             saveKeys,
                                                             false,
                                                             64 * 1024,
-                                                            -1,
                                                             false,
                                                             null,
                                                             false);
@@ -266,7 +263,6 @@ public class HadoopStoreBuilderTest {
                                          saveKeys,
                                          false,
                                          64 * 1024,
-                                         -1,
                                          false,
                                          null,
                                          false);
