@@ -1303,7 +1303,7 @@ public abstract class AbstractNonZonedRebalanceTest extends AbstractRebalanceTes
                                                               Executors.newFixedThreadPool(cluster.getNumberOfNodes()),
                                                               adminClient,
                                                               100000);
-            swapper.swapStoreData(testStoreNameRO, outputDir.getAbsolutePath(), 1L);
+            swapper.fetchAndSwapStoreData(testStoreNameRO, outputDir.getAbsolutePath(), 1L);
         }
     }
 }

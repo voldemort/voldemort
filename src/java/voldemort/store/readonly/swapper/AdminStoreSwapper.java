@@ -119,7 +119,7 @@ public class AdminStoreSwapper {
         this(cluster, executor, adminClient, timeoutMs, false, new ArrayList<FailedFetchStrategy>(), null, false);
     }
 
-    public void swapStoreData(String storeName, String basePath, long pushVersion) {
+    public void fetchAndSwapStoreData(String storeName, String basePath, long pushVersion) {
         Map<Node, Response> fetchResponseMap = invokeFetch(storeName, basePath, pushVersion);
         invokeSwap(storeName, fetchResponseMap);
         for (AdminStoreSwapper.Response response: fetchResponseMap.values()) {
@@ -376,7 +376,7 @@ public class AdminStoreSwapper {
             if(rollbackStore) {
                 swapper.invokeRollback(storeName, pushVersion.longValue());
             } else {
-                swapper.swapStoreData(storeName, filePath, pushVersion.longValue());
+                swapper.fetchAndSwapStoreData(storeName, filePath, pushVersion.longValue());
             }
             long end = System.currentTimeMillis();
             swapper.logger.info("Succeeded on all nodes in " + ((end - start) / Time.MS_PER_SECOND)

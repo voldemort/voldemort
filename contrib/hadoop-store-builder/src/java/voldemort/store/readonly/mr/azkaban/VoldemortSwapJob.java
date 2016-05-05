@@ -143,8 +143,8 @@ public class VoldemortSwapJob extends AbstractJob {
             pushVersion++;
         }
 
-        // do the swap
-        info("Initiating swap of " + storeName + " with dataDir: " + dataDir);
+        // do the fetch, and if it succeeds, the swap
+        info("Initiating fetch of " + storeName + " with dataDir: " + dataDir);
         AdminStoreSwapper swapper = new AdminStoreSwapper(
                 cluster,
                 executor,
@@ -154,7 +154,7 @@ public class VoldemortSwapJob extends AbstractJob {
                 failedFetchStrategyList,
                 clusterName,
                 buildPrimaryReplicasOnly);
-        swapper.swapStoreData(storeName, modifiedDataDir, pushVersion);
+        swapper.fetchAndSwapStoreData(storeName, modifiedDataDir, pushVersion);
         info("Swap complete.");
         executor.shutdownNow();
         executor.awaitTermination(10, TimeUnit.SECONDS);
