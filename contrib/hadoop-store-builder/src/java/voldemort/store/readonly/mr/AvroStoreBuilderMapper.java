@@ -1,12 +1,12 @@
 /*
  * Copyright 2008-2009 LinkedIn, Inc
- * 
+ *
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not
  * use this file except in compliance with the License. You may obtain a copy of
  * the License at
- * 
+ *
  * http://www.apache.org/licenses/LICENSE-2.0
- * 
+ *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
  * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
@@ -49,6 +49,9 @@ import voldemort.xml.StoreDefinitionsMapper;
  */
 public class AvroStoreBuilderMapper extends
         AvroMapper<GenericData.Record, Pair<ByteBuffer, ByteBuffer>> implements JobConfigurable {
+
+    public static final String AVRO_KEY_SCHEMA = "avro.key.schema";
+    public static final String AVRO_VALUE_SCHEMA = "avro.value.schema";
 
     protected BuildAndPushMapper mapper = new BuildAndPushMapper();
     private AvroCollectorWrapper collectorWrapper = new AvroCollectorWrapper();
@@ -99,8 +102,8 @@ public class AvroStoreBuilderMapper extends
      * Create the voldemort key and value from the input Avro record by
      * extracting the key and value and map it out for each of the responsible
      * voldemort nodes
-     * 
-     * 
+     *
+     *
      * The output value is the node_id & partition_id of the responsible node
      * followed by serialized value
      */
@@ -145,8 +148,8 @@ public class AvroStoreBuilderMapper extends
 
             valField = conf.get(VoldemortBuildAndPushJob.AVRO_VALUE_FIELD);
 
-            keySchema = conf.get("avro.key.schema");
-            valSchema = conf.get("avro.val.schema");
+            keySchema = conf.get(AVRO_KEY_SCHEMA);
+            valSchema = conf.get(AVRO_VALUE_SCHEMA);
 
             if(keySerializerDefinition.getName().equals(DefaultSerializerFactory.AVRO_GENERIC_TYPE_NAME)) {
                 keySerializer = new AvroGenericSerializer(keySchema);

@@ -75,6 +75,7 @@ import voldemort.xml.StoreDefinitionsMapper;
 @SuppressWarnings("deprecation")
 public class HadoopStoreBuilder extends AbstractHadoopJob {
 
+    public static final String AVRO_REC_SCHEMA = "avro.rec.schema";
     public static final long MIN_CHUNK_SIZE = 1L;
     public static final long MAX_CHUNK_SIZE = (long) (1.9 * 1024 * 1024 * 1024);
     public static final int DEFAULT_BUFFER_SIZE = 64 * 1024;
@@ -276,7 +277,7 @@ public class HadoopStoreBuilder extends AbstractHadoopJob {
                 conf.setOutputValueClass(ByteBuffer.class);
 
                 // AvroJob confs for the avro mapper
-                AvroJob.setInputSchema(conf, Schema.parse(baseJobConf.get("avro.rec.schema")));
+                AvroJob.setInputSchema(conf, Schema.parse(baseJobConf.get(AVRO_REC_SCHEMA)));
 
                 AvroJob.setOutputSchema(conf,
                                         Pair.getPairSchema(Schema.create(Schema.Type.BYTES),

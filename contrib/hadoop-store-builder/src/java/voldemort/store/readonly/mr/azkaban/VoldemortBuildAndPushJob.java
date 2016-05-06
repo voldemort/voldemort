@@ -61,6 +61,7 @@ import voldemort.store.readonly.checksum.CheckSum.CheckSumType;
 import voldemort.store.readonly.disk.KeyValueWriter;
 import voldemort.store.readonly.hooks.BuildAndPushHook;
 import voldemort.store.readonly.hooks.BuildAndPushStatus;
+import voldemort.store.readonly.mr.AbstractStoreBuilderConfigurable;
 import voldemort.store.readonly.mr.AvroStoreBuilderMapper;
 import voldemort.store.readonly.mr.HadoopStoreBuilder;
 import voldemort.store.readonly.mr.JsonStoreBuilderMapper;
@@ -676,9 +677,9 @@ public class VoldemortBuildAndPushJob extends AbstractJob {
         // Only if its a avro job we supply some additional fields
         // for the key value schema of the avro record
         if(this.isAvroJob) {
-            configuration.set("avro.rec.schema", getRecordSchema());
-            configuration.set("avro.key.schema", getKeySchema());
-            configuration.set("avro.val.schema", getValueSchema());
+            configuration.set(HadoopStoreBuilder.AVRO_REC_SCHEMA, getRecordSchema());
+            configuration.set(AvroStoreBuilderMapper.AVRO_KEY_SCHEMA, getKeySchema());
+            configuration.set(AvroStoreBuilderMapper.AVRO_VALUE_SCHEMA, getValueSchema());
             configuration.set(VoldemortBuildAndPushJob.AVRO_KEY_FIELD, this.keyFieldName);
             configuration.set(VoldemortBuildAndPushJob.AVRO_VALUE_FIELD, this.valueFieldName);
             mapperClass = AvroStoreBuilderMapper.class;
@@ -686,6 +687,11 @@ public class VoldemortBuildAndPushJob extends AbstractJob {
         } else {
             mapperClass = JsonStoreBuilderMapper.class;
             inputFormatClass = JsonSequenceFileInputFormat.class;
+        }
+
+        if (props.containsKey(AbstractStoreBuilderConfigurable.NUM_CHUNKS)) {
+            log.warn("N.B.: The '" + AbstractStoreBuilderConfigurable.NUM_CHUNKS + "' config parameter is now " +
+                     "deprecated and ignored. The BnP job will automatically determine a proper value for this setting.");
         }
 
         HadoopStoreBuilder builder = new HadoopStoreBuilder(getId() + "-build-store",
