@@ -27,7 +27,6 @@ def sourceDir = getProjectProperty('src.dir')
 def distDir = getProjectProperty('dist.dir')
 def classesDir = getProjectProperty('classes.dir')
 def javaDir = getProjectProperty('java.dir')
-def privateLibDir = getProjectProperty('private.lib.dir')
 def resourcesDir = getProjectProperty('resources.dir')
 def javaDocDir = getProjectProperty('javadoc.dir')
 
@@ -65,7 +64,10 @@ allprojects {
             // For Hadoop dependencies
             url "https://repository.cloudera.com/artifactory/cloudera-repos/"
         }
-        flatDir { dirs rootProject.file(privateLibDir) }
+        maven {
+            // For BDB-Je dependencies
+            url "http://download.oracle.com/maven/"
+        }
     }
 
     // http://blog.joda.org/2014/02/turning-off-doclint-in-jdk-8-javadoc.html
@@ -551,7 +553,8 @@ dependencies {
     // used by jdom
     // compile 'xerces:xercesImpl:2.9.1'
 
-    compile fileTree(dir: privateLibDir, includes: ['**/*.jar'])
+    // BDB-JE from Oracle
+    compile 'com.sleepycat:je:5.0.104'
 
     // cern library containing high performance Maps for int and double
     // Currently only used in the tests
