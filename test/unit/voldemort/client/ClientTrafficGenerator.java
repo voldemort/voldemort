@@ -7,8 +7,7 @@ import java.util.List;
 
 import org.apache.log4j.Logger;
 
-import voldemort.cluster.Zone;
-
+import voldemort.client.protocol.admin.AdminClient;
 import voldemort.cluster.Zone;
 
 public class ClientTrafficGenerator {
@@ -99,6 +98,15 @@ public class ClientTrafficGenerator {
             }
         }
         if(failCount > 0) {
+            AdminClient adminClient = new AdminClient(bootstrapURL);
+            for (Integer nodeId : adminClient.getAdminClientCluster().getNodeIds()) {
+                try { 
+                    logger.info(" Node Id " + nodeId + " Properties "
+                        + adminClient.metadataMgmtOps.getMetadataVersion(nodeId));
+                } catch(Exception e) {
+                    logger.info("Node Id " + nodeId + " Error retrieving version ", e);
+                }
+            }
             throw new RuntimeException(failCount.toString()
                                        + " client(s) did not pickup new metadata");
         }
