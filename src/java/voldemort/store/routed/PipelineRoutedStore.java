@@ -66,6 +66,7 @@ import voldemort.store.slop.HintedHandoff;
 import voldemort.store.slop.Slop;
 import voldemort.store.slop.strategy.HintedHandoffStrategy;
 import voldemort.store.slop.strategy.HintedHandoffStrategyFactory;
+import voldemort.store.system.SystemStoreConstants;
 import voldemort.utils.ByteArray;
 import voldemort.utils.ByteUtils;
 import voldemort.utils.SystemTime;
@@ -83,12 +84,13 @@ public class PipelineRoutedStore extends RoutedStore {
     protected final Map<Integer, Store<ByteArray, Slop, byte[]>> slopStores;
     protected final Map<Integer, NonblockingStore> nonblockingSlopStores;
     protected final HintedHandoffStrategy handoffStrategy;
-    private Zone clientZone;
-    private boolean zoneRoutingEnabled;
+    private final Zone clientZone;
+    private final boolean zoneRoutingEnabled;
+    private final boolean forceZoneRouting;
     private final PipelineRoutedStats stats;
     private boolean jmxEnabled;
     private String identifierString;
-    private ZoneAffinity zoneAffinity;
+    private final ZoneAffinity zoneAffinity;
 
     private enum ConfigureNodesType {
         DEFAULT,
@@ -139,7 +141,10 @@ public class PipelineRoutedStore extends RoutedStore {
             }
         }
         this.nonblockingSlopStores = nonblockingSlopStores;
+
+        boolean isZonedClient;
         if(clientZoneId == Zone.UNSET_ZONE_ID) {
+            isZonedClient = false;
             Collection<Zone> availableZones = cluster.getZones();
             this.clientZone = availableZones.iterator().next();
             if(availableZones.size() > 1) {
@@ -151,8 +156,22 @@ public class PipelineRoutedStore extends RoutedStore {
                                                this.clientZone.getId()));
             }
         } else {
+            isZonedClient = true;
             this.clientZone = cluster.getZoneById(clientZoneId);
         }
+
+        // Hack for System store to route to the same zone, for zoned clients
+        String storeName = storeDef.getName();
+        boolean isSystemStore = SystemStoreConstants.isSystemStore(storeName);
+        boolean isRouteToAllStrategy = routingStrategy.getType()
+                                                      .equals(RoutingStrategyType.TO_ALL_STRATEGY);
+        if(isZonedClient && isSystemStore && isRouteToAllStrategy) {
+            logger.info("Enabling zone routing for Store" + storeName);
+            forceZoneRouting = true;
+        } else {
+            forceZoneRouting = false;
+        }
+
         this.nonblockingStores = new ConcurrentHashMap<Integer, NonblockingStore>(nonblockingStores);
         this.slopStores = slopStores;
         if(storeDef.getRoutingStrategyType().compareTo(RoutingStrategyType.ZONE_STRATEGY) == 0) {
@@ -184,6 +203,10 @@ public class PipelineRoutedStore extends RoutedStore {
                                                            Operation operation) {
         if(operation == Operation.GET && zoneAffinity.isGetOpZoneAffinityEnabled()) {
             return ConfigureNodesType.LOCAL_ZONE_ONLY;
+        }
+
+        if(forceZoneRouting) {
+            return ConfigureNodesType.BYZONE;
         }
 
         if(zonesRequired != null) {
@@ -273,6 +296,7 @@ public class PipelineRoutedStore extends RoutedStore {
         else
             pipelineData.setZonesRequired(null);
         pipelineData.setStats(stats);
+        pipelineData.setStoreName(getName());
 
         final Pipeline pipeline = new Pipeline(Operation.GET, getOpTimeout, TimeUnit.MILLISECONDS);
         boolean allowReadRepair = repairReads && transforms == null;
@@ -523,6 +547,7 @@ public class PipelineRoutedStore extends RoutedStore {
         else
             pipelineData.setZonesRequired(null);
         pipelineData.setStats(stats);
+        pipelineData.setStoreName(getName());
         Pipeline pipeline = new Pipeline(Operation.GET_VERSIONS,
                                          timeoutConfig.getOperationTimeout(VoldemortOpCode.GET_VERSION_OP_CODE),
                                          TimeUnit.MILLISECONDS);
