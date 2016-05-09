@@ -1607,7 +1607,7 @@ public class AdminCommandMeta extends AbstractAdminCommand {
                                           "do you want to synchronize metadata versions to all node"))
                 return;
 
-            adminClient.metadataMgmtOps.setMetadataversion(versionedProps);
+            adminClient.metadataMgmtOps.setMetadataVersion(versionedProps);
         }
 
         private static void printVersions(Versioned<Properties> versionedProps) {
@@ -1632,9 +1632,6 @@ public class AdminCommandMeta extends AbstractAdminCommand {
                 version = version.merge(newVersion);
                 props = MetadataVersionStoreUtils.mergeVersions(props, newProps);
             }
-
-            version = version.incremented(version.getVersionMap().firstKey(),
-                                System.currentTimeMillis());
 
             return new Versioned<Properties>(props, version);
         }

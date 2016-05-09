@@ -83,6 +83,7 @@ import voldemort.server.rebalance.VoldemortRebalancingException;
 import voldemort.server.storage.prunejob.VersionedPutPruneJob;
 import voldemort.server.storage.repairjob.RepairJob;
 import voldemort.store.ErrorCodeMapper;
+import voldemort.store.InvalidMetadataException;
 import voldemort.store.Store;
 import voldemort.store.StoreDefinition;
 import voldemort.store.StoreUtils;
@@ -1044,15 +1045,81 @@ public class AdminClient implements Closeable {
      * 
      */
     public class MetadataManagementOperations {
-        private Versioned<Properties> getMetadataVersion(Integer nodeId) throws Exception {
-            ByteArray keyArray;
-            keyArray = new ByteArray(SystemStoreConstants.VERSIONS_METADATA_KEY.getBytes("UTF8"));
+        private ByteArray getKeyArray() {
+            try {
+                return new ByteArray(SystemStoreConstants.VERSIONS_METADATA_KEY.getBytes("UTF8"));
+            } catch (UnsupportedEncodingException ex) {
+                throw new VoldemortApplicationException("Error retrieving metadata version store key", ex);
+            }
+        }
 
+        public Versioned<Properties> getMetadataVersion(Integer nodeId) {
+            ByteArray keyArray = getKeyArray();
             List<Versioned<byte[]>> valueObj = storeOps.getNodeKey(SystemStoreConstants.SystemStoreName.voldsys$_metadata_version_persistence.name(),
                                                                    nodeId,
                                                                    keyArray);
 
             return MetadataVersionStoreUtils.parseProperties(valueObj);
+        }
+
+        private void setMetadataVersion(int nodeId, Versioned<byte[]> value) {
+            ByteArray keyArray = getKeyArray();
+            
+            NodeValue<ByteArray, byte[]> nodeKeyValue = new NodeValue<ByteArray, byte[]>(nodeId, keyArray, value);
+            storeOps.putNodeKeyValue(SystemStoreConstants.SystemStoreName.voldsys$_metadata_version_persistence.name(),
+                                     nodeKeyValue);
+
+        }
+
+        private void setMetadataVersion(Collection<Integer> nodeIds, Versioned<Properties> props) throws Exception {
+
+            if (props == null || props.getValue() == null) {
+                return;
+            }
+
+            if (nodeIds == null || nodeIds.size() == 0) {
+                logger.warn("Ignoring set Metadata versions call due to empty nodeIds");
+                return;
+            }
+
+            Exception lastEx = null;
+            VectorClock version = (VectorClock) props.getVersion();
+            version.incrementVersion(nodeIds.iterator().next(), System.currentTimeMillis());
+            byte[] versionBytes = MetadataVersionStoreUtils.convertToByteArray(props.getValue());
+
+            Versioned<byte[]> value = new Versioned<byte[]>(versionBytes, version);
+            for (Integer nodeId : nodeIds) {
+                try {
+                    setMetadataVersion(nodeId, value);
+                } catch(InvalidMetadataException invalidEx) {
+                    // When Nodes are dropped after a cluster XML update, it
+                    // throws InvalidMetadataException on meta data version
+                    // updates
+                    logger.info("Ignoring InvalidMetadataException as the node is removed from cluster. Node: "
+                                + nodeId);
+                } catch (Exception ex) {
+                    lastEx = ex;
+                    logger.info("Error updating metadata versions on the node " + nodeId, ex);
+                }
+            }
+            
+            if(lastEx != null) {
+                throw lastEx;
+            }
+        }
+
+        /**
+         * Set the meta data versions on all nodes to the provided properties.
+         * 
+         * @param newProperties The new meta data versions to be set across all
+         *        the nodes in the cluster
+         */
+        public void setMetadataVersion(Versioned<Properties> newProperties) {
+            try {
+                setMetadataVersion(getAdminClientCluster().getNodeIds(), newProperties);
+            } catch(Exception ex) {
+                throw new VoldemortApplicationException("Error setting metadata", ex);
+            }
         }
 
         private Versioned<Properties> getMetadataVersion(Collection<Integer> nodeIds) {
@@ -1070,7 +1137,9 @@ public class AdminClient implements Closeable {
 
                     atLeastOneSuccess = true;
                 } catch(Exception e) {
-                    logger.error("Error retrieving metadata versions for node " + nodeId, e);
+                    if (logger.isDebugEnabled()) {
+                        logger.debug("Error retrieving metadata versions for node " + nodeId, e);
+                    }
                 }
             }
             
@@ -1124,8 +1193,7 @@ public class AdminClient implements Closeable {
 
                 versionProps = new Versioned<Properties>(props, versionProps.getVersion());
 
-                MetadataVersionStoreUtils.setProperties(AdminClient.this.metadataVersionSysStoreClient,
-                                                        versionProps);
+                setMetadataVersion(nodeIds, versionProps);
             } catch(Exception ex) {
                 logger.error("Error Updating version on individual nodes falling back to old behavior ",
                              ex);
@@ -1150,27 +1218,6 @@ public class AdminClient implements Closeable {
                                                     props);
         }
 
-        /**
-         * Set the metadata versions to the given set
-         * 
-         * @param newProperties The new metadata versions to be set across all
-         *        the nodes in the cluster
-         */
-        public void setMetadataversion(Properties newProperties) {
-            MetadataVersionStoreUtils.setProperties(AdminClient.this.metadataVersionSysStoreClient,
-                                                    newProperties);
-        }
-
-        /**
-         * Set the metadata versions to the given set
-         * 
-         * @param newProperties The new metadata versions to be set across all
-         *        the nodes in the cluster
-         */
-        public void setMetadataversion(Versioned<Properties> newProperties) {
-            MetadataVersionStoreUtils.setProperties(AdminClient.this.metadataVersionSysStoreClient,
-                                                    newProperties);
-        }
 
         /**
          * Update metadata at the given remoteNodeId.
@@ -1395,6 +1442,10 @@ public class AdminClient implements Closeable {
                                              String storesKey,
                                              Versioned<String> storesValue) {
 
+            if (remoteNodeIds == null || remoteNodeIds.size() == 0) {
+                throw new IllegalArgumentException("One ore more nodes expected for NodeIds");
+            }
+
             for(Integer currentNodeId: remoteNodeIds) {
                 logger.info("Setting " + clusterKey + " and " + storesKey + " for "
                             + getAdminClientCluster().getNodeById(currentNodeId).getHost() + ":"
@@ -1407,9 +1458,10 @@ public class AdminClient implements Closeable {
             }
 
             if(clusterKey.equals(SystemStoreConstants.CLUSTER_VERSION_KEY)) {
+                // Setting cluster.xml will cause all the stores to be
+                // re-bootstrapped anyway.
                 metadataMgmtOps.updateMetadataversion(remoteNodeIds, clusterKey);
-            }
-            if(storesKey.equals(SystemStoreConstants.STORES_VERSION_KEY)) {
+            } else if (storesKey.equals(SystemStoreConstants.STORES_VERSION_KEY)) {
                 StoreDefinitionsMapper storeDefsMapper = new StoreDefinitionsMapper();
                 List<StoreDefinition> storeDefs = storeDefsMapper.readStoreList(new StringReader(storesValue.getValue()));
                 if(storeDefs != null) {
