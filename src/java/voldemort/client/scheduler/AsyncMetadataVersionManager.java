@@ -95,7 +95,7 @@ public class AsyncMetadataVersionManager implements Runnable {
     public Long getCurrentVersion(String versionKey, Properties versionProps) {
         Long versionValue = null;
 
-        if(versionProps.getProperty(versionKey) != null) {
+        if (versionProps != null && versionProps.getProperty(versionKey) != null) {
             versionValue = Long.parseLong(versionProps.getProperty(versionKey));
         }
 
