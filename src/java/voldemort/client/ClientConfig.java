@@ -99,6 +99,8 @@ public class ClientConfig {
     protected volatile int maximumTolerableFatalFailures = FailureDetectorConfig.DEFAULT_MAX_TOLERABLE_FATAL_FAILURES;
 
     private volatile int maxBootstrapRetries = 2;
+    private volatile boolean fetchAllStoresXmlInBootstrap = true;
+    private volatile int bootstrapRetryWaitTimeSeconds = 5;
     private volatile String clientContextName = "";
 
     /* 5 second check interval, in ms */
@@ -182,6 +184,8 @@ public class ClientConfig {
     public static final String GETALL_OP_ZONE_AFFINITY = "getall_op_zone_affinity";
     public static final String GETVERSIONS_OP_ZONE_AFFINITY = "getversions_op_zone_affinity";
     public static final String IDENTIFIER_STRING_KEY = "identifier_string";
+    public static final String FETCH_ALL_STORES_XML_IN_BOOTSTRAP = "fetch_all_stores_xml_in_bootstrap";
+    public static final String BOOTSTRAP_RETRY_WAIT_TIME_SECONDS = "bootstrap_retry_wait_time_seconds";
 
     /**
      * Instantiate the client config using a properties file
@@ -351,6 +355,14 @@ public class ClientConfig {
 
         if(props.containsKey(MAX_BOOTSTRAP_RETRIES))
             this.setMaxBootstrapRetries(props.getInt(MAX_BOOTSTRAP_RETRIES));
+        
+        if(props.containsKey(FETCH_ALL_STORES_XML_IN_BOOTSTRAP)) {
+            this.setFetchAllStoresXmlInBootstrap(props.getBoolean(FETCH_ALL_STORES_XML_IN_BOOTSTRAP));
+        }
+        
+        if (props.containsKey(BOOTSTRAP_RETRY_WAIT_TIME_SECONDS)) {
+            this.setBootstrapRetryWaitTimeSeconds(props.getInt(BOOTSTRAP_RETRY_WAIT_TIME_SECONDS));
+        }
 
         if(props.containsKey(CLIENT_CONTEXT_NAME)) {
             this.setClientContextName(props.getString(CLIENT_CONTEXT_NAME));
@@ -1092,6 +1104,50 @@ public class ClientConfig {
             throw new IllegalArgumentException("maxBootstrapRetries should be >= 1");
 
         this.maxBootstrapRetries = maxBootstrapRetries;
+        return this;
+    }
+    
+    public int getBootstrapRetryWaitTimeSeconds() {
+        return this.bootstrapRetryWaitTimeSeconds;
+    }
+
+    /**
+     * set the wait time in seconds after a failed bootstrap attempt to next
+     * retry
+     * 
+     * @param value
+     *            wait time in seconds
+     * @throws IllegalArgumentException
+     *             If bootstrapWaitTimeInSeconds < 1
+     */
+    public ClientConfig setBootstrapRetryWaitTimeSeconds(int bootstrapWaitTimeInSeconds) {
+        if (bootstrapWaitTimeInSeconds < 1) {
+            throw new IllegalArgumentException("bootstrap retry wait time should be >= 1");
+        }
+        this.bootstrapRetryWaitTimeSeconds = bootstrapWaitTimeInSeconds;
+        return this;
+    }
+
+    public boolean isFetchAllStoresXmlInBootstrap() {
+        return fetchAllStoresXmlInBootstrap;
+    }
+
+    /**
+     * Voldemort servers older than 1.8.1 supported only fetching all stores.xml
+     * 1.8.1 supported fetching individual stores. During bootstrap this
+     * property controls whether to fetch all stores.xml or only the particular
+     * store.
+     * 
+     * This property is defaulted to true, so that newer clients can work with
+     * older servers. If there are 100's of stores and you have servers running
+     * on 1.8.1 or above, it is better to set them to false.
+     * 
+     * @param value
+     *            true, to fetch all stores.xml false, to fetch only current
+     *            store
+     */
+    public ClientConfig setFetchAllStoresXmlInBootstrap(boolean value) {
+        this.fetchAllStoresXmlInBootstrap = value;
         return this;
     }
 

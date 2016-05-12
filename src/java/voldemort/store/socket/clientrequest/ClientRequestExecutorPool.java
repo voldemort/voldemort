@@ -19,6 +19,8 @@ package voldemort.store.socket.clientrequest;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 
+import javax.management.ObjectName;
+
 import org.apache.log4j.Level;
 import org.apache.log4j.Logger;
 
@@ -65,6 +67,11 @@ public class ClientRequestExecutorPool implements SocketStoreFactory {
 
     private final Logger logger = Logger.getLogger(ClientRequestExecutorPool.class);
 
+    private ObjectName getAggregateMetricName() {
+        return JmxUtils.createObjectName(JmxUtils.getPackageName(this.getClass()), "aggregated"
+                + identifierString);
+    }
+
     public ClientRequestExecutorPool(int selectors,
                                      int maxConnectionsPerNode,
                                      int connectionTimeoutMs,
@@ -82,9 +89,7 @@ public class ClientRequestExecutorPool implements SocketStoreFactory {
         this.identifierString = identifierString;
         if(this.jmxEnabled) {
             stats = new ClientSocketStats(identifierString);
-            JmxUtils.registerMbean(new ClientSocketStatsJmx(stats),
-                                   JmxUtils.createObjectName(JmxUtils.getPackageName(this.getClass()),
-                                                             "aggregated" + identifierString));
+            JmxUtils.registerMbean(new ClientSocketStatsJmx(stats), getAggregateMetricName());
         } else {
             stats = null;
         }
@@ -271,9 +276,7 @@ public class ClientRequestExecutorPool implements SocketStoreFactory {
         if(stats != null) {
             try {
                 if(this.jmxEnabled)
-                    JmxUtils.unregisterMbean(JmxUtils.createObjectName(JmxUtils.getPackageName(this.getClass()),
-                                                                       "aggregated"
-                                                                               + this.identifierString));
+                    JmxUtils.unregisterMbean(getAggregateMetricName());
             } catch(Exception e) {}
             stats.close();
         }

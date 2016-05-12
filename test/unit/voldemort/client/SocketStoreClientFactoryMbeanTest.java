@@ -45,8 +45,8 @@ public class SocketStoreClientFactoryMbeanTest extends SocketStoreClientFactoryT
     // list of factory objects to be closed at the end.
     private List<StoreClientFactory> factories;
 
-    public SocketStoreClientFactoryMbeanTest(boolean useNio, boolean useLazy) {
-        super(useNio, useLazy);
+    public SocketStoreClientFactoryMbeanTest(boolean useNio, boolean useLazy, boolean fetchAllStoresXml) {
+        super(useNio, useLazy, fetchAllStoresXml);
     }
 
     @Override
@@ -69,7 +69,7 @@ public class SocketStoreClientFactoryMbeanTest extends SocketStoreClientFactoryT
 
     @Parameters
     public static Collection<Object[]> configs() {
-        return Arrays.asList(new Object[][] { { true, false } });
+        return Arrays.asList(new Object[][] { { true, false, false } });
     }
 
     private void checkMbeanIdCount(String domain, String type, int maxMbeans, boolean unregister) {

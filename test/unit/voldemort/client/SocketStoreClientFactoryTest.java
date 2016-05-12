@@ -22,7 +22,6 @@ import static org.junit.Assert.fail;
 
 import java.net.URISyntaxException;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
 
@@ -49,16 +48,28 @@ public class SocketStoreClientFactoryTest extends AbstractStoreClientFactoryTest
 
     private final boolean useNio;
     private final boolean useLazy;
+    private final boolean fetchAllStoresXml;
+    private final List<StoreClientFactory> allFactories;
 
-    public SocketStoreClientFactoryTest(boolean useNio, boolean useLazy) {
+    public SocketStoreClientFactoryTest(boolean useNio, boolean useLazy, boolean fetchAllStoresXml) {
         this.useNio = useNio;
         this.useLazy = useLazy;
+        this.fetchAllStoresXml = fetchAllStoresXml;
+        allFactories = new ArrayList<StoreClientFactory>();
     }
 
     @Parameters
     public static Collection<Object[]> configs() {
-        return Arrays.asList(new Object[][] { { true, true }, { true, false }, { false, true },
-                { false, false } });
+        List<Object[]> allConfigs = new ArrayList<Object[]>();
+        boolean[] allValues = { false, true };
+        for(boolean b1 : allValues) {
+            for(boolean b2: allValues) {
+                for (boolean b3: allValues) {
+                    allConfigs.add(new Object[] { b1, b2, b3 });
+                }
+            }
+        }
+        return allConfigs;
     }
 
     @Override
@@ -78,20 +89,29 @@ public class SocketStoreClientFactoryTest extends AbstractStoreClientFactoryTest
     public void tearDown() throws Exception {
         super.tearDown();
         socketService.stop();
+        for (StoreClientFactory factory : allFactories) {
+            factory.close();
+        }
     }
 
     @Override
     protected StoreClientFactory getFactory(String... bootstrapUrls) {
-        return new SocketStoreClientFactory(new ClientConfig().setBootstrapUrls(bootstrapUrls)
-                                                              .setEnableLazy(useLazy));
+        StoreClientFactory factory = new SocketStoreClientFactory(new ClientConfig().setBootstrapUrls(bootstrapUrls)
+                                                                                    .setEnableLazy(useLazy)
+                                                                                    .setFetchAllStoresXmlInBootstrap(fetchAllStoresXml));
+        allFactories.add(factory);
+        return factory;
     }
 
     @Override
     protected StoreClientFactory getFactoryWithSerializer(SerializerFactory factory,
                                                           String... bootstrapUrls) {
-        return new SocketStoreClientFactory(new ClientConfig().setBootstrapUrls(bootstrapUrls)
+        SocketStoreClientFactory factory1 = new SocketStoreClientFactory(new ClientConfig().setBootstrapUrls(bootstrapUrls)
                                                               .setEnableLazy(useLazy)
+                                                              .setFetchAllStoresXmlInBootstrap(fetchAllStoresXml)
                                                               .setSerializerFactory(factory));
+        allFactories.add(factory1);
+        return factory1;
     }
 
     @Override
@@ -169,9 +189,11 @@ public class SocketStoreClientFactoryTest extends AbstractStoreClientFactoryTest
     }
 
     protected StoreClientFactory getFactoryForZoneID(int zoneID, String... bootstrapUrls) {
-        return new SocketStoreClientFactory(new ClientConfig().setBootstrapUrls(bootstrapUrls)
+        SocketStoreClientFactory factory = new SocketStoreClientFactory(new ClientConfig().setBootstrapUrls(bootstrapUrls)
                                                               .setEnableLazy(useLazy)
                                                               .setClientZoneId(zoneID));
+        allFactories.add(factory);
+        return factory;
     }
 
     @Test

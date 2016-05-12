@@ -19,6 +19,7 @@ package voldemort.client;
 import java.io.StringReader;
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -294,15 +295,14 @@ public abstract class AbstractStoreClientFactory implements StoreClientFactory {
         this.cluster = clusterMapper.readCluster(new StringReader(clusterXml), false);
         String storesXml = customStoresXml;
         if(storesXml == null) {
-            logger.debug("Fetching store definition...");
-            /*
-             * We see errors when running the client against a old server on
-             * using storeName instead of MetadataStore.STORES_KEY.
-             * 
-             * TODO We should revert this change once all our servers are
-             * upgraded.
-             */
-            storesXml = bootstrapMetadataWithRetries(MetadataStore.STORES_KEY, bootstrapUrls);
+            String storesKey = storeName;
+            if (config.isFetchAllStoresXmlInBootstrap()) {
+                storesKey = MetadataStore.STORES_KEY;
+            }
+            if (logger.isDebugEnabled()) {
+                logger.debug("Fetching store definition for Store " + storeName + " key " + storesKey);
+            }
+            storesXml = bootstrapMetadataWithRetries(storesKey, bootstrapUrls);
         }
 
         if(logger.isDebugEnabled()) {
@@ -533,9 +533,9 @@ public abstract class AbstractStoreClientFactory implements StoreClientFactory {
             } catch(BootstrapFailureException e) {
                 // We have a bootstrap failure, record the event.
                 storeClientFactoryStats.incrementCount(StoreClientFactoryStats.Tracked.FAILED_BOOTSTRAP_EVENT);
-                logger.warn("Failed to bootstrap store");
+                logger.warn("Failed to bootstrap store . Key " + key + " Urls " + Arrays.toString(urls));
                 if(nTries < this.maxBootstrapRetries) {
-                    int backOffTime = 5 * nTries;
+                    int backOffTime = config.getBootstrapRetryWaitTimeSeconds() * nTries;
                     logger.warn("Will try to bootstrap will try again after " + backOffTime
                                 + " seconds.");
                     try {
@@ -549,8 +549,8 @@ public abstract class AbstractStoreClientFactory implements StoreClientFactory {
                 storeClientFactoryStats.incrementCount(StoreClientFactoryStats.Tracked.BOOTSTRAP_EVENT);
             }
         }
-
-        throw new BootstrapFailureException("No available bootstrap servers found!");
+        String errorMessage = "No available bootstrap servers found! Key " + key + " Urls " + Arrays.toString(urls);
+        throw new BootstrapFailureException(errorMessage);
     }
 
     public String bootstrapMetadataWithRetries(String key) {
