@@ -220,7 +220,11 @@ public class HadoopStoreBuilder extends AbstractHadoopJob {
             FileSystem tempFs = tempDir.getFileSystem(conf);
             tempFs.delete(tempDir, true);
 
-            long size = sizeOfPath(tempFs, inputPath);
+            //use a list in case we pass a csv path list
+            //the input file system could be different than temp file system so we create a new fs here
+            String[] inputPathArray = inputPath.toString().split(",");
+            FileSystem inputFs = new Path(inputPathArray[0]).getFileSystem(conf);
+            long size = sizeOfPath(inputFs, inputPath);
             logger.info("Data size = " + size +
                         ", replication factor = " + storeDef.getReplicationFactor() +
                         ", numNodes = " + cluster.getNumberOfNodes() +
