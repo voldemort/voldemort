@@ -16,21 +16,21 @@
 
 package voldemort.store.readonly.fetcher;
 
+import com.google.common.collect.Lists;
+import com.google.common.collect.Sets;
 import java.io.File;
+import java.io.IOException;
 import java.text.NumberFormat;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
-
 import javax.management.ObjectName;
-
 import org.apache.hadoop.fs.FileStatus;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.log4j.Logger;
-
 import voldemort.VoldemortException;
 import voldemort.cluster.Cluster;
 import voldemort.routing.RoutingStrategy;
@@ -53,9 +53,6 @@ import voldemort.utils.EventThrottler;
 import voldemort.utils.JmxUtils;
 import voldemort.utils.Time;
 import voldemort.utils.Utils;
-
-import com.google.common.collect.Lists;
-import com.google.common.collect.Sets;
 
 /**
  * A {@link FileFetcher} implementation that fetches the store files from HDFS
@@ -230,7 +227,7 @@ public class HdfsFetcher implements FileFetcher {
                                              + " already exists");
             }
 
-            boolean isFile = fs.isFile(rootPath);
+            boolean isFile = isFile(fs, rootPath);
 
             stats = new HdfsCopyStats(sourceFileUrl,
                     destination,
@@ -246,7 +243,7 @@ public class HdfsFetcher implements FileFetcher {
                                                                  stats,
                                                                  status,
                                                                  bufferSize);
-            if(!fs.isFile(rootPath)) { // We are asked to fetch a directory
+            if(isFile) { // We are asked to fetch a directory
                 Utils.mkdirs(destination);
                 HdfsDirectory rootDirectory = new HdfsDirectory(fs, rootPath, this.voldemortConfig);
                 List<HdfsDirectory> directoriesToFetch = Lists.newArrayList();
@@ -313,7 +310,8 @@ public class HdfsFetcher implements FileFetcher {
                                                        status,
                                                        bufferSize);
 
-                logger.debug("directoriesToFetch for store '" + storeName + "': " + Arrays.toString(directoriesToFetch.toArray()));
+                logger.debug("directoriesToFetch for store '" + storeName + "': " + Arrays
+                    .toString(directoriesToFetch.toArray()));
                 for (HdfsDirectory directoryToFetch: directoriesToFetch) {
                     Map<HdfsFile, byte[]> fileCheckSumMap = fetchStrategy.fetch(directoryToFetch, destination);
                     if(directoryToFetch.validateCheckSum(fileCheckSumMap)) {
@@ -445,6 +443,27 @@ public class HdfsFetcher implements FileFetcher {
         } else {
             logger.debug("store: " + storeName + " is a Non Quota type store.");
         }
+    }
+
+    private boolean isFile(FileSystem fs, Path rootPath) {
+        for (int attempt = 1; attempt <= getMaxAttempts(); attempt++) {
+            try {
+                return fs.isFile(rootPath);
+            } catch (IOException e) {
+              logger.error("Error while calling isFile for path:" + rootPath.toString() + "  Attempt: #" + attempt + "/"
+                  + getMaxAttempts());
+              if (getRetryDelayMs() > 0) {
+                    try {
+                        Thread.sleep(getRetryDelayMs());
+                    } catch (InterruptedException ie) {
+                        logger.error("Fetcher is interrupted while wating to retry.", ie);
+                    }
+
+                }
+            }
+        }
+        throw new VoldemortException(
+            "After retrying " + getMaxAttempts() + "times, can not get result from filesystem for isFile.");
     }
 
     public Long getReportingIntervalBytes() {
