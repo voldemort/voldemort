@@ -227,7 +227,7 @@ public class HdfsFetcher implements FileFetcher {
                                              + " already exists");
             }
 
-            boolean isFile = retryIsFile(fs, rootPath);
+            boolean isFile = isFile(fs, rootPath);
 
             stats = new HdfsCopyStats(sourceFileUrl,
                     destination,
@@ -445,18 +445,20 @@ public class HdfsFetcher implements FileFetcher {
         }
     }
 
-    private boolean retryIsFile(FileSystem fs, Path rootPath) {
+    private boolean isFile(FileSystem fs, Path rootPath) {
         for (int attempt = 1; attempt <= getMaxAttempts(); attempt++) {
             try {
                 return fs.isFile(rootPath);
             } catch (IOException e) {
-                logger.error("Error while calling isFile for path:" + rootPath.toString());
-                if (getRetryDelayMs() > 0) {
+              logger.error("Error while calling isFile for path:" + rootPath.toString() + "  Attempt: #" + attempt + "/"
+                  + getMaxAttempts());
+              if (getRetryDelayMs() > 0) {
                     try {
                         Thread.sleep(getRetryDelayMs());
                     } catch (InterruptedException ie) {
                         logger.error("Fetcher is interrupted while wating to retry.", ie);
                     }
+
                 }
             }
         }
