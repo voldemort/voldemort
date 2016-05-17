@@ -2034,15 +2034,7 @@ public class AdminServiceRequestHandler implements RequestHandler {
         } else {
             FailedFetchLock distributedLock = null;
             try {
-                Class<? extends FailedFetchLock> failedFetchLockClass =
-                        (Class<? extends FailedFetchLock>) Class.forName(voldemortConfig.getHighAvailabilityPushLockImplementation());
-
-                Props props = new Props(extraInfoProperties);
-
-                // Pass both server properties and the remote job's properties to the FailedFetchLock constructor
-                Object[] failedFetchLockParams = new Object[]{voldemortConfig, props};
-
-                distributedLock = ReflectUtils.callConstructor(failedFetchLockClass, failedFetchLockParams);
+                distributedLock = FailedFetchLock.getLock(voldemortConfig, new Props(extraInfoProperties));
 
                 distributedLock.acquireLock();
 
@@ -2054,8 +2046,32 @@ public class AdminServiceRequestHandler implements RequestHandler {
 
                 if (allNodesToBeDisabled.size() > maxNodeFailure) {
                     // Too many exceptions to tolerate this strategy... let's bail out.
-                    responseMessage = "We cannot use pushHighAvailability because it would bring the total number of " +
-                                         "nodes with disabled stores to more than " + maxNodeFailure + "...";
+                    StringBuilder stringBuilder = new StringBuilder();
+                    stringBuilder.append("We cannot use pushHighAvailability because it would bring the total ");
+                    stringBuilder.append("number of nodes with disabled stores to more than ");
+                    stringBuilder.append(maxNodeFailure);
+                    stringBuilder.append("... alreadyDisabledNodes: [");
+                    boolean firstItem = true;
+                    for (Integer nodeId: alreadyDisabledNodes) {
+                        if (firstItem) {
+                            firstItem = false;
+                        } else {
+                            stringBuilder.append(", ");
+                        }
+                        stringBuilder.append(nodeId);
+                    }
+                    stringBuilder.append("], nodesFailedInThisFetch: [");
+                    firstItem = true;
+                    for (Integer nodeId: nodesFailedInThisFetch) {
+                        if (firstItem) {
+                            firstItem = false;
+                        } else {
+                            stringBuilder.append(", ");
+                        }
+                        stringBuilder.append(nodeId);
+                    }
+                    stringBuilder.append("]");
+                    responseMessage = stringBuilder.toString();
                     logger.error(responseMessage);
                 } else {
                     String nodesString = "node";

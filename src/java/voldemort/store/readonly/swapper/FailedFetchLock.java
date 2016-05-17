@@ -2,8 +2,10 @@ package voldemort.store.readonly.swapper;
 
 import voldemort.server.VoldemortConfig;
 import voldemort.utils.Props;
+import voldemort.utils.ReflectUtils;
 
 import java.io.Closeable;
+import java.util.Map;
 import java.util.Set;
 
 /**
@@ -26,8 +28,27 @@ public abstract class FailedFetchLock implements Closeable {
     public abstract void addDisabledNode(int nodeId,
                                          String storeName,
                                          long storeVersion) throws Exception;
+    public abstract void removeObsoleteStateForStore(int nodeId,
+                                                     String storeName,
+                                                     Map<Long, Boolean> versionToEnabledMap) throws Exception;
+    public abstract void removeObsoleteStateForNode(int nodeId) throws Exception;
+
     @Override
     public String toString() {
         return this.getClass().getSimpleName() + " for cluster: " + clusterId;
+    }
+
+    public static FailedFetchLock getLock(VoldemortConfig config, Props remoteJobProps) throws ClassNotFoundException {
+        Class<? extends FailedFetchLock> failedFetchLockClass =
+                (Class<? extends FailedFetchLock>) Class.forName(config.getHighAvailabilityPushLockImplementation());
+
+        if (remoteJobProps == null) {
+            remoteJobProps = new Props();
+        }
+
+        // Pass both server properties and the remote job's properties to the FailedFetchLock constructor
+        Object[] failedFetchLockParams = new Object[]{config, remoteJobProps};
+
+        return ReflectUtils.callConstructor(failedFetchLockClass, failedFetchLockParams);
     }
 }

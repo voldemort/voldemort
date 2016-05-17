@@ -24,6 +24,7 @@ import voldemort.server.VoldemortConfig;
 import voldemort.store.StorageConfiguration;
 import voldemort.store.StorageEngine;
 import voldemort.store.StoreDefinition;
+import voldemort.store.readonly.swapper.FailedFetchLock;
 import voldemort.utils.ByteArray;
 import voldemort.utils.ReflectUtils;
 
@@ -35,12 +36,13 @@ public class ReadOnlyStorageConfiguration implements StorageConfiguration {
     private final File storageDir;
     private final SearchStrategy searcher;
     private final int nodeId;
+    private final VoldemortConfig config;
     private RoutingStrategy routingStrategy = null;
     private final int deleteBackupMs;
     private final int maxValueBufferAllocationSize;
-    private final VoldemortConfig voldConfig;
 
     public ReadOnlyStorageConfiguration(VoldemortConfig config) {
+        this.config = config;
         this.storageDir = new File(config.getReadOnlyDataStorageDirectory());
         this.numBackups = config.getNumReadOnlyVersions();
         this.searcher = (SearchStrategy) ReflectUtils.callConstructor(ReflectUtils.loadClass(config.getReadOnlySearchStrategy()
@@ -48,7 +50,6 @@ public class ReadOnlyStorageConfiguration implements StorageConfiguration {
         this.nodeId = config.getNodeId();
         this.deleteBackupMs = config.getReadOnlyDeleteBackupMs();
         this.maxValueBufferAllocationSize = config.getReadOnlyMaxValueBufferAllocationSize();
-        this.voldConfig = config;
     }
 
     public void close() {
@@ -70,7 +71,8 @@ public class ReadOnlyStorageConfiguration implements StorageConfiguration {
                                                                          storeDef.getName()),
                                                                 numBackups,
                                                                 deleteBackupMs,
-                                                                maxValueBufferAllocationSize);
+                                                                maxValueBufferAllocationSize,
+                                                                config);
         return store;
     }
 
