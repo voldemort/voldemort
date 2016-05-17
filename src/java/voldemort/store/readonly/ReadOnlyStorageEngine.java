@@ -41,6 +41,7 @@ import voldemort.store.DisabledStoreException;
 import voldemort.store.StoreCapabilityType;
 import voldemort.store.StoreUtils;
 import voldemort.store.readonly.chunk.ChunkedFileSet;
+import voldemort.store.readonly.swapper.FailedFetchLock;
 import voldemort.utils.ByteArray;
 import voldemort.utils.ByteUtils;
 import voldemort.utils.ClosableIterator;
@@ -98,7 +99,8 @@ public class ReadOnlyStorageEngine extends AbstractStorageEngine<ByteArray, byte
              storeDir,
              numBackups,
              0,
-             VoldemortConfig.DEFAULT_RO_MAX_VALUE_BUFFER_ALLOCATION_SIZE);
+             VoldemortConfig.DEFAULT_RO_MAX_VALUE_BUFFER_ALLOCATION_SIZE,
+             null);
     }
 
     /**
@@ -120,8 +122,8 @@ public class ReadOnlyStorageEngine extends AbstractStorageEngine<ByteArray, byte
                                  File storeDir,
                                  int numBackups,
                                  int deleteBackupMs,
-                                 int maxValueBufferAllocationSize) {
-
+                                 int maxValueBufferAllocationSize,
+                                 FailedFetchLock failedFetchLock) {
         super(name);
         this.deleteBackupMs = deleteBackupMs;
         this.storeDir = storeDir;
@@ -137,7 +139,7 @@ public class ReadOnlyStorageEngine extends AbstractStorageEngine<ByteArray, byte
          */
         this.fileModificationLock = new ReentrantReadWriteLock();
         this.isOpen = false;
-        storeVersionManager = new StoreVersionManager(storeDir);
+        storeVersionManager = new StoreVersionManager(storeDir, failedFetchLock, nodeId);
         open(null);
 
         lastFetchReqestId = NO_FETCH_IN_PROGRESS;

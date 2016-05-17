@@ -51,8 +51,13 @@ import voldemort.server.rebalance.RebalancerService;
 import voldemort.server.socket.SocketService;
 import voldemort.server.storage.StorageService;
 import voldemort.store.DisabledStoreException;
+import voldemort.store.StorageEngine;
+import voldemort.store.StoreCapabilityType;
 import voldemort.store.configuration.ConfigurationStorageEngine;
 import voldemort.store.metadata.MetadataStore;
+import voldemort.store.readonly.ReadOnlyStorageEngine;
+import voldemort.store.readonly.StoreVersionManager;
+import voldemort.utils.ByteArray;
 import voldemort.utils.JNAUtils;
 import voldemort.utils.SystemTime;
 import voldemort.utils.Utils;
@@ -516,6 +521,22 @@ public class VoldemortServer extends AbstractService {
 
     public void goOnline() {
         getMetadataStore().setOfflineState(false);
+        List<StorageEngine<ByteArray, byte[], byte[]>> storageEngines =
+                storageService.getStoreRepository().getStorageEnginesByClass(ReadOnlyStorageEngine.class);
+
+        if (storageEngines.size() > 0) {
+            logger.info("Will attempt to removeRemoteObsoleteState() for " + storageEngines.size() + " Read-Only stores.");
+            for (StorageEngine storageEngine: storageEngines) {
+                StoreVersionManager storeVersionManager =
+                        (StoreVersionManager) storageEngine.getCapability(StoreCapabilityType.DISABLE_STORE_VERSION);
+                try {
+                    storeVersionManager.removeRemoteObsoleteState();
+                } catch (Exception e) {
+                    logger.error("Failed to removeRemoteObsoleteState() for store: " + storageEngine.getName(), e);
+                }
+            }
+        }
+
         createOnlineServices();
         startOnlineServices();
     }

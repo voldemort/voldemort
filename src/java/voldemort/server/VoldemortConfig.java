@@ -148,6 +148,7 @@ public class VoldemortConfig implements Serializable {
     public static final String PUSH_HA_LOCK_PATH = "push.ha.lock.path";
     public static final String PUSH_HA_LOCK_IMPLEMENTATION = "push.ha.lock.implementation";
     public static final String PUSH_HA_MAX_NODE_FAILURES = "push.ha.max.node.failure";
+    public static final String PUSH_HA_STATE_AUTO_CLEANUP = "push.ha.state.auto.cleanup";
     public static final String MYSQL_USER = "mysql.user";
     public static final String MYSQL_PASSWORD = "mysql.password";
     public static final String MYSQL_HOST = "mysql.host";
@@ -283,6 +284,7 @@ public class VoldemortConfig implements Serializable {
     public static final int DEFAULT_RO_MAX_VALUE_BUFFER_ALLOCATION_SIZE = 25 * 1024 * 1024;
 
     private static final Props defaultConfig = new Props();
+
     static {
         defaultConfig.put(BDB_CACHE_SIZE, 200 * 1024 * 1024);
         defaultConfig.put(BDB_WRITE_TRANSACTIONS, false);
@@ -354,6 +356,7 @@ public class VoldemortConfig implements Serializable {
         defaultConfig.put(PUSH_HA_LOCK_IMPLEMENTATION, (String) null);
         defaultConfig.put(PUSH_HA_MAX_NODE_FAILURES, 0);
         defaultConfig.put(PUSH_HA_ENABLED, false);
+        defaultConfig.put(PUSH_HA_STATE_AUTO_CLEANUP, false);
 
         defaultConfig.put(MYSQL_USER, "root");
         defaultConfig.put(MYSQL_PASSWORD, "");
@@ -590,6 +593,7 @@ public class VoldemortConfig implements Serializable {
     private String highAvailabilityPushLockPath;
     private String highAvailabilityPushLockImplementation;
     private int highAvailabilityPushMaxNodeFailures;
+    private boolean highAvailabilityStateAutoCleanUp;
 
     private OpTimeMap testingSlowQueueingDelays;
     private OpTimeMap testingSlowConcurrentDelays;
@@ -3566,6 +3570,30 @@ public class VoldemortConfig implements Serializable {
      */
     public void setHighAvailabilityPushLockImplementation(String highAvailabilityPushLockImplementation) {
         this.highAvailabilityPushLockImplementation = highAvailabilityPushLockImplementation;
+    }
+
+    public boolean getHighAvailabilityStateAutoCleanUp() {
+        return highAvailabilityStateAutoCleanUp;
+    }
+
+    /**
+     * When using a high-availability push strategy, there is a shared state which
+     * accumulates in order to prevent race conditions. This state can become stale
+     * if Voldemort has been recovered, which prevents the cluster from continuing
+     * to be highly-available in the future. This configuration allows the server
+     * to automatically clean up this shared state when it transitions from offline
+     * to online, as well as when old store-versions are deleted, which happens
+     * asynchronously after a new store-version is swapped in.
+     *
+     * N.B.: This is an experimental feature! Hence it is disabled by default.
+     *
+     * <ul>
+     * <li>Property : "{@value #PUSH_HA_STATE_AUTO_CLEANUP}"</li>
+     * <li>Default : false</li>
+     * </ul>
+     */
+    public void setHighAvailabilityStateAutoCleanUp(boolean highAvailabilityStateAutoCleanUp) {
+        this.highAvailabilityStateAutoCleanUp = highAvailabilityStateAutoCleanUp;
     }
 
     public boolean isNetworkClassLoaderEnabled() {

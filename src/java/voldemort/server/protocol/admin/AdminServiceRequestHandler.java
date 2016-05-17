@@ -2034,15 +2034,7 @@ public class AdminServiceRequestHandler implements RequestHandler {
         } else {
             FailedFetchLock distributedLock = null;
             try {
-                Class<? extends FailedFetchLock> failedFetchLockClass =
-                        (Class<? extends FailedFetchLock>) Class.forName(voldemortConfig.getHighAvailabilityPushLockImplementation());
-
-                Props props = new Props(extraInfoProperties);
-
-                // Pass both server properties and the remote job's properties to the FailedFetchLock constructor
-                Object[] failedFetchLockParams = new Object[]{voldemortConfig, props};
-
-                distributedLock = ReflectUtils.callConstructor(failedFetchLockClass, failedFetchLockParams);
+                distributedLock = FailedFetchLock.getLock(voldemortConfig, new Props(extraInfoProperties));
 
                 distributedLock.acquireLock();
 

@@ -24,6 +24,7 @@ import voldemort.server.VoldemortConfig;
 import voldemort.store.StorageConfiguration;
 import voldemort.store.StorageEngine;
 import voldemort.store.StoreDefinition;
+import voldemort.store.readonly.swapper.FailedFetchLock;
 import voldemort.utils.ByteArray;
 import voldemort.utils.ReflectUtils;
 
@@ -35,10 +36,10 @@ public class ReadOnlyStorageConfiguration implements StorageConfiguration {
     private final File storageDir;
     private final SearchStrategy searcher;
     private final int nodeId;
+    private final FailedFetchLock failedFetchLock;
     private RoutingStrategy routingStrategy = null;
     private final int deleteBackupMs;
     private final int maxValueBufferAllocationSize;
-    private final VoldemortConfig voldConfig;
 
     public ReadOnlyStorageConfiguration(VoldemortConfig config) {
         this.storageDir = new File(config.getReadOnlyDataStorageDirectory());
@@ -48,7 +49,18 @@ public class ReadOnlyStorageConfiguration implements StorageConfiguration {
         this.nodeId = config.getNodeId();
         this.deleteBackupMs = config.getReadOnlyDeleteBackupMs();
         this.maxValueBufferAllocationSize = config.getReadOnlyMaxValueBufferAllocationSize();
-        this.voldConfig = config;
+
+        FailedFetchLock failedFetchLockInstance;
+        if (config.getHighAvailabilityStateAutoCleanUp()) {
+            try {
+                failedFetchLockInstance = FailedFetchLock.getLock(config, null);
+            } catch (ClassNotFoundException e) {
+                failedFetchLockInstance = null;
+            }
+        } else {
+            failedFetchLockInstance = null;
+        }
+        this.failedFetchLock = failedFetchLockInstance;
     }
 
     public void close() {
@@ -70,7 +82,8 @@ public class ReadOnlyStorageConfiguration implements StorageConfiguration {
                                                                          storeDef.getName()),
                                                                 numBackups,
                                                                 deleteBackupMs,
-                                                                maxValueBufferAllocationSize);
+                                                                maxValueBufferAllocationSize,
+                                                                failedFetchLock);
         return store;
     }
 

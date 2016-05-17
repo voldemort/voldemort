@@ -2,7 +2,9 @@ package voldemort.store.readonly;
 
 import com.google.common.collect.Maps;
 import org.apache.log4j.Logger;
+import voldemort.server.VoldemortConfig;
 import voldemort.store.PersistenceFailureException;
+import voldemort.store.readonly.swapper.FailedFetchLock;
 
 import java.io.File;
 import java.io.FileFilter;
@@ -30,7 +32,10 @@ public class StoreVersionManager {
     private static final String DISABLED_MARKER_NAME = ".disabled";
 
     private final File rootDir;
+    private final String storeName;
     private final Map<Long, Boolean> versionToEnabledMap = Maps.newConcurrentMap();
+    private final FailedFetchLock failedFetchLock;
+    private final int nodeId;
     private long currentVersion;
 
     /**
@@ -39,8 +44,11 @@ public class StoreVersionManager {
      *
      * @param rootDir of the store to be managed.
      */
-    public StoreVersionManager(File rootDir) {
+    public StoreVersionManager(File rootDir, FailedFetchLock failedFetchLock, int nodeId) {
         this.rootDir = rootDir;
+        this.storeName = rootDir.getName();
+        this.failedFetchLock = failedFetchLock;
+        this.nodeId = nodeId;
     }
 
     @Override
@@ -101,7 +109,7 @@ public class StoreVersionManager {
             currentVersion = -1; // Should we throw instead?
         }
 
-        logger.info("Successfully synced internal state from file-system: " + this.toString());
+        logger.info("Successfully synced internal state from local file-system: " + this.toString());
     }
 
     /**
@@ -248,6 +256,20 @@ public class StoreVersionManager {
         }
         versionToEnabledMap.remove(version);
 
-        // TODO: Sync state with external state (i.e.: FailedFetchLock).
+        removeRemoteObsoleteState();
+    }
+
+    public void removeRemoteObsoleteState() {
+        if (failedFetchLock != null) {
+            try {
+                failedFetchLock.removeObsoleteState(nodeId, storeName, versionToEnabledMap);
+            } catch (Exception e) {
+                logger.error("Failed to execute failedFetchLock.removeObsoleteState()", e);
+            }
+            logger.info("Successfully synced internal state with remote FailedFetchLock state.");
+        } else {
+            logger.info("Will not attempt removeRemoteObsoleteState() because it is disabled. " +
+                        "This can be enabled with " + VoldemortConfig.PUSH_HA_STATE_AUTO_CLEANUP + "=true");
+        }
     }
 }
