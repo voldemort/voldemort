@@ -5,7 +5,6 @@ import java.io.IOException;
 import java.util.Map;
 import java.util.Set;
 
-import com.google.common.collect.Maps;
 import org.apache.commons.io.IOUtils;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FSDataOutputStream;
@@ -338,7 +337,36 @@ public class HdfsFailedFetchLock extends FailedFetchLock {
     }
 
     @Override
-    public void removeObsoleteState(int nodeId, String storeName, Map<Long, Boolean> versionToEnabledMap) throws Exception {
+    public void removeObsoleteStateForNode(int nodeId) throws Exception {
+        int attempts = 1;
+        boolean success = false;
+        while (!success && attempts <= maxAttempts) {
+            try {
+                String nodeIdDir = NODE_ID_DIR_PREFIX + nodeId;
+                Path failedNodePath = new Path(clusterDir + "/" + nodeIdDir);;
+
+                if (this.fileSystem.exists(failedNodePath)) {
+                    this.fileSystem.delete(failedNodePath, true);
+                    logger.info("The BnP HA shared state has been cleared for node: " + nodeId);
+                } else {
+                    logger.info("No-op. The BnP HA shared state already has no directory for node: " + nodeId);
+                }
+
+                success = true;
+            } catch (IOException e) {
+                handleIOException(e, CLEAR_OBSOLETE_STATE, attempts);
+                attempts++;
+            }
+        }
+
+        if (!success) {
+            throw new VoldemortException(exceptionMessage(CLEAR_OBSOLETE_STATE));
+        }
+
+    }
+
+    @Override
+    public void removeObsoleteStateForStore(int nodeId, String storeName, Map<Long, Boolean> versionToEnabledMap) throws Exception {
         int attempts = 1;
         boolean success = false;
         while (!success && attempts <= maxAttempts) {

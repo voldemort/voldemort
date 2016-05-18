@@ -25,6 +25,7 @@ import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 
+import org.apache.commons.io.IOUtils;
 import org.apache.log4j.Logger;
 
 import voldemort.VoldemortException;
@@ -45,6 +46,7 @@ import voldemort.server.niosocket.NioSocketService;
 import voldemort.server.protocol.ClientRequestHandlerFactory;
 import voldemort.server.protocol.RequestHandlerFactory;
 import voldemort.server.protocol.SocketRequestHandlerFactory;
+import voldemort.server.protocol.admin.AsyncOperation;
 import voldemort.server.protocol.admin.AsyncOperationService;
 import voldemort.server.rebalance.Rebalancer;
 import voldemort.server.rebalance.RebalancerService;
@@ -57,8 +59,10 @@ import voldemort.store.configuration.ConfigurationStorageEngine;
 import voldemort.store.metadata.MetadataStore;
 import voldemort.store.readonly.ReadOnlyStorageEngine;
 import voldemort.store.readonly.StoreVersionManager;
+import voldemort.store.readonly.swapper.FailedFetchLock;
 import voldemort.utils.ByteArray;
 import voldemort.utils.JNAUtils;
+import voldemort.utils.Props;
 import voldemort.utils.SystemTime;
 import voldemort.utils.Utils;
 import voldemort.versioning.VectorClock;
@@ -138,9 +142,9 @@ public class VoldemortServer extends AbstractService {
         version.incrementVersion(voldemortConfig.getNodeId(), System.currentTimeMillis());
 
         metadataInnerEngine.put(MetadataStore.CLUSTER_KEY,
-                                new Versioned<String>(new ClusterMapper().writeCluster(cluster),
-                                                      version),
-                                null);
+                new Versioned<String>(new ClusterMapper().writeCluster(cluster),
+                        version),
+                null);
         this.metadata = new MetadataStore(metadataInnerEngine, voldemortConfig.getNodeId());
 
         this.basicServices = createBasicServices();
@@ -520,24 +524,84 @@ public class VoldemortServer extends AbstractService {
     }
 
     public void goOnline() {
-        getMetadataStore().setOfflineState(false);
+        switch (validateReadOnlyStoreStatusBeforeGoingOnline()) {
+            case SOME_STORES_DISABLED:
+                throw new VoldemortException("Aborting the goOnline() request because of disabled Read-Only store(s)! " +
+                        "Voldemort is still offline.");
+            case UNKNOWN_HA_STATE:
+                createOnlineServices();
+                startOnlineServices();
+                throw new VoldemortException("Unable to determine (and potentially clean up) the remote HA state. " +
+                        "Voldemort still went online, but further BnP job failures may not be covered by HA.");
+            case NO_STORES_DISABLED:
+                createOnlineServices();
+                startOnlineServices();
+                break;
+        }
+    }
+
+    private enum ReadOnlyStoreStatusValidation {
+        NO_STORES_DISABLED,
+        SOME_STORES_DISABLED,
+        UNKNOWN_HA_STATE
+    }
+
+    private ReadOnlyStoreStatusValidation validateReadOnlyStoreStatusBeforeGoingOnline() {
         List<StorageEngine<ByteArray, byte[], byte[]>> storageEngines =
                 storageService.getStoreRepository().getStorageEnginesByClass(ReadOnlyStorageEngine.class);
 
-        if (storageEngines.size() > 0) {
-            logger.info("Will attempt to removeRemoteObsoleteState() for " + storageEngines.size() + " Read-Only stores.");
-            for (StorageEngine storageEngine: storageEngines) {
-                StoreVersionManager storeVersionManager =
-                        (StoreVersionManager) storageEngine.getCapability(StoreCapabilityType.DISABLE_STORE_VERSION);
-                try {
-                    storeVersionManager.removeRemoteObsoleteState();
-                } catch (Exception e) {
-                    logger.error("Failed to removeRemoteObsoleteState() for store: " + storageEngine.getName(), e);
+        if (storageEngines.isEmpty()) {
+            logger.debug("There are no Read-Only stores on this node.");
+            return ReadOnlyStoreStatusValidation.NO_STORES_DISABLED;
+        } else {
+            List<String> storesWithDisabledVersions = Lists.newArrayList();
+            for (StorageEngine storageEngine : storageEngines) {
+                StoreVersionManager storeVersionManager = (StoreVersionManager)
+                        storageEngine.getCapability(StoreCapabilityType.DISABLE_STORE_VERSION);
+                if (storeVersionManager.hasAnyDisabledVersion()) {
+                    storesWithDisabledVersions.add(storageEngine.getName());
                 }
             }
-        }
 
-        createOnlineServices();
-        startOnlineServices();
+            if (storesWithDisabledVersions.isEmpty()) {
+                if (voldemortConfig.getHighAvailabilityStateAutoCleanUp()) {
+                    logger.info(VoldemortConfig.PUSH_HA_STATE_AUTO_CLEANUP +
+                                "=true, so the server will attempt to delete the HA state for this node, if any.");
+                    FailedFetchLock failedFetchLock = null;
+                    try {
+                        failedFetchLock = FailedFetchLock.getLock(getVoldemortConfig(), new Props());
+                        failedFetchLock.removeObsoleteStateForNode(getVoldemortConfig().getNodeId());
+                        logger.info("Successfully ensured that the BnP HA shared state is cleared for this node.");
+                    } catch (ClassNotFoundException e) {
+                        logger.error("Failed to find FailedFetchLock class!", e);
+                        return ReadOnlyStoreStatusValidation.UNKNOWN_HA_STATE;
+                    } catch (Exception e) {
+                        logger.error("Exception while trying to remove obsolete HA state!", e);
+                        return ReadOnlyStoreStatusValidation.UNKNOWN_HA_STATE;
+                    } finally {
+                        IOUtils.closeQuietly(failedFetchLock);
+                    }
+                }
+
+                logger.info("No Read-Only stores are disabled. Going online as planned.");
+                return ReadOnlyStoreStatusValidation.NO_STORES_DISABLED;
+            } else {
+                // OMG, there are disabled stores!
+                StringBuilder stringBuilder = new StringBuilder();
+                stringBuilder.append("Cannot go online, because the following Read-Only stores have some disabled version(s): ");
+                boolean firstItem = true;
+                for (String storeName: storesWithDisabledVersions) {
+                    if (firstItem) {
+                        firstItem = false;
+                    } else {
+                        stringBuilder.append(", ");
+                    }
+                    stringBuilder.append(storeName);
+
+                }
+                logger.warn(stringBuilder.toString());
+                return ReadOnlyStoreStatusValidation.SOME_STORES_DISABLED;
+            }
+        }
     }
 }

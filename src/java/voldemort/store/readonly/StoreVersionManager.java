@@ -1,10 +1,12 @@
 package voldemort.store.readonly;
 
 import com.google.common.collect.Maps;
+import org.apache.commons.io.IOUtils;
 import org.apache.log4j.Logger;
 import voldemort.server.VoldemortConfig;
 import voldemort.store.PersistenceFailureException;
 import voldemort.store.readonly.swapper.FailedFetchLock;
+import voldemort.utils.Props;
 
 import java.io.File;
 import java.io.FileFilter;
@@ -34,8 +36,7 @@ public class StoreVersionManager {
     private final File rootDir;
     private final String storeName;
     private final Map<Long, Boolean> versionToEnabledMap = Maps.newConcurrentMap();
-    private final FailedFetchLock failedFetchLock;
-    private final int nodeId;
+    private final VoldemortConfig config;
     private long currentVersion;
 
     /**
@@ -44,11 +45,11 @@ public class StoreVersionManager {
      *
      * @param rootDir of the store to be managed.
      */
-    public StoreVersionManager(File rootDir, FailedFetchLock failedFetchLock, int nodeId) {
+    public StoreVersionManager(File rootDir, VoldemortConfig config) {
         this.rootDir = rootDir;
+        this.config = config;
+
         this.storeName = rootDir.getName();
-        this.failedFetchLock = failedFetchLock;
-        this.nodeId = nodeId;
     }
 
     @Override
@@ -82,12 +83,12 @@ public class StoreVersionManager {
      * TODO: If the StoreVersionManager supports non-RO stores in the future,
      *       we should move some of the ReadOnlyUtils functions below to another Utils class.
      */
-    public void syncInternalStateFromFileSystem() {
+    public void syncInternalStateFromFileSystem(boolean alsoSyncRemoteState) {
         // Make sure versions missing from the file-system are cleaned up from the internal state
         for (Long version: versionToEnabledMap.keySet()) {
             File[] existingVersionDirs = ReadOnlyUtils.getVersionDirs(rootDir, version, version);
             if (existingVersionDirs.length == 0) {
-                removeVersion(version);
+                removeVersion(version, alsoSyncRemoteState);
             }
         }
 
@@ -250,26 +251,36 @@ public class StoreVersionManager {
         return disabledMarkerFile;
     }
 
-    private void removeVersion(long version) {
+    private void removeVersion(long version, boolean alsoSyncRemoteState) {
         if (currentVersion == version) {
             currentVersion = -1; // Should we throw instead?
         }
         versionToEnabledMap.remove(version);
 
-        removeRemoteObsoleteState();
+        if (alsoSyncRemoteState && config != null && config.getHighAvailabilityStateAutoCleanUp()) {
+            FailedFetchLock failedFetchLock = null;
+            try {
+                failedFetchLock = FailedFetchLock.getLock(config, new Props());
+                removeRemoteObsoleteState(failedFetchLock);
+            } catch (Exception e) {
+                logger.error("Failed to execute failedFetchLock.removeObsoleteStateForStore() for store " + storeName, e);
+            } finally {
+                IOUtils.closeQuietly(failedFetchLock);
+            }
+        }
     }
 
-    public void removeRemoteObsoleteState() {
-        if (failedFetchLock != null) {
+    public void removeRemoteObsoleteState(FailedFetchLock failedFetchLock) {
+        if (config != null && config.getHighAvailabilityStateAutoCleanUp()) {
             try {
-                failedFetchLock.removeObsoleteState(nodeId, storeName, versionToEnabledMap);
+                failedFetchLock.removeObsoleteStateForStore(config.getNodeId(), storeName, versionToEnabledMap);
             } catch (Exception e) {
-                logger.error("Failed to execute failedFetchLock.removeObsoleteState()", e);
+                logger.error("Failed to execute failedFetchLock.removeObsoleteStateForStore() for store " + storeName, e);
             }
-            logger.info("Successfully synced internal state with remote FailedFetchLock state.");
+            logger.info("Successfully synced internal state with remote FailedFetchLock state for store " + storeName);
         } else {
-            logger.info("Will not attempt removeRemoteObsoleteState() because it is disabled. " +
-                        "This can be enabled with " + VoldemortConfig.PUSH_HA_STATE_AUTO_CLEANUP + "=true");
+            logger.debug("Will not attempt removeRemoteObsoleteState() because it is disabled. " +
+                    "This can be enabled with " + VoldemortConfig.PUSH_HA_STATE_AUTO_CLEANUP + "=true");
         }
     }
 }
