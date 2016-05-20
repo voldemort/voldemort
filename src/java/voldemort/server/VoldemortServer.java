@@ -524,26 +524,28 @@ public class VoldemortServer extends AbstractService {
     }
 
     public void goOnline() {
-        switch (validateReadOnlyStoreStatusBeforeGoingOnline()) {
-            case SOME_STORES_DISABLED:
-                throw new VoldemortException("Aborting the goOnline() request because of disabled Read-Only store(s)! " +
-                        "Voldemort is still offline.");
-            case UNKNOWN_HA_STATE:
-                createOnlineServices();
-                startOnlineServices();
-                throw new VoldemortException("Unable to determine (and potentially clean up) the remote HA state. " +
-                        "Voldemort still went online, but further BnP job failures may not be covered by HA.");
-            case NO_STORES_DISABLED:
-                createOnlineServices();
-                startOnlineServices();
-                break;
+        ReadOnlyStoreStatusValidation validation = validateReadOnlyStoreStatusBeforeGoingOnline();
+
+        if (validation.readyToGoOnline) {
+            createOnlineServices();
+            startOnlineServices();
+            getMetadataStore().setOfflineState(false);
+        }
+
+        if (validation.e != null) {
+            throw new VoldemortException("Problem while going online!", validation.e);
         }
     }
 
-    private enum ReadOnlyStoreStatusValidation {
-        NO_STORES_DISABLED,
-        SOME_STORES_DISABLED,
-        UNKNOWN_HA_STATE
+    private class ReadOnlyStoreStatusValidation {
+        /** Whether the server should go online (i.e.: it has no disabled stores) */
+        private final boolean readyToGoOnline;
+        /** Whether the admin operation should return an error (this is orthogonal to whether the server went online or not) */
+        private final Exception e;
+        ReadOnlyStoreStatusValidation(boolean readyToGoOnline, Exception e) {
+            this.readyToGoOnline = readyToGoOnline;
+            this.e = e;
+        }
     }
 
     private ReadOnlyStoreStatusValidation validateReadOnlyStoreStatusBeforeGoingOnline() {
@@ -552,7 +554,7 @@ public class VoldemortServer extends AbstractService {
 
         if (storageEngines.isEmpty()) {
             logger.debug("There are no Read-Only stores on this node.");
-            return ReadOnlyStoreStatusValidation.NO_STORES_DISABLED;
+            return new ReadOnlyStoreStatusValidation(true, null);
         } else {
             List<String> storesWithDisabledVersions = Lists.newArrayList();
             for (StorageEngine storageEngine : storageEngines) {
@@ -573,18 +575,16 @@ public class VoldemortServer extends AbstractService {
                         failedFetchLock.removeObsoleteStateForNode(getVoldemortConfig().getNodeId());
                         logger.info("Successfully ensured that the BnP HA shared state is cleared for this node.");
                     } catch (ClassNotFoundException e) {
-                        logger.error("Failed to find FailedFetchLock class!", e);
-                        return ReadOnlyStoreStatusValidation.UNKNOWN_HA_STATE;
+                        return new ReadOnlyStoreStatusValidation(true, new VoldemortException("Failed to find FailedFetchLock class!", e));
                     } catch (Exception e) {
-                        logger.error("Exception while trying to remove obsolete HA state!", e);
-                        return ReadOnlyStoreStatusValidation.UNKNOWN_HA_STATE;
+                        return new ReadOnlyStoreStatusValidation(true, new VoldemortException("Exception while trying to remove obsolete HA state!", e));
                     } finally {
                         IOUtils.closeQuietly(failedFetchLock);
                     }
                 }
 
                 logger.info("No Read-Only stores are disabled. Going online as planned.");
-                return ReadOnlyStoreStatusValidation.NO_STORES_DISABLED;
+                return new ReadOnlyStoreStatusValidation(true, null);
             } else {
                 // OMG, there are disabled stores!
                 StringBuilder stringBuilder = new StringBuilder();
@@ -599,8 +599,7 @@ public class VoldemortServer extends AbstractService {
                     stringBuilder.append(storeName);
 
                 }
-                logger.warn(stringBuilder.toString());
-                return ReadOnlyStoreStatusValidation.SOME_STORES_DISABLED;
+                return new ReadOnlyStoreStatusValidation(false, new VoldemortException(stringBuilder.toString()));
             }
         }
     }
