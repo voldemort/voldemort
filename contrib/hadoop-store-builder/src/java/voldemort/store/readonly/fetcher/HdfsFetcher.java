@@ -243,7 +243,7 @@ public class HdfsFetcher implements FileFetcher {
                                                                  stats,
                                                                  status,
                                                                  bufferSize);
-            if(isFile) { // We are asked to fetch a directory
+            if(!isFile) { // We are asked to fetch a directory
                 Utils.mkdirs(destination);
                 HdfsDirectory rootDirectory = new HdfsDirectory(fs, rootPath, this.voldemortConfig);
                 List<HdfsDirectory> directoriesToFetch = Lists.newArrayList();
