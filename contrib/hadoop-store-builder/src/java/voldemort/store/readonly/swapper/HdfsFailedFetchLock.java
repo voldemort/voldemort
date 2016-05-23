@@ -87,9 +87,9 @@ public class HdfsFailedFetchLock extends FailedFetchLock {
     private final static String AZKABAN_EXEC_ID = "azkaban.flow.execid";
 
     // Azkaban state
-    private final String flowId = props.getString(AZKABAN_FLOW_ID);
-    private final String jobId = props.getString(AZKABAN_JOB_ID);
-    private final String execId = props.getString(AZKABAN_EXEC_ID);
+    private final String flowId = props.getString(AZKABAN_FLOW_ID, "null." + AZKABAN_FLOW_ID);
+    private final String jobId = props.getString(AZKABAN_JOB_ID, "null." + AZKABAN_JOB_ID);
+    private final String execId = props.getString(AZKABAN_EXEC_ID, "null." + AZKABAN_EXEC_ID);
 
     // Default total try time = 10000 ms timeOut * 360 maxAttempts = 15 minutes
     private final Integer waitBetweenRetries = props.getInt(PUSH_HA_LOCK_HDFS_TIMEOUT, 10000);
