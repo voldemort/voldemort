@@ -2046,8 +2046,32 @@ public class AdminServiceRequestHandler implements RequestHandler {
 
                 if (allNodesToBeDisabled.size() > maxNodeFailure) {
                     // Too many exceptions to tolerate this strategy... let's bail out.
-                    responseMessage = "We cannot use pushHighAvailability because it would bring the total number of " +
-                                         "nodes with disabled stores to more than " + maxNodeFailure + "...";
+                    StringBuilder stringBuilder = new StringBuilder();
+                    stringBuilder.append("We cannot use pushHighAvailability because it would bring the total ");
+                    stringBuilder.append("number of nodes with disabled stores to more than ");
+                    stringBuilder.append(maxNodeFailure);
+                    stringBuilder.append("... alreadyDisabledNodes: [");
+                    boolean firstItem = true;
+                    for (Integer nodeId: alreadyDisabledNodes) {
+                        if (firstItem) {
+                            firstItem = false;
+                        } else {
+                            stringBuilder.append(", ");
+                        }
+                        stringBuilder.append(nodeId);
+                    }
+                    stringBuilder.append("], nodesFailedInThisFetch: [");
+                    firstItem = true;
+                    for (Integer nodeId: nodesFailedInThisFetch) {
+                        if (firstItem) {
+                            firstItem = false;
+                        } else {
+                            stringBuilder.append(", ");
+                        }
+                        stringBuilder.append(nodeId);
+                    }
+                    stringBuilder.append("]");
+                    responseMessage = stringBuilder.toString();
                     logger.error(responseMessage);
                 } else {
                     String nodesString = "node";
