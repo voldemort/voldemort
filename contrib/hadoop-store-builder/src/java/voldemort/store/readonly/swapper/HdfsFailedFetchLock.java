@@ -395,7 +395,7 @@ public class HdfsFailedFetchLock extends FailedFetchLock {
                         this.fileSystem.delete(failedStorePath, true);
                     }
                 } catch (FileNotFoundException e) {
-                    logger.info("The shared state has no obsolete versions in: " + failedStorePath.toString(), e);
+                    logger.info("The shared state has no obsolete versions in: " + failedStorePath.toString());
                 }
 
                 // Let's see if there's still anything left for this node?
@@ -408,7 +408,7 @@ public class HdfsFailedFetchLock extends FailedFetchLock {
                         this.fileSystem.delete(disabledStoresPath, true);
                     }
                 } catch (FileNotFoundException e) {
-                    logger.info("The shared state has no obsolete stores in: " + disabledStoresPath.toString(), e);
+                    logger.info("The shared state has no obsolete stores in: " + disabledStoresPath.toString());
                 }
 
                 success = true;
