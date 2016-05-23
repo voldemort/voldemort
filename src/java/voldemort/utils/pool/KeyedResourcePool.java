@@ -557,9 +557,10 @@ public class KeyedResourcePool<K, V> {
                 skippedExceptionCount++;
                 if(elapsedTime <= excpetionReportTimeMS) {
                     Exception e = entry.getSecond();
-                    logger.info(" Throwing remembered exception. time elapsed (ms) " + elapsedTime
-                                + ". Exception : "
-                                + e.getMessage());
+                    if(logger.isDebugEnabled()) {
+                      logger.debug(" Throwing remembered exception. time elapsed (ms) " + elapsedTime
+                                  + ". Exception : " + e.getMessage());
+                    }
                     throw e;
                 }
             }

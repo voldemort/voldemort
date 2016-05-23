@@ -212,8 +212,10 @@ public class ClientRequestExecutorFactory implements
                                                               new ConnectException(e.getMessage()));
                         }
 
-                        logger.info("Reporting exception to pool " + e.getClass()
-                                    + " for destination " + dest);
+                        if(logger.isDebugEnabled()) {
+                          logger.debug("Reporting exception to pool " + e.getClass()
+                                      + " for destination " + dest);
+                        }
 
                         pool.reportException(dest, e);
                     }
