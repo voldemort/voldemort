@@ -866,6 +866,7 @@ public class VoldemortConfig implements Serializable {
         this.highAvailabilityPushLockImplementation = this.allProps.getString(PUSH_HA_LOCK_IMPLEMENTATION);
         this.highAvailabilityPushMaxNodeFailures = this.allProps.getInt(PUSH_HA_MAX_NODE_FAILURES);
         this.highAvailabilityPushEnabled = this.allProps.getBoolean(PUSH_HA_ENABLED);
+        this.highAvailabilityStateAutoCleanUp = this.allProps.getBoolean(PUSH_HA_STATE_AUTO_CLEANUP);
 
         this.mysqlUsername = this.allProps.getString(MYSQL_USER);
         this.mysqlPassword = this.allProps.getString(MYSQL_PASSWORD);
