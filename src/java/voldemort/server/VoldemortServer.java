@@ -527,9 +527,9 @@ public class VoldemortServer extends AbstractService {
         ReadOnlyStoreStatusValidation validation = validateReadOnlyStoreStatusBeforeGoingOnline();
 
         if (validation.readyToGoOnline) {
+            getMetadataStore().setOfflineState(false);
             createOnlineServices();
             startOnlineServices();
-            getMetadataStore().setOfflineState(false);
         }
 
         if (validation.e != null) {
