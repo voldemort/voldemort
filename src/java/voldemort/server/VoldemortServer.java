@@ -581,6 +581,9 @@ public class VoldemortServer extends AbstractService {
                     } finally {
                         IOUtils.closeQuietly(failedFetchLock);
                     }
+                } else {
+                    logger.info(VoldemortConfig.PUSH_HA_STATE_AUTO_CLEANUP +
+                            "=false, so the server will NOT attempt to delete the HA state for this node, if any.");
                 }
 
                 logger.info("No Read-Only stores are disabled. Going online as planned.");
