@@ -1,3 +1,18 @@
+Release 1.10.16 5/23/2016
+* Lower the node connection errors log to debug level
+* Cleanup the HA state in HDFS directory during online state transition
+* Option to fetch single store in bootstrap
+* Fix Client shell reports exception on closing
+* Print more info when cluster metadata check fails
+* Route the system store to current zone only
+* Reliable way to set the quota for stores.
+* Add retry for Hdfs isFile call
+* Remove support for num.chunks in the Build and Push
+* ReplaceNode CLI test enhancement
+* Include quota check in metadata check
+* DataCleanup job picks up latest information for stores
+* Gradle task tar/zip fixes
+
 Release 1.10.15 4/18/2016
 * Set-Metadata null Version error
 * Multi module gradle build for voldemort
