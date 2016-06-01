@@ -49,6 +49,7 @@ import org.apache.log4j.Logger;
 import voldemort.VoldemortException;
 import voldemort.client.ClientConfig;
 import voldemort.client.protocol.admin.AdminClient;
+import voldemort.client.protocol.admin.AdminClientConfig;
 import voldemort.client.protocol.pb.VAdminProto;
 import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
@@ -194,9 +195,11 @@ public class VoldemortBuildAndPushJob extends AbstractJob {
                 if (clusterURLs.contains(url))
                     throw new VoldemortException("the URL: " + url + " is duplicated. Please check it out.");
                 this.clusterURLs.add(url);
-                AdminClient adminClient = new AdminClient(new ClientConfig().setBootstrapUrls(url)
-                                                                            .setConnectionTimeout(15,
-                                                                                                  TimeUnit.SECONDS));
+                ClientConfig config = new ClientConfig().setBootstrapUrls(url)
+                                    .setConnectionTimeout(15,TimeUnit.SECONDS);
+                
+                AdminClientConfig adminConfig = new AdminClientConfig().setAdminSocketTimeoutSec(60);
+                AdminClient adminClient = new AdminClient(adminConfig, config);
                 this.adminClientPerCluster.put(url, adminClient);
                 this.closeables.add(adminClient);
             }
