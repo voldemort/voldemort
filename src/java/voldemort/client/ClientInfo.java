@@ -21,9 +21,11 @@ import java.io.IOException;
 import java.io.Serializable;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
+import java.util.Arrays;
 import java.util.concurrent.TimeUnit;
 
 import org.apache.log4j.Logger;
+
 
 /**
  * A collection of voldemort client side information what will be populated into
@@ -207,11 +209,11 @@ public class ClientInfo implements Serializable {
          * client_zone_id, failuredetector_implementation
          * 
          */
+        builder.append("bootstrap_urls=")
+               .append(Arrays.toString(this.config.getBootstrapUrls()))
+               .append("\n");
         builder.append("max_connections=")
                .append(this.config.getMaxConnectionsPerNode())
-               .append("\n");
-        builder.append("max_total_connections=")
-               .append(this.config.getMaxTotalConnections())
                .append("\n");
         builder.append("connection_timeout_ms=")
                .append(this.config.getConnectionTimeout(TimeUnit.MILLISECONDS))
@@ -237,6 +239,12 @@ public class ClientInfo implements Serializable {
                .append("\n");
         builder.append("failuredetector_threshold_async_recovery_interval=")
                .append(this.config.getFailureDetectorAsyncRecoveryInterval())
+               .append("\n");
+        builder.append("fetch_all_stores_xml_in_bootstrap=")
+               .append(this.config.isFetchAllStoresXmlInBootstrap())
+               .append("\n");
+        builder.append("idle_connection_timeout_minutes=")
+               .append(this.config.getIdleConnectionTimeout(TimeUnit.MINUTES))
                .append("\n");
 
         return builder.toString();

@@ -19,9 +19,9 @@ package voldemort.client;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
-import static org.junit.Assert.fail;
 
 import java.io.ByteArrayInputStream;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
@@ -33,6 +33,7 @@ import org.junit.Before;
 import org.junit.Test;
 
 import voldemort.ServerTestUtils;
+import voldemort.VoldemortException;
 import voldemort.client.protocol.admin.AdminClient;
 import voldemort.cluster.Cluster;
 import voldemort.serialization.DefaultSerializerFactory;
@@ -117,7 +118,6 @@ public class ClientRegistryTest {
     public void testHappyPath() {
         List<Integer> emptyPartitionList = Lists.newArrayList();
         ClientConfig clientConfig = new ClientConfig().setMaxThreads(4)
-                                                      .setMaxTotalConnections(4)
                                                       .setMaxConnectionsPerNode(4)
                                                       .setBootstrapUrls(SERVER_LOCAL_URL
                                                                         + serverPorts[0])
@@ -797,34 +797,32 @@ public class ClientRegistryTest {
                                                                           .getValue());
             Properties props = new Properties();
             try {
-
                 props.load(new ByteArrayInputStream(clientInfoString.getBytes()));
-
-                ClientConfig clientConfig = new ClientConfig();
-                clientConfig.setMaxConnectionsPerNode(Integer.parseInt(props.getProperty("max_connections")))
-                            .setMaxTotalConnections(Integer.parseInt(props.getProperty("max_total_connections")))
-                            .setRoutingTimeout(Integer.parseInt(props.getProperty("routing_timeout_ms")),
-                                               TimeUnit.MILLISECONDS)
-                            .setConnectionTimeout(Integer.parseInt(props.getProperty("connection_timeout_ms")),
-                                                  TimeUnit.MILLISECONDS)
-                            .setSocketTimeout(Integer.parseInt(props.getProperty("socket_timeout_ms")),
-                                              TimeUnit.MILLISECONDS)
-                            .setClientZoneId(Integer.parseInt(props.getProperty("client_zone_id")))
-                            .setFailureDetectorImplementation(props.getProperty("failuredetector_implementation"));
-
-                ClientInfo cInfo = new ClientInfo(props.getProperty("storeName"),
-                                                  props.getProperty("context"),
-                                                  Integer.parseInt(props.getProperty("sequence")),
-                                                  Long.parseLong(props.getProperty("bootstrapTime")),
-                                                  props.getProperty("releaseVersion"),
-                                                  clientConfig);
-                cInfo.setUpdateTime(Long.parseLong(props.getProperty("updateTime")));
-                cInfo.setDeploymentPath(props.getProperty("deploymentPath"));
-                cInfo.setLocalHostName(props.getProperty("localHostName"));
-                infoList.add(cInfo);
-            } catch(Exception e) {
-                fail("Error in retrieving Client Info: " + e);
+            } catch(IOException ex) {
+                throw new VoldemortException("Error loading clientInfo " + props.toString(), ex);
             }
+
+            ClientConfig clientConfig = new ClientConfig();
+            clientConfig.setMaxConnectionsPerNode(Integer.parseInt(props.getProperty("max_connections")))
+                        .setRoutingTimeout(Integer.parseInt(props.getProperty("routing_timeout_ms")),
+                                           TimeUnit.MILLISECONDS)
+                        .setConnectionTimeout(Integer.parseInt(props.getProperty("connection_timeout_ms")),
+                                              TimeUnit.MILLISECONDS)
+                        .setSocketTimeout(Integer.parseInt(props.getProperty("socket_timeout_ms")),
+                                          TimeUnit.MILLISECONDS)
+                        .setClientZoneId(Integer.parseInt(props.getProperty("client_zone_id")))
+                        .setFailureDetectorImplementation(props.getProperty("failuredetector_implementation"));
+
+            ClientInfo cInfo = new ClientInfo(props.getProperty("storeName"),
+                                              props.getProperty("context"),
+                                              Integer.parseInt(props.getProperty("sequence")),
+                                              Long.parseLong(props.getProperty("bootstrapTime")),
+                                              props.getProperty("releaseVersion"),
+                                              clientConfig);
+            cInfo.setUpdateTime(Long.parseLong(props.getProperty("updateTime")));
+            cInfo.setDeploymentPath(props.getProperty("deploymentPath"));
+            cInfo.setLocalHostName(props.getProperty("localHostName"));
+            infoList.add(cInfo);
         }
         return infoList;
     }
@@ -839,7 +837,6 @@ public class ClientRegistryTest {
 
     private boolean isConfigEqual(ClientConfig received, ClientConfig expected) {
         return (received.getMaxConnectionsPerNode() == expected.getMaxConnectionsPerNode()
-                && received.getMaxTotalConnections() == expected.getMaxTotalConnections()
                 && received.getRoutingTimeout(TimeUnit.MILLISECONDS) == expected.getRoutingTimeout(TimeUnit.MILLISECONDS)
                 && received.getSocketTimeout(TimeUnit.MILLISECONDS) == expected.getSocketTimeout(TimeUnit.MILLISECONDS)
                 && received.getConnectionTimeout(TimeUnit.MILLISECONDS) == expected.getConnectionTimeout(TimeUnit.MILLISECONDS)
