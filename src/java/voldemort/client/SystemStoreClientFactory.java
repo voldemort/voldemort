@@ -46,6 +46,7 @@ public class SystemStoreClientFactory<K, V> {
             identifierString = "system";
         }
 
+        long idleConnectionTimeout = clientConfig.getIdleConnectionTimeout(TimeUnit.MILLISECONDS);
         systemStoreConfig.setSelectors(1)
                          .setBootstrapUrls(clientConfig.getBootstrapUrls())
                          .setMaxConnectionsPerNode(clientConfig.getSysMaxConnectionsPerNode())
@@ -53,6 +54,7 @@ public class SystemStoreClientFactory<K, V> {
                                                TimeUnit.MILLISECONDS)
                          .setSocketTimeout(clientConfig.getSysSocketTimeout(),
                                            TimeUnit.MILLISECONDS)
+                         .setIdleConnectionTimeout(idleConnectionTimeout, TimeUnit.MILLISECONDS)
                          .setRoutingTimeout(clientConfig.getSysRoutingTimeout(),
                                             TimeUnit.MILLISECONDS)
                          .setEnableJmx(clientConfig.getSysEnableJmx())

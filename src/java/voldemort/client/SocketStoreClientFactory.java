@@ -66,6 +66,7 @@ public class SocketStoreClientFactory extends AbstractStoreClientFactory {
                                                           config.getMaxConnectionsPerNode(),
                                                           config.getConnectionTimeout(TimeUnit.MILLISECONDS),
                                                           config.getSocketTimeout(TimeUnit.MILLISECONDS),
+                                                          config.getIdleConnectionTimeout(TimeUnit.MILLISECONDS),
                                                           config.getSocketBufferSize(),
                                                           config.getSocketKeepAlive(),
                                                           config.isJmxEnabled(),

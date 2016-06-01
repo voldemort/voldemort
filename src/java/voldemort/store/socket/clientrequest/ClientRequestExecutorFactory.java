@@ -58,6 +58,7 @@ public class ClientRequestExecutorFactory implements
     private static final int SHUTDOWN_TIMEOUT_MS = 15000;
     private final int connectTimeoutMs;
     private final int soTimeoutMs;
+    private final long idleConnectionTimeoutNs;
     private final int socketBufferSize;
     private final AtomicInteger created;
     private final AtomicInteger destroyed;
@@ -72,6 +73,7 @@ public class ClientRequestExecutorFactory implements
     public ClientRequestExecutorFactory(int selectors,
                                         int connectTimeoutMs,
                                         int soTimeoutMs,
+                                        long idleConnectionTimeoutMs,
                                         int socketBufferSize,
                                         boolean socketKeepAlive,
                                         ClientSocketStats stats,
@@ -79,6 +81,11 @@ public class ClientRequestExecutorFactory implements
                                         ClientRequestExecutorPool executorPool) {
         this.connectTimeoutMs = connectTimeoutMs;
         this.soTimeoutMs = soTimeoutMs;
+        if (idleConnectionTimeoutMs > 0) {
+            this.idleConnectionTimeoutNs = TimeUnit.NANOSECONDS.convert(idleConnectionTimeoutMs, TimeUnit.MILLISECONDS);
+        } else {
+            this.idleConnectionTimeoutNs = -1;
+        }
         this.created = new AtomicInteger(0);
         this.destroyed = new AtomicInteger(0);
         this.socketBufferSize = socketBufferSize;
@@ -167,6 +174,7 @@ public class ClientRequestExecutorFactory implements
             clientRequestExecutor = new ClientRequestExecutor(selector,
                                                               socketChannel,
                                                               socketBufferSize,
+                                                              idleConnectionTimeoutNs,
                                                               dest);
             int timeoutMs = this.getTimeout();
 

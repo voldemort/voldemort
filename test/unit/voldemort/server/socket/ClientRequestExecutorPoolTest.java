@@ -17,6 +17,8 @@
 package voldemort.server.socket;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotSame;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
@@ -71,6 +73,7 @@ public class ClientRequestExecutorPoolTest {
     private NonRespondingSocketService nonRespondingServer;
     private static final int SOCKET_TIMEOUT_MS = 1000;
     private static final int CONNECTION_TIMEOUT_MS = 1500;
+    private static final long IDLE_CONNECTION_TIMEOUT_MS = -1;
 
     private final boolean useNio;
 
@@ -90,6 +93,7 @@ public class ClientRequestExecutorPoolTest {
                                                   maxConnectionsPerNode,
                                                   CONNECTION_TIMEOUT_MS,
                                                   SOCKET_TIMEOUT_MS,
+                                                  IDLE_CONNECTION_TIMEOUT_MS,
                                                   32 * 1024,
                                                   false,
                                                   true,
@@ -129,7 +133,7 @@ public class ClientRequestExecutorPoolTest {
         this.server.start();
     }
 
-    private void validateResourceCount(String message, int expected) {
+    private void validateResourceCount(ClientRequestExecutorPool pool, String message, int expected) {
         int numConnections = pool.internalGetQueuedPool().getCheckedInResourcesCount(dest1);
         assertEquals(message, expected, numConnections);
         int totalResourceCount = pool.internalGetQueuedPool().getTotalResourceCount(dest1);
@@ -152,7 +156,7 @@ public class ClientRequestExecutorPoolTest {
         pool.checkin(dest1, sas1);
         pool.checkin(dest1, sas2);
 
-        validateResourceCount("Dead connections should have been cleared on checkin", 0);
+        validateResourceCount(pool, "Dead connections should have been cleared on checkin", 0);
     }
 
     @Test
@@ -163,18 +167,18 @@ public class ClientRequestExecutorPoolTest {
         pool.checkin(dest1, sas1);
         pool.checkin(dest1, sas2);
 
-        validateResourceCount("two connections are created ", 2);
+        validateResourceCount(pool, "two connections are created ", 2);
 
         stopServer();
 
-        validateResourceCount("cache should have 2 dead connections ", 2);
+        validateResourceCount(pool, "cache should have 2 dead connections ", 2);
 
         // It takes few milliseconds for the selector to wake-up and clear
         // connections
         Thread.sleep(5);
         testConnectionFailure(pool, dest1, ConnectException.class);
 
-        validateResourceCount("next checkout should have cleared all dead connections", 0);
+        validateResourceCount(pool, "next checkout should have cleared all dead connections", 0);
 
         startServer();
 
@@ -184,7 +188,7 @@ public class ClientRequestExecutorPoolTest {
         pool.checkin(dest1, sas1);
         pool.checkin(dest1, sas2);
 
-        validateResourceCount("Back to normal 2 connections expected ", 2);
+        validateResourceCount(pool, "Back to normal 2 connections expected ", 2);
     }
 
     @Test
@@ -316,11 +320,77 @@ public class ClientRequestExecutorPoolTest {
                                                                           maxConnectionsPerNode,
                                                                           50,   //Connection timeout
                                                                           0,    // Socket timeout, 0 milliseconds :)
+                                                                          IDLE_CONNECTION_TIMEOUT_MS,
                                                                           32 * 1024,
                                                                           false,
-                                                                          true,
+                                                                              true,
                                                                           new String());
         testConnectionFailure(timeoutPool, dest1, ConnectException.class);
+    }
+
+    @Test
+    public void testIdleConnectionTimeout() throws Exception {
+        long idleConnectionTimeoutMs = 1000;
+        ClientRequestExecutorPool execPool = new ClientRequestExecutorPool(2,
+                                                                           maxConnectionsPerNode,
+                                                                           CONNECTION_TIMEOUT_MS,
+                                                                           SOCKET_TIMEOUT_MS,
+                                                                           idleConnectionTimeoutMs,
+                                                                           32 * 1024,
+                                                                           false,
+                                                                           true,
+                                                                           new String());
+
+        List<ClientRequestExecutor> executors = new ArrayList<ClientRequestExecutor>();
+        for (int i = 0; i < maxConnectionsPerNode; i++) {
+            executors.add(execPool.checkout(dest1));
+        }
+
+        for (ClientRequestExecutor executor : executors) {
+            execPool.checkin(dest1, executor);
+        }
+
+        validateResourceCount(execPool, " checkout should have created " + maxConnectionsPerNode, maxConnectionsPerNode);
+        // Selector only wakes up every few seconds
+        Thread.sleep(idleConnectionTimeoutMs + 1000);
+
+        // All existing connections are marked as invalid by selector
+        // This call will create new connection.
+        ClientRequestExecutor exec1 = execPool.checkout(dest1);
+
+        for (ClientRequestExecutor executor : executors) {
+            assertNotSame("Connections should have been destroyed and new one expected", exec1, executor);
+        }
+        execPool.checkin(dest1, exec1);
+        validateResourceCount(execPool, " all idle connections should have been destroyed ", 1);
+    }
+
+    @Test
+    public void testIsValidConnectionIdleTimeout() throws Exception {
+        long idleConnectionTimeoutMs = 200;
+        ClientRequestExecutorPool execPool = new ClientRequestExecutorPool(2,
+                                                                           maxConnectionsPerNode,
+                                                                           CONNECTION_TIMEOUT_MS,
+                                                                           SOCKET_TIMEOUT_MS,
+                                                                           idleConnectionTimeoutMs,
+                                                                           32 * 1024,
+                                                                           false,
+                                                                           true,
+                                                                           new String());
+
+        ClientRequestExecutor clientRequest = execPool.checkout(dest1);
+
+        assertTrue("Connection checked out is valid", execPool.getFactory().validate(dest1, clientRequest));
+
+        Thread.sleep(idleConnectionTimeoutMs);
+
+        assertFalse("Idle connection will expire", execPool.getFactory().validate(dest1, clientRequest));
+
+    }
+
+    @Test
+    public void testInUseConnectionIsNeverIdle() throws Exception {
+
     }
 
     @Test
@@ -330,12 +400,19 @@ public class ClientRequestExecutorPoolTest {
                                                                               MAX_CONNECTIONS,
                                                                               CONNECTION_TIMEOUT_MS,
                                                                               SOCKET_TIMEOUT_MS,
+                                                                              IDLE_CONNECTION_TIMEOUT_MS,
                                                                               32 * 1024,
                                                                               false,
                                                                               true,
                                                                               new String());
 
-        for(int i = 0; i < MAX_CONNECTIONS; i++) {
+        // Once connections are checked out, calling close don't destroy them.
+        // They are destroyed, when they are checked in to the pool.
+        // In practice, all checked out connections are returned, so this is not
+        // a problem.
+        // Exhaust the connection pool here, so that all the subsequent requests
+        // will always wait in the queue.
+        for (int i = 0; i < MAX_CONNECTIONS; i++) {
             execPool.checkout(dest1);
         }
 
@@ -429,6 +506,7 @@ public class ClientRequestExecutorPoolTest {
                                                                               maxConnectionsPerNode,
                                                                               CURRENT_CONNECTION_TIMEOUT,
                                                                               CURRENT_CONNECTION_TIMEOUT,
+                                                                              IDLE_CONNECTION_TIMEOUT_MS,
                                                                               32 * 1024,
                                                                               false,
                                                                               true,

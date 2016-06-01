@@ -26,6 +26,7 @@ public class TestSocketStoreFactory extends ClientRequestExecutorPool {
     static final Integer DEFAULT_CONNECTION_TIMEOUT_MS = 10000;
     static final Integer DEFAULT_SO_TIMEOUT_MS = 100000;
     static final Integer DEFAULT_SOCKET_BUFFER_SIZE = 1024;
+    static final long DEFAULT_IDLE_CONNECTION_TIMEOUT_MS = -1;
     static final ClientConfig DEFAULT_CLIENT_CONFIG = new ClientConfig();
 
     public TestSocketStoreFactory() {
@@ -33,6 +34,7 @@ public class TestSocketStoreFactory extends ClientRequestExecutorPool {
               DEFAULT_MAX_CONNECTIONS_PER_NODE,
               DEFAULT_CONNECTION_TIMEOUT_MS,
               DEFAULT_SO_TIMEOUT_MS,
+              DEFAULT_IDLE_CONNECTION_TIMEOUT_MS,
               DEFAULT_SOCKET_BUFFER_SIZE,
               DEFAULT_SOCKET_KEEP_ALIVE,
               DEFAULT_JMX_ENABLED,

@@ -58,6 +58,7 @@ public class ClientRequestExecutorPool implements SocketStoreFactory {
     public static final Boolean DEFAULT_SOCKET_KEEP_ALIVE = false;
     public static final Boolean DEFAULT_JMX_ENABLED = false;
     public static final String DEFAULT_IDENTIFIER_STRING = "";
+    public static final long DEFAULT_IDLE_CONNECTION_TIMEOUT_MS  = -1 ; //Disabled by default.
 
     private final QueuedKeyedResourcePool<SocketDestination, ClientRequestExecutor> queuedPool;
     private final ClientRequestExecutorFactory factory;
@@ -76,6 +77,7 @@ public class ClientRequestExecutorPool implements SocketStoreFactory {
                                      int maxConnectionsPerNode,
                                      int connectionTimeoutMs,
                                      int soTimeoutMs,
+                                     long idleConnectionTimeoutMs,
                                      int socketBufferSize,
                                      boolean socketKeepAlive,
                                      boolean jmxEnabled,
@@ -96,6 +98,7 @@ public class ClientRequestExecutorPool implements SocketStoreFactory {
         this.factory = new ClientRequestExecutorFactory(selectors,
                                                         connectionTimeoutMs,
                                                         soTimeoutMs,
+                                                        idleConnectionTimeoutMs,
                                                         socketBufferSize,
                                                         socketKeepAlive,
                                                         stats,
@@ -120,6 +123,7 @@ public class ClientRequestExecutorPool implements SocketStoreFactory {
              maxConnectionsPerNode,
              connectionTimeoutMs,
              soTimeoutMs,
+             DEFAULT_IDLE_CONNECTION_TIMEOUT_MS,
              socketBufferSize,
              socketKeepAlive,
              DEFAULT_JMX_ENABLED,
@@ -137,6 +141,7 @@ public class ClientRequestExecutorPool implements SocketStoreFactory {
              maxConnectionsPerNode,
              connectionTimeoutMs,
              soTimeoutMs,
+             DEFAULT_IDLE_CONNECTION_TIMEOUT_MS,
              socketBufferSize,
              socketKeepAlive,
              DEFAULT_JMX_ENABLED,
@@ -152,6 +157,7 @@ public class ClientRequestExecutorPool implements SocketStoreFactory {
              maxConnectionsPerNode,
              connectionTimeoutMs,
              soTimeoutMs,
+             DEFAULT_IDLE_CONNECTION_TIMEOUT_MS,
              socketBufferSize,
              DEFAULT_SOCKET_KEEP_ALIVE,
              DEFAULT_JMX_ENABLED,

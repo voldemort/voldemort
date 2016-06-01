@@ -93,6 +93,7 @@ public class HintedHandoffSendHintTest {
     private final static int KEY_LENGTH = 32;
     private final static int VALUE_LENGTH = 32;
     private final static int SOCKET_TIMEOUT_MS = 500;
+    private final static long IDLE_CONNECTION_TIMEOUT_MS = -1;
 
     private final Class<? extends FailureDetector> failureDetectorCls = ThresholdFailureDetector.class;
     private final HintedHandoffStrategyType hintRoutingStrategy;
@@ -129,6 +130,7 @@ public class HintedHandoffSendHintTest {
                                                          config.getMaxConnectionsPerNode(),
                                                          config.getConnectionTimeout(TimeUnit.MILLISECONDS),
                                                          SOCKET_TIMEOUT_MS,
+                                                         IDLE_CONNECTION_TIMEOUT_MS,
                                                          config.getSocketBufferSize(),
                                                          config.getSocketKeepAlive(),
                                                          false,

@@ -60,14 +60,17 @@ public class ClientRequestExecutor extends SelectorManagerWorker implements Clos
     private boolean isExpired;
     protected ByteBufferContainer bufferContainer;
     private final SocketDestination socketDesination;
+    private final long idleConnectionTimeoutNs;
 
     public ClientRequestExecutor(Selector selector,
                                  SocketChannel socketChannel,
                                  int socketBufferSize,
+                                 long idleConnectionTimeoutNs,
                                  SocketDestination socketDesination) {
         // Not tracking or exposing the comm buffer statistics for now
         super(selector, socketChannel, socketBufferSize);
         isExpired = false;
+        this.idleConnectionTimeoutNs = idleConnectionTimeoutNs;
 
         initializeStreams(socketBufferSize, new CommBufferSizeStats());
         if(this.inputStream == null || this.outputStream == null) {
@@ -81,30 +84,56 @@ public class ClientRequestExecutor extends SelectorManagerWorker implements Clos
         return socketChannel;
     }
 
+    private boolean isIdleConnectionTimeoutExceeded() {
+        if (idleConnectionTimeoutNs > 0) {
+            long elapsedTime = System.nanoTime() - startTime;
+            if (elapsedTime > idleConnectionTimeoutNs) {
+                logger.warn("Idle connection " + socketChannel.socket() + " exceeded for destination "
+                        + socketDesination + ". Start time(ns) " + startTime + " timeout (ns) "
+                        + idleConnectionTimeoutNs + " elapsed time(ns) " + elapsedTime);
+                return true;
+            }
+        }
+        return false;
+    }
+
     public boolean isValid() {
         if(isClosed())
             return false;
 
         Socket s = socketChannel.socket();
-        return !s.isClosed() && s.isBound() && s.isConnected();
+        boolean isValidSocket = !s.isClosed() && s.isBound() && s.isConnected();
+        if(!isValidSocket) {
+            return false;
+        }
+
+        if (isIdleConnectionTimeoutExceeded()) {
+            return false;
+        }
+        return true;
+
     }
 
     public synchronized boolean checkTimeout() {
-        if(expiration <= 0)
-            return true;
+        if (expiration <= 0) {
+            if (!isIdleConnectionTimeoutExceeded()) {
+                return true;
+            }
+        } else {
+            long nowNs = System.nanoTime();
+            if (nowNs <= expiration)
+                return true;
 
-        long nowNs = System.nanoTime();
-        if(nowNs <= expiration)
-            return true;
-
-        if(logger.isEnabledFor(Level.WARN)) {
-            long allowedTime = expiration - startTime;
-            long elapsedTime = nowNs - startTime;
-            logger.warn("Client request associated with " + socketChannel.socket()
-                        + " Destination " + socketDesination + " timed out. Start time(ns) "
-                        + startTime + " allowed time(ns) "
+            if (logger.isEnabledFor(Level.WARN)) {
+                long allowedTime = expiration - startTime;
+                long elapsedTime = nowNs - startTime;
+                logger.warn("Client request associated with " + socketChannel.socket() + " Destination "
+                        + socketDesination + " timed out. Start time(ns) " + startTime + " allowed time(ns) "
                         + allowedTime + " elapsed time(ns) " + elapsedTime);
+            }
         }
+
+
         isExpired = true;
         close();
 
