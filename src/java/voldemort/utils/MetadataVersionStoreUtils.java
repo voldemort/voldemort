@@ -80,7 +80,12 @@ public class MetadataVersionStoreUtils {
             return prop1;
         }
 
-        Properties result = new Properties(prop1);
+        Properties result = new Properties();
+
+        for(String propName: prop1.stringPropertyNames()) {
+            result.setProperty(propName, prop1.getProperty(propName));
+        }
+
         for(String propName: prop2.stringPropertyNames()) {
             String currValue = result.getProperty(propName);
             long currlValue = tryParse(currValue);
