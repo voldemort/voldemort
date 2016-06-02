@@ -1,3 +1,9 @@
+Release 1.10.17 6/1/2016
+* Add additional debug info to client registry
+* Fix Admin Connection/Socket timeout from Bnp
+* Add idle connection timeout feature for Voldemort clients.
+* Don't use Properties(properties) constructor in Voldemort
+
 Release 1.10.16 5/23/2016
 * Lower the node connection errors log to debug level
 * Cleanup the HA state in HDFS directory during online state transition
