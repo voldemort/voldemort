@@ -531,31 +531,40 @@ public class MetadataStore extends AbstractStorageEngine<ByteArray, byte[], byte
             String key = ByteUtils.getString(keyBytes.get(), "UTF-8");
 
             if(METADATA_KEYS.contains(key) || this.storeNames.contains(key)) {
-                List<Versioned<byte[]>> values = Lists.newArrayList();
+                try {
+                    List<Versioned<byte[]>> values = Lists.newArrayList();
 
-                // Get the cached value and convert to string
-                Versioned<String> value = convertObjectToString(key, metadataCache.get(key));
+                    // Get the cached value and convert to string
+                    Versioned<String> value = convertObjectToString(key, metadataCache.get(key));
 
-                // Metadata debugging information
-                if(logger.isTraceEnabled())
-                    logger.trace("Key " + key + " requested, returning: " + value.getValue());
+                    // Metadata debugging information
+                    if(logger.isTraceEnabled())
+                        logger.trace("Key " + key + " requested, returning: " + value.getValue());
 
-                values.add(new Versioned<byte[]>(ByteUtils.getBytes(value.getValue(), "UTF-8"),
-                                                 value.getVersion()));
+                    values.add(new Versioned<byte[]>(ByteUtils.getBytes(value.getValue(), "UTF-8"),
+                                                     value.getVersion()));
 
-                return values;
+                    return values;
+                } catch(Exception e) {
+                    throw new VoldemortException("Failed to read metadata key:"
+                                                         + ByteUtils.getString(keyBytes.get(),
+                                                                               "UTF-8")
+                                                         + " delete config/.temp config/.version directories and restart.",
+                                                 e);
+                }
             } else {
-                throw new VoldemortException("Unhandled Key:" + key + " for MetadataStore get()");
+               // This exception can be thrown in two cases.
+               // 1. An operator running vadmin.sh meta get <key> mistype the <key>
+               // 2. Client doing getStoreClient passed in a store name that does not exist
+               // Since there is no way to tell the difference between 1&2, the error message
+               // is focused on use case 2. In the future, if that is a problem the error message
+               // can be made to reflect both the cases.
+                throw new VoldemortException("Store " + key + " does not exist on node "
+                                             + this.getNodeId());
             }
-        } catch(Exception e) {
-            throw new VoldemortException("Failed to read metadata key:"
-                                                 + ByteUtils.getString(keyBytes.get(), "UTF-8")
-                                                 + " delete config/.temp config/.version directories and restart.",
-                                         e);
         } finally {
             readLock.unlock();
         }
-
     }
 
     public List<Versioned<byte[]>> get(String key, String transforms) throws VoldemortException {
