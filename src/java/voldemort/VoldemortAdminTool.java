@@ -951,15 +951,18 @@ public class VoldemortAdminTool {
             Utils.croak("Store " + storeName + " not in cluster.");
         }
 
-        adminClient.quotaMgmtOps.unsetQuota(storeName, quotaType);
+        adminClient.quotaMgmtOps.unsetQuota(storeName, QuotaType.valueOf(quotaType));
     }
 
-    private static void executeGetQuota(AdminClient adminClient, String storeName, String quotaType) {
+    private static void executeGetQuota(AdminClient adminClient,
+                                        String storeName,
+                                        String quotaType) {
         if(!adminClient.helperOps.checkStoreExistsInCluster(storeName)) {
             Utils.croak("Store " + storeName + " not in cluster.");
         }
 
-        Versioned<String> quotaVal = adminClient.quotaMgmtOps.getQuota(storeName, quotaType);
+        Versioned<String> quotaVal = adminClient.quotaMgmtOps.getQuota(storeName,
+                                                                       QuotaType.valueOf(quotaType));
         if(quotaVal == null) {
             System.out.println("No quota set for " + quotaType + " on store " + storeName);
         } else {

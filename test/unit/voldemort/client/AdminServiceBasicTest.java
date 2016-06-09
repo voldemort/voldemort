@@ -536,7 +536,7 @@ public class AdminServiceBasicTest {
     
     private void validateQuota(String storeName){
       AdminClient adminClient = getAdminClient();
-      Versioned<String> value = adminClient.quotaMgmtOps.getQuota(storeName, QuotaType.STORAGE_SPACE.toString());
+      Versioned<String> value = adminClient.quotaMgmtOps.getQuota(storeName, QuotaType.STORAGE_SPACE);
       assertEquals("Default storage quota does not match", Long.toString(defaultStoreQuota), value.getValue());
     }
 

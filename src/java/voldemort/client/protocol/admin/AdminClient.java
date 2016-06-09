@@ -4816,38 +4816,55 @@ public class AdminClient implements Closeable {
         }
 
         public void setQuota(String storeName, QuotaType quotaType, long quota) {
+            RuntimeException lastEx = null;
+            List<Integer> failedNodes = new ArrayList<Integer>();
             for(Integer id: currentCluster.getNodeIds()) {
-              setQuotaForNode(storeName , quotaType, id, quota);
+                try {
+                    setQuotaForNode(storeName, quotaType, id, quota);
+                } catch(RuntimeException ex) {
+                    lastEx = ex;
+                    failedNodes.add(id);
+                    logger.info("Setting Quota on Store " + storeName + " Type " + quotaType
+                                + " value " + quota + " failed. Reason " + ex.getMessage());
+                }
+            }
+
+            if(lastEx != null) {
+                logger.info("Setting Quota failed on Nodes "
+                            + Arrays.toString(failedNodes.toArray()));
+                throw lastEx;
             }
         }
 
-        public void unsetQuota(String storeName, String quotaType) {
-            quotaSysStoreClient.deleteSysStore(QuotaUtils.makeQuotaKey(storeName,
-                                                                       QuotaType.valueOf(quotaType)));
+        public void unsetQuota(String storeName, QuotaType quotaType) {
+            String quotaKey = QuotaUtils.makeQuotaKey(storeName, quotaType);
+            quotaSysStoreClient.deleteSysStore(quotaKey);
             logger.info("Unset quota " + quotaType + " for store " + storeName);
         }
 
-        public Versioned<String> getQuota(String storeName, String quotaType) {
-            return quotaSysStoreClient.getSysStore(QuotaUtils.makeQuotaKey(storeName,
-                                                                           QuotaType.valueOf(quotaType)));
+        public Versioned<String> getQuota(String storeName, QuotaType quotaType) {
+            String quotaKey = QuotaUtils.makeQuotaKey(storeName, quotaType);
+            return quotaSysStoreClient.getSysStore(quotaKey);
         }
 
         public void setQuotaForNode(String storeName, QuotaType quotaType, Integer nodeId, Long quota) {
+            String quotaKey = QuotaUtils.makeQuotaKey(storeName, quotaType);
+            ByteArray keyArray;
             try {
-                String quotaKey = QuotaUtils.makeQuotaKey(storeName, quotaType);
-                ByteArray keyArray = new ByteArray(quotaKey.getBytes("UTF8"));
-                VectorClock clock = makeDenseClock();
-                byte[] valueArray = ByteUtils.getBytes(quota.toString(),"UTF8");
-                Versioned<byte[]> value = new Versioned<byte[]>( valueArray, clock);
-
-                NodeValue<ByteArray, byte[]> nodeKeyValue = new NodeValue<ByteArray, byte[]>(nodeId,
-                                                                                             keyArray,
-                                                                                             value);
-                storeOps.putNodeKeyValue(SystemStoreConstants.SystemStoreName.voldsys$_store_quotas.name(),
-                                         nodeKeyValue);
+                keyArray = new ByteArray(quotaKey.getBytes("UTF8"));
             } catch(UnsupportedEncodingException e) {
                 throw new VoldemortException(e);
             }
+
+            VectorClock clock = makeDenseClock();
+            byte[] valueArray = ByteUtils.getBytes(quota.toString(), "UTF8");
+            Versioned<byte[]> value = new Versioned<byte[]>(valueArray, clock);
+
+            NodeValue<ByteArray, byte[]> nodeKeyValue = new NodeValue<ByteArray, byte[]>(nodeId,
+                                                                                         keyArray,
+                                                                                         value);
+            storeOps.putNodeKeyValue(SystemStoreConstants.SystemStoreName.voldsys$_store_quotas.name(),
+                                     nodeKeyValue);
         }
         
         public boolean deleteQuotaForNode(String storeName, QuotaType quotaType, Integer nodeId) {

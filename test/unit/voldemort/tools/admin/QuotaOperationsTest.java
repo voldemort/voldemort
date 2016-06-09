@@ -35,7 +35,7 @@ import voldemort.cluster.Node;
 import voldemort.server.VoldemortConfig;
 import voldemort.server.VoldemortServer;
 import voldemort.store.StoreDefinition;
-import voldemort.store.quota.QuotaUtils;
+import voldemort.store.quota.QuotaType;
 import voldemort.store.socket.SocketStoreFactory;
 import voldemort.store.socket.clientrequest.ClientRequestExecutorPool;
 import voldemort.tools.admin.command.AdminCommand;
@@ -82,30 +82,31 @@ public class QuotaOperationsTest {
         }
         adminClient = new AdminClient(cluster);
         storeName = stores.iterator().next().getName();
-        quotaType = QuotaUtils.validQuotaTypes().iterator().next();
     }
 
     @Test
     public void testQuotaSetAndUnset() throws Exception {
-        String quotaValueToSet = "1000";
+        for(QuotaType quotaType: QuotaType.values()) {
+            String quotaValueToSet = "1000";
 
-        // set quota value
-        AdminCommand.executeCommand(new String[] { "quota", "set",
-                quotaType + "=" + quotaValueToSet, "-s", storeName, "-u", bsURL, "--confirm" });
+            // set quota value
+            AdminCommand.executeCommand(new String[] { "quota", "set",
+                    quotaType + "=" + quotaValueToSet, "-s", storeName, "-u", bsURL, "--confirm" });
 
-        // get quota value
-        String quotaValueToVerify = adminClient.quotaMgmtOps.getQuota(storeName, quotaType)
-                                                            .getValue();
-        assertTrue(quotaValueToVerify.equals(quotaValueToSet));
+            // get quota value
+            String quotaValueToVerify = adminClient.quotaMgmtOps.getQuota(storeName, quotaType)
+                                                                .getValue();
+            assertTrue(quotaValueToVerify.equals(quotaValueToSet));
 
-        // unset quota value
-        AdminCommand.executeCommand(new String[] { "quota", "unset", quotaType, "-s", storeName,
-                "-u", bsURL, "--confirm" });
+            // unset quota value
+            AdminCommand.executeCommand(new String[] { "quota", "unset", quotaType.toString(),
+                    "-s", storeName, "-u", bsURL, "--confirm" });
 
-        // get quota value
-        Versioned<String> versionedQuotaValueToVerify = adminClient.quotaMgmtOps.getQuota(storeName,
-                                                                                          quotaType);
-        assertTrue(versionedQuotaValueToVerify == null);
+            // get quota value
+            Versioned<String> versionedQuotaValueToVerify = adminClient.quotaMgmtOps.getQuota(storeName,
+                                                                                              quotaType);
+            assertTrue(versionedQuotaValueToVerify == null);
+        }
     }
 
     @After

@@ -138,8 +138,8 @@ public class QuotaLimitingStoreTest {
     }
 
     private void unSetQuota() {
-        adminClient.quotaMgmtOps.unsetQuota("test", QuotaType.GET_THROUGHPUT.toString());
-        adminClient.quotaMgmtOps.unsetQuota("test", QuotaType.PUT_THROUGHPUT.toString());
+        adminClient.quotaMgmtOps.unsetQuota("test", QuotaType.GET_THROUGHPUT);
+        adminClient.quotaMgmtOps.unsetQuota("test", QuotaType.PUT_THROUGHPUT);
     }
 
     private void enableQuotaEnforcing() {
