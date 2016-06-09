@@ -510,15 +510,15 @@ public class StoreDefinition implements Serializable {
                 addToDiff("Preferred writes", this.getPreferredWrites(), other.getPreferredWrites(), sb, thisName, otherName);
             }
             if (!this.getKeySerializer().equals(other.getKeySerializer())) {
-                addToDiff("Key serializer", this.getKeySerializer().toString(), other.getKeySerializer().toString(), sb, thisName, otherName);
+                addToDiff("Key serializer", this.getKeySerializer(), other.getKeySerializer(), sb, thisName, otherName);
             }
             if (!this.getValueSerializer().equals(other.getValueSerializer())) {
-                addToDiff("Value serializer", this.getValueSerializer().toString(), other.getValueSerializer().toString(), sb, thisName, otherName);
+                addToDiff("Value serializer", this.getValueSerializer(), other.getValueSerializer(), sb, thisName, otherName);
             }
             if (!Objects.equal(this.getTransformsSerializer() != null ? this.getTransformsSerializer(): null,
                     other.getTransformsSerializer() != null ? other.getTransformsSerializer(): null)) {
                 // FIXME: This ternary operator is useless. Leaving it as is for consistency with equals().
-                addToDiff("Transforms Serializer", this.getTransformsSerializer().toString(), other.getTransformsSerializer().toString(), sb, thisName, otherName);
+                addToDiff("Transforms Serializer", this.getTransformsSerializer(), other.getTransformsSerializer(), sb, thisName, otherName);
             }
             if (this.getRoutingPolicy() != other.getRoutingPolicy()) {
                 addToDiff("Routing policy", this.getRoutingPolicy().toDisplay(), other.getRoutingPolicy().toDisplay(), sb, thisName, otherName);
@@ -534,7 +534,7 @@ public class StoreDefinition implements Serializable {
             if (!Objects.equal(this.getZoneReplicationFactor() != null ? this.getZoneReplicationFactor().getClass(): null,
                     other.getZoneReplicationFactor() != null ? other.getZoneReplicationFactor().getClass(): null)) {
                 // FIXME: This class comparison is irrelevant since it's always a HashMap. Leaving it as is for consistency with equals().
-                addToDiff("Zone replication factor", this.getZoneReplicationFactor().toString(), other.getZoneReplicationFactor().toString(), sb, thisName, otherName);
+                addToDiff("Zone replication factor", this.getZoneReplicationFactor(), other.getZoneReplicationFactor(), sb, thisName, otherName);
             }
             if (!Objects.equal(this.getZoneCountReads(), other.getZoneCountReads())) {
                 addToDiff("Zone count reads", this.getZoneCountReads(), other.getZoneCountReads(), sb, thisName, otherName);
@@ -572,6 +572,10 @@ public class StoreDefinition implements Serializable {
 
     private void addToDiff(String propertyName, int thisValue, int otherValue, StringBuilder sb, String thisName, String otherName) {
         addToDiff(propertyName, Integer.toString(thisValue), Integer.toString(otherValue), sb, thisName, otherName);
+    }
+    
+    private void addToDiff(String propertyName, Object thisValue, Object otherValue, StringBuilder sb, String thisName, String otherName) {
+        addToDiff(propertyName, String.valueOf(thisValue), String.valueOf(otherValue), sb, thisName, otherName);
     }
 
     private void addToDiff(String propertyName, String thisValue, String otherValue, StringBuilder sb, String thisName, String otherName) {
