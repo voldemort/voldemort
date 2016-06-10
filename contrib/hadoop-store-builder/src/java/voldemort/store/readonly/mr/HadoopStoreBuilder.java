@@ -59,6 +59,7 @@ import voldemort.store.readonly.ReadOnlyUtils;
 import voldemort.store.readonly.checksum.CheckSum;
 import voldemort.store.readonly.checksum.CheckSum.CheckSumType;
 import voldemort.store.readonly.checksum.CheckSumMetadata;
+import voldemort.store.readonly.disk.HadoopStoreWriter;
 import voldemort.store.readonly.disk.KeyValueWriter;
 import voldemort.store.readonly.mr.azkaban.AbstractHadoopJob;
 import voldemort.store.readonly.mr.azkaban.VoldemortBuildAndPushJob;
@@ -76,8 +77,6 @@ import voldemort.xml.StoreDefinitionsMapper;
 public class HadoopStoreBuilder extends AbstractHadoopJob {
 
     public static final String AVRO_REC_SCHEMA = "avro.rec.schema";
-    public static final long MIN_CHUNK_SIZE = 1L;
-    public static final long MAX_CHUNK_SIZE = (long) (1.9 * 1024 * 1024 * 1024);
     public static final int DEFAULT_BUFFER_SIZE = 64 * 1024;
     public static final short HADOOP_FILE_PERMISSION = 493;
 
@@ -96,7 +95,6 @@ public class HadoopStoreBuilder extends AbstractHadoopJob {
     private final CheckSumType checkSumType;
     private final boolean saveKeys;
     private final boolean reducerPerBucket;
-    private int numChunksOverride;
     private final boolean isAvro;
     private final Long minNumberOfRecords;
     private final boolean buildPrimaryReplicasOnly;
@@ -159,16 +157,6 @@ public class HadoopStoreBuilder extends AbstractHadoopJob {
         this.isAvro = isAvro;
         this.minNumberOfRecords = minNumberOfRecords == null ? 1 : minNumberOfRecords;
         this.buildPrimaryReplicasOnly = buildPrimaryReplicasOnly;
-
-        if(numChunksOverride <= 0) {
-            logger.info("HadoopStoreBuilder constructed with numChunksOverride <= 0, thus relying chunk size.");
-            if(chunkSizeBytes > MAX_CHUNK_SIZE || chunkSizeBytes < MIN_CHUNK_SIZE) {
-                throw new VoldemortException("Invalid chunk size, chunk size must be in the range "
-                        + MIN_CHUNK_SIZE + "..." + MAX_CHUNK_SIZE);
-            }
-        } else {
-            logger.info("HadoopStoreBuilder constructed with numChunksOverride > 0, thus ignoring chunk size.");
-        }
     }
 
 
@@ -221,48 +209,8 @@ public class HadoopStoreBuilder extends AbstractHadoopJob {
             tempFs.delete(tempDir, true);
 
             long size = sizeOfPath(tempFs, inputPath);
-            logger.info("Data size = " + size +
-                        ", replication factor = " + storeDef.getReplicationFactor() +
-                        ", numNodes = " + cluster.getNumberOfNodes() +
-                        ", numPartitions = " + cluster.getNumberOfPartitions() +
-                        ", chunk size = " + chunkSizeBytes);
 
-            // Dynamically calculate number of chunks and reducers
-
-            // Base numbers of chunks and reducers, will get modified according to various settings
-            int numChunks = (int) (size / cluster.getNumberOfPartitions() / chunkSizeBytes);
-            int numReducers = cluster.getNumberOfPartitions();
-
-            // In Save Keys mode, which was introduced with the READ_ONLY_V2 file format, the replicas
-            // are shuffled via additional reducers, whereas originally they were shuffled via
-            // additional chunks. Whether this distinction actually makes sense or not is an interesting
-            // question, but in order to avoid breaking anything we'll just maintain the original behavior.
-            if (saveKeys) {
-                if (buildPrimaryReplicasOnly) {
-                    // The buildPrimaryReplicasOnly mode is supported exclusively in combination with
-                    // saveKeys. If enabled, then we don't want to shuffle extra keys redundantly,
-                    // hence we don't change the number of reducers.
-                } else {
-                    // Old behavior, where all keys are redundantly shuffled to redundant reducers.
-                    numReducers = numReducers * storeDef.getReplicationFactor();
-                }
-            } else {
-                numChunks = numChunks * storeDef.getReplicationFactor();
-            }
-
-            // Ensure at least one chunk
-            numChunks = Math.max(numChunks, 1);
-
-            if (reducerPerBucket) {
-                // Then all chunks for a given partition/replica combination are shuffled to the same
-                // reducer, hence, the number of reducers remains the same as previously defined.
-            } else {
-                // Otherwise, we want one reducer per chunk, hence we multiply the number of reducers.
-                numReducers = numReducers * numChunks;
-            }
-
-            conf.setInt(AbstractStoreBuilderConfigurable.NUM_CHUNKS, numChunks);
-            conf.setNumReduceTasks(numReducers);
+            setNumChunksAndNumReduceTasks(size, conf);
 
             if(isAvro) {
                 conf.setPartitionerClass(AvroStoreBuilderPartitioner.class);
@@ -287,14 +235,41 @@ public class HadoopStoreBuilder extends AbstractHadoopJob {
                 conf.setReducerClass(AvroStoreBuilderReducer.class);
             }
 
-            logger.info("Number of chunks: " + numChunks + ", number of reducers: " + numReducers
-                        + ", save keys: " + saveKeys + ", reducerPerBucket: " + reducerPerBucket
-                        + ", buildPrimaryReplicasOnly: " + buildPrimaryReplicasOnly);
             logger.info("Building store...");
-            RunningJob job = JobClient.runJob(conf);
 
-            // Once the job has completed log the counter
-            Counters counters = job.getCounters();
+            // The snipped below copied and adapted from: JobClient.runJob(conf);
+            // We have more control in the error handling this way.
+
+            JobClient jc = new JobClient(conf);
+            RunningJob runningJob = jc.submitJob(conf);
+            Counters counters = runningJob.getCounters();
+
+            try {
+                if (!jc.monitorAndPrintJob(conf, runningJob)) {
+                    // For some datasets, the number of chunks that we calculated is inadequate.
+                    // Here, we try to identify if this is the case.
+                    long mapOutputBytes = counters.getCounter(Task.Counter.MAP_OUTPUT_BYTES);
+                    int numChunks = conf.getInt(AbstractStoreBuilderConfigurable.NUM_CHUNKS, 1);
+                    long averageNumberOfBytesPerChunk = mapOutputBytes / numChunks / cluster.getNumberOfPartitions();
+                    if (averageNumberOfBytesPerChunk > HadoopStoreWriter.MAX_CHUNK_SIZE) {
+                        logger.warn("The number of bytes per chunk is too high. averageNumberOfBytesPerChunk = " +
+                                averageNumberOfBytesPerChunk + ". Consider using a smaller chunk size. " +
+                                "The MapReduce job will be retried one more time with adjusted settings.");
+                        setNumChunksAndNumReduceTasks(mapOutputBytes, conf);
+                        try {
+                            RunningJob newJob = JobClient.runJob(conf);
+                            counters = newJob.getCounters();
+                        } catch (IOException e) {
+                            throw new VoldemortException("Even with adjusted settings, BnP's MapReduce job failed.", e);
+                        }
+                    } else {
+                        logger.error("Job Failed: " + runningJob.getFailureInfo());
+                        throw new VoldemortException("BnP's MapReduce job failed.");
+                    }
+                }
+            } catch (InterruptedException ie) {
+                Thread.currentThread().interrupt();
+            }
 
             long numberOfRecords = counters.getCounter(Task.Counter.REDUCE_INPUT_GROUPS);
 
@@ -375,6 +350,69 @@ public class HadoopStoreBuilder extends AbstractHadoopJob {
             logger.error("Error in Store builder", e);
             throw new VoldemortException(e);
         }
+    }
+
+    /**
+     * This function configures a {@link JobConf} instance based on the {@param size} of the data
+     * that Voldemort will need to serve. If the size provided is that of the input data, then
+     * these settings will be calculated in a best-effort basis. It is not possible to predict in
+     * advance the correct settings based on the input data, since compression factors may vary
+     * a lot between data sets.
+     *
+     * On the other hand, if the size is that of the mappers' output, then it should be possible
+     * to predict proper settings. There is still another edge case, however, which we cannot
+     * avoid completely: if the data is heavily skewed towards a hot partition, then it may not
+     * be possible at all to tweak these settings correctly.
+     *
+     * @param size of the dataset
+     * @param conf MapReduce {@link JobConf} for which to set properties.
+     * @return
+     */
+    private void setNumChunksAndNumReduceTasks(long size, JobConf conf) {
+        logger.info("Data size = " + size +
+                ", replication factor = " + storeDef.getReplicationFactor() +
+                ", numNodes = " + cluster.getNumberOfNodes() +
+                ", numPartitions = " + cluster.getNumberOfPartitions() +
+                ", chunk size = " + chunkSizeBytes);
+
+        // Base numbers of chunks and reducers, will get modified according to various settings
+        int numChunks = (int) (size / cluster.getNumberOfPartitions() / chunkSizeBytes);
+        int numReducers = cluster.getNumberOfPartitions();
+
+        // In Save Keys mode, which was introduced with the READ_ONLY_V2 file format, the replicas
+        // are shuffled via additional reducers, whereas originally they were shuffled via
+        // additional chunks. Whether this distinction actually makes sense or not is an interesting
+        // question, but in order to avoid breaking anything we'll just maintain the original behavior.
+        if (saveKeys) {
+            if (buildPrimaryReplicasOnly) {
+                // The buildPrimaryReplicasOnly mode is supported exclusively in combination with
+                // saveKeys. If enabled, then we don't want to shuffle extra keys redundantly,
+                // hence we don't change the number of reducers.
+            } else {
+                // Old behavior, where all keys are redundantly shuffled to redundant reducers.
+                numReducers = numReducers * storeDef.getReplicationFactor();
+            }
+        } else {
+            numChunks = numChunks * storeDef.getReplicationFactor();
+        }
+
+        // Ensure at least one chunk
+        numChunks = Math.max(numChunks, 1);
+
+        if (reducerPerBucket) {
+            // Then all chunks for a given partition/replica combination are shuffled to the same
+            // reducer, hence, the number of reducers remains the same as previously defined.
+        } else {
+            // Otherwise, we want one reducer per chunk, hence we multiply the number of reducers.
+            numReducers = numReducers * numChunks;
+        }
+
+        conf.setInt(AbstractStoreBuilderConfigurable.NUM_CHUNKS, numChunks);
+        conf.setNumReduceTasks(numReducers);
+
+        logger.info("Number of chunks: " + numChunks + ", number of reducers: " + numReducers
+                + ", save keys: " + saveKeys + ", reducerPerBucket: " + reducerPerBucket
+                + ", buildPrimaryReplicasOnly: " + buildPrimaryReplicasOnly);
     }
 
     /**
