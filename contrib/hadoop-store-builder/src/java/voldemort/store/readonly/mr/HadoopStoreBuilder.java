@@ -22,8 +22,10 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
+import java.util.concurrent.TimeUnit;
 
 import com.google.common.collect.Lists;
+
 import org.apache.avro.Schema;
 import org.apache.avro.mapred.AvroJob;
 import org.apache.avro.mapred.AvroOutputFormat;
@@ -317,24 +319,46 @@ public class HadoopStoreBuilder extends AbstractHadoopJob {
                                              + this.checkSumType);
             }
 
-            List<String> directories = Lists.newArrayList();
+            List<Integer> directorySuffixes = Lists.newArrayList();
             if (buildPrimaryReplicasOnly) {
                 // Files are grouped by partitions
                 for(int partitionId = 0; partitionId < cluster.getNumberOfPartitions(); partitionId++) {
-                    directories.add(ReadOnlyUtils.PARTITION_DIRECTORY_PREFIX + partitionId);
+                    directorySuffixes.add( partitionId);
                 }
             } else {
                 // Files are grouped by node
                 for(Node node: cluster.getNodes()) {
-                    directories.add(ReadOnlyUtils.NODE_DIRECTORY_PREFIX + node.getId());
+                    directorySuffixes.add(node.getId());
                 }
             }
 
             ReadOnlyStorageMetadata fullStoreMetadata = new ReadOnlyStorageMetadata();
 
-            // Check if all folder exists and with format file
-            for(String directoryName: directories) {
+            List<Integer> emptyDirectories = Lists.newArrayList();
 
+            final String directoryPrefix = buildPrimaryReplicasOnly ? ReadOnlyUtils.PARTITION_DIRECTORY_PREFIX:
+                                                ReadOnlyUtils.NODE_DIRECTORY_PREFIX ;
+
+            // Generate a log message every 30 seconds or after processing every 100 directories.
+            final long LOG_INTERVAL_TIME = TimeUnit.MILLISECONDS.convert( 30, TimeUnit.SECONDS);
+            final int LOG_INTERVAL_COUNT = buildPrimaryReplicasOnly ? 100 : 5;
+            int lastLogCount = 0;
+            long lastLogTime = 0;
+
+            long startTimeMS = System.currentTimeMillis();
+            // Check if all folder exists and with format file
+            for(int index = 0; index < directorySuffixes.size() ; index ++) {
+                int directorySuffix = directorySuffixes.get(index);
+
+                long elapsedTime = System.currentTimeMillis() - lastLogTime;
+                long elapsedCount = index - lastLogCount;
+                if( elapsedTime >= LOG_INTERVAL_TIME   || elapsedCount >= LOG_INTERVAL_COUNT) {
+                    lastLogTime = System.currentTimeMillis();
+                    lastLogCount = index;
+                    logger.info("Processed "+ directorySuffix + " out of " + directorySuffixes.size() + " directories.");
+                }
+
+                String directoryName = directoryPrefix + directorySuffix;
                 ReadOnlyStorageMetadata metadata = new ReadOnlyStorageMetadata();
 
                 if(saveKeys) {
@@ -348,11 +372,11 @@ public class HadoopStoreBuilder extends AbstractHadoopJob {
                 Path directoryPath = new Path(outputDir.toString(), directoryName);
 
                 if(!outputFs.exists(directoryPath)) {
-                    logger.info("No data generated for " + directoryName
-                                        + ". Generating empty folder");
+                    logger.debug("No data generated for " + directoryName + ". Generating empty folder");
+                    emptyDirectories.add(directorySuffix);
                     outputFs.mkdirs(directoryPath); // Create empty folder
                     outputFs.setPermission(directoryPath, new FsPermission(HADOOP_FILE_PERMISSION));
-                    logger.info("Setting permission to 755 for " + directoryPath);
+                    logger.debug("Setting permission to 755 for " + directoryPath);
                 }
 
                 processCheckSumMetadataFile(directoryName, outputFs, checkSumGenerator, directoryPath, metadata);
@@ -371,6 +395,13 @@ public class HadoopStoreBuilder extends AbstractHadoopJob {
             // Write the aggregate metadata file
             writeMetadataFile(outputDir, outputFs, ReadOnlyUtils.FULL_STORE_METADATA_FILE, fullStoreMetadata);
 
+            long elapsedTimeMs = System.currentTimeMillis() - startTimeMS;
+            long elapsedTimeSeconds = TimeUnit.SECONDS.convert(elapsedTimeMs, TimeUnit.MILLISECONDS);
+            logger.info("Total Processed directories: "+ directorySuffixes.size() + ". Elapsed Time (Seconds):" + elapsedTimeSeconds );
+            
+            if(emptyDirectories.size() > 0 ) {
+              logger.info("Empty directories: " + Arrays.toString(emptyDirectories.toArray()));
+            }
         } catch(Exception e) {
             logger.error("Error in Store builder", e);
             throw new VoldemortException(e);
@@ -393,7 +424,6 @@ public class HadoopStoreBuilder extends AbstractHadoopJob {
         Path metadataPath = new Path(directoryPath, metadataFileName);
         FSDataOutputStream metadataStream = outputFs.create(metadataPath);
         outputFs.setPermission(metadataPath, new FsPermission(HADOOP_FILE_PERMISSION));
-        logger.info("Setting permission to 755 for " + metadataPath);
         metadataStream.write(metadata.toJsonString().getBytes());
         metadataStream.flush();
         metadataStream.close();
@@ -511,8 +541,8 @@ public class HadoopStoreBuilder extends AbstractHadoopJob {
             }
 
             long diskSizeForNodeInBytes = dataSizeInBytes + indexSizeInBytes;
-            logger.info(directoryName + ": Checksum = " + checkSum +
-                        ", Size = " + (diskSizeForNodeInBytes / ByteUtils.BYTES_PER_KB) + " KB");
+            logger.debug(directoryName + ": Checksum = " + checkSum + ", Size = "
+                        + (diskSizeForNodeInBytes / ByteUtils.BYTES_PER_KB) + " KB");
             metadata.add(ReadOnlyStorageMetadata.DISK_SIZE_IN_BYTES,
                          Long.toString(diskSizeForNodeInBytes));
         }
