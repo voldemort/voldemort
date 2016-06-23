@@ -422,6 +422,8 @@ public class MetadataStore extends AbstractStorageEngine<ByteArray, byte[], byte
             // Check for backwards compatibility
             StoreDefinitionUtils.validateSchemasAsNeeded(storeDefinitions);
 
+            StoreDefinitionUtils.validateNewStoreDefsAreNonBreaking(getStoreDefList(), storeDefinitions);
+
             // Go through each store definition and do a corresponding put
             for(StoreDefinition storeDef: storeDefinitions) {
                 if(!this.storeNames.contains(storeDef.getName())) {
