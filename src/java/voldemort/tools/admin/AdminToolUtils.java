@@ -27,9 +27,12 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.concurrent.TimeUnit;
 
 import voldemort.VoldemortException;
+import voldemort.client.ClientConfig;
 import voldemort.client.protocol.admin.AdminClient;
+import voldemort.client.protocol.admin.AdminClientConfig;
 import voldemort.cluster.Node;
 import voldemort.store.StoreDefinition;
 import voldemort.store.UnreachableStoreException;
@@ -159,7 +162,11 @@ public class AdminToolUtils {
      * @return Newly constructed AdminClient
      */
     public static AdminClient getAdminClient(String url) {
-        return new AdminClient(url);
+        ClientConfig config = new ClientConfig().setBootstrapUrls(url)
+                                                .setConnectionTimeout(5, TimeUnit.SECONDS);
+
+        AdminClientConfig adminConfig = new AdminClientConfig().setAdminSocketTimeoutSec(5);
+        return new AdminClient(adminConfig, config);
     }
 
     /**
