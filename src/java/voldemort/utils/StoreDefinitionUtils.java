@@ -26,6 +26,7 @@ import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 import org.apache.log4j.Logger;
@@ -251,6 +252,102 @@ public class StoreDefinitionUtils {
     public static void validateSchemasAsNeeded(Collection<StoreDefinition> storeDefinitions) {
         for(StoreDefinition storeDefinition: storeDefinitions) {
             validateSchemaAsNeeded(storeDefinition);
+        }
+    }
+
+    /**
+     * Ensure that new store definitions that are specified for an update do not include breaking changes to the store.
+     * @param oldStoreDefs
+     * @param newStoreDefs
+     */
+    public static void validateNewStoreDefsAreNonBreaking(List<StoreDefinition> oldStoreDefs, List<StoreDefinition> newStoreDefs){
+        Map<String, StoreDefinition> oldStoreMap = new HashMap<String, StoreDefinition>();
+        Map<String, StoreDefinition> newStoreMap = new HashMap<String, StoreDefinition>();
+        for (StoreDefinition storeDef : oldStoreDefs){
+           oldStoreMap.put(storeDef.getName(), storeDef);
+        }
+        for (StoreDefinition storeDef : newStoreDefs){
+           newStoreMap.put(storeDef.getName(), storeDef);
+        }
+        for (String storeName : oldStoreMap.keySet()){
+            if (newStoreMap.containsKey(storeName)){
+               validateNewStoreDefIsNonBreaking(oldStoreMap.get(storeName), newStoreMap.get(storeName));
+            }
+        }
+    }
+
+    /**
+     * Ensure that new store definitions that are specified for an update do not include breaking changes to the store.
+     *
+     * Non-breaking changes include changes to
+     *   description
+     *   preferredWrites
+     *   requiredWrites
+     *   preferredReads
+     *   requiredReads
+     *   retentionPeriodDays
+     *   retentionScanThrottleRate
+     *   retentionFrequencyDays
+     *   viewOf
+     *   zoneCountReads
+     *   zoneCountWrites
+     *   owners
+     *   memoryFootprintMB
+     *
+     * non breaking changes include the serializer definition, as long as the type (name field) is unchanged for
+     *   keySerializer
+     *   valueSerializer
+     *   transformSerializer
+     *
+     * @param oldStoreDef
+     * @param newStoreDef
+     */
+    public static void validateNewStoreDefIsNonBreaking(StoreDefinition oldStoreDef, StoreDefinition newStoreDef){
+        if (!oldStoreDef.getName().equals(newStoreDef.getName())){
+            throw new VoldemortException("Cannot compare stores of different names: " + oldStoreDef.getName() + " and " + newStoreDef.getName());
+        }
+        String store = oldStoreDef.getName();
+        verifySamePropertyForUpdate(oldStoreDef.getReplicationFactor(), newStoreDef.getReplicationFactor(), "ReplicationFactor", store);
+        verifySamePropertyForUpdate(oldStoreDef.getType(), newStoreDef.getType(), "Type", store);
+
+        verifySameSerializerType(oldStoreDef.getKeySerializer(), newStoreDef.getKeySerializer(), "KeySerializer", store);
+        verifySameSerializerType(oldStoreDef.getValueSerializer(), newStoreDef.getValueSerializer(), "ValueSerializer", store);
+        verifySameSerializerType(oldStoreDef.getTransformsSerializer(), newStoreDef.getTransformsSerializer(), "TransformSerializer", store);
+
+        verifySamePropertyForUpdate(oldStoreDef.getRoutingPolicy(), newStoreDef.getRoutingPolicy(), "RoutingPolicy", store);
+        verifySamePropertyForUpdate(oldStoreDef.getRoutingStrategyType(), newStoreDef.getRoutingStrategyType(), "RoutingStrategyType", store);
+        verifySamePropertyForUpdate(oldStoreDef.getZoneReplicationFactor(), newStoreDef.getZoneReplicationFactor(), "ZoneReplicationFactor", store);
+        verifySamePropertyForUpdate(oldStoreDef.getValueTransformation(), newStoreDef.getValueTransformation(), "ValueTransformation", store);
+        verifySamePropertyForUpdate(oldStoreDef.getSerializerFactory(), newStoreDef.getSerializerFactory(), "SerializerFactory", store);
+        verifySamePropertyForUpdate(oldStoreDef.getHintedHandoffStrategyType(), newStoreDef.getHintedHandoffStrategyType(), "HintedHandoffStrategyType", store);
+        verifySamePropertyForUpdate(oldStoreDef.getHintPrefListSize(), newStoreDef.getHintPrefListSize(), "HintPrefListSize", store);
+    }
+
+    private static void verifySameSerializerType(SerializerDefinition oldSerializer, SerializerDefinition newSerializer, String property, String store){
+      boolean same;
+      if (oldSerializer == null && newSerializer == null){
+        same = true;
+      } else if (oldSerializer == null || newSerializer == null){
+        same = false;
+      } else {
+        same = oldSerializer.getName().equals(newSerializer.getName());
+      }
+      if (!same){
+        throw new VoldemortException("Cannot change " + property + " Type from " + oldSerializer.getName() + " to " + newSerializer.getName() + " for store " + store);
+      }
+    }
+
+    private static void verifySamePropertyForUpdate(Object oldObj, Object newObj, String property, String store){
+        boolean same;
+        if (oldObj == null && newObj == null){
+           same = true;
+        } else if (oldObj == null || newObj == null){ /* not both null, so only one is null */
+           same = false;
+        } else {
+            same = oldObj.equals(newObj);
+        }
+        if (! same){
+            throw new VoldemortException("Cannot change " + property + " of store " + store + " from " + oldObj + " to " + newObj);
         }
     }
 

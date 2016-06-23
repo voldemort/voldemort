@@ -1662,11 +1662,15 @@ public class AdminClient implements Closeable {
             StoreDefinitionUtils.validateSchemasAsNeeded(storeDefs);
 
             for(Integer nodeId: nodeIds) {
+
+                // Ensure it doesn't break the store
+                Versioned<List<StoreDefinition>> remoteStoreDefList = metadataMgmtOps.getRemoteStoreDefList(nodeId);
+                StoreDefinitionUtils.validateNewStoreDefsAreNonBreaking(remoteStoreDefList.getValue(), storeDefs);
+
                 logger.info("Updating stores.xml for "
                             + currentCluster.getNodeById(nodeId).getHost() + ":" + nodeId);
                 // get current version.
-                VectorClock oldClock = (VectorClock) metadataMgmtOps.getRemoteStoreDefList(nodeId)
-                                                                    .getVersion();
+                VectorClock oldClock = (VectorClock) remoteStoreDefList.getVersion();
 
                 Versioned<String> value = new Versioned<String>(storeMapper.writeStoreList(storeDefs),
                                                                 oldClock.incremented(nodeId, 1));

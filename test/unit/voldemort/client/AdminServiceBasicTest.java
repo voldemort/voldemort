@@ -34,6 +34,7 @@ import java.io.StringReader;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
@@ -56,6 +57,7 @@ import org.junit.runners.Parameterized.Parameters;
 import voldemort.ROTestUtils;
 import voldemort.ServerTestUtils;
 import voldemort.TestUtils;
+import voldemort.VoldemortApplicationException;
 import voldemort.VoldemortException;
 import voldemort.client.protocol.RequestFormatType;
 import voldemort.client.protocol.admin.AdminClient;
@@ -283,10 +285,7 @@ public class AdminServiceBasicTest {
     private String bootstrapMetadata(String metadataKey) {
         Node serverNode = servers[0].getIdentityNode();
         Store<ByteArray, byte[], byte[]> remoteStore = socketStoreFactory.create(MetadataStore.METADATA_STORE_NAME,
-                                                                                 serverNode.getHost(),
-                                                                                 serverNode.getSocketPort(),
-                                                                                 RequestFormatType.VOLDEMORT_V2,
-                                                                                 RequestRoutingType.NORMAL);
+            serverNode.getHost(), serverNode.getSocketPort(), RequestFormatType.VOLDEMORT_V2, RequestRoutingType.NORMAL);
         Store<String, String, byte[]> store = SerializingStore.wrap(remoteStore,
                                                                     new StringSerializer("UTF-8"),
                                                                     new StringSerializer("UTF-8"),
@@ -424,22 +423,56 @@ public class AdminServiceBasicTest {
 
         doClientOperation();
 
+        AdminClient client = getAdminClient();
+        List<StoreDefinition> originalStoreDefinitions = client.metadataMgmtOps.getRemoteStoreDefList(0).getValue();
+        StoreDefinition oldStore = getStoreDefinitionFromList(originalStoreDefinitions, "test-replication-memory");
+
+        // Create a store definition for an existing store with different owners
+        List<StoreDefinition> storesToBeUpdatedList = new ArrayList<StoreDefinition>();
+        String storeName = "test-replication-memory";
+        StoreDefinition definitionNew = new StoreDefinitionBuilder().setName(storeName)
+                                                                    .setType(InMemoryStorageConfiguration.TYPE_NAME)
+                                                                    .setKeySerializer(oldStore.getKeySerializer())
+                                                                    .setValueSerializer(oldStore.getValueSerializer())
+                                                                    .setRoutingPolicy(RoutingTier.CLIENT)
+                                                                    .setRoutingStrategyType(RoutingStrategyType.CONSISTENT_STRATEGY)
+                                                                    .setReplicationFactor(1)
+                                                                    .setPreferredReads(1)
+                                                                    .setRequiredReads(1)
+                                                                    .setPreferredWrites(1)
+                                                                    .setRequiredWrites(1)
+                                                                    .setOwners(Collections.singletonList("alice"))
+                                                                    .build();
+        storesToBeUpdatedList.add(definitionNew);
+        updateAndResetStoreDefinitions(storesToBeUpdatedList);
+
+        doClientOperation();
+    }
+
+    @Test(expected = VoldemortException.class)
+    public void testUpdateSerializerFails(){
+        doClientOperation();
+
+        AdminClient client = getAdminClient();
+        List<StoreDefinition> originalStoreDefinitions = client.metadataMgmtOps.getRemoteStoreDefList(0).getValue();
+        StoreDefinition oldStore = getStoreDefinitionFromList(originalStoreDefinitions, "test-replication-memory");
+
         // Create a store definition for an existing store with a different
         // replication factor
         List<StoreDefinition> storesToBeUpdatedList = new ArrayList<StoreDefinition>();
         String storeName = "test-replication-memory";
         StoreDefinition definitionNew = new StoreDefinitionBuilder().setName(storeName)
-                                                                    .setType(InMemoryStorageConfiguration.TYPE_NAME)
-                                                                    .setKeySerializer(new SerializerDefinition("string"))
-                                                                    .setValueSerializer(new SerializerDefinition("string"))
-                                                                    .setRoutingPolicy(RoutingTier.CLIENT)
-                                                                    .setRoutingStrategyType(RoutingStrategyType.CONSISTENT_STRATEGY)
-                                                                    .setReplicationFactor(2)
-                                                                    .setPreferredReads(1)
-                                                                    .setRequiredReads(1)
-                                                                    .setPreferredWrites(1)
-                                                                    .setRequiredWrites(1)
-                                                                    .build();
+            .setType(InMemoryStorageConfiguration.TYPE_NAME)
+            .setKeySerializer(new SerializerDefinition("changing-the-serializer"))
+            .setValueSerializer(oldStore.getValueSerializer())
+            .setRoutingPolicy(RoutingTier.CLIENT)
+            .setRoutingStrategyType(RoutingStrategyType.CONSISTENT_STRATEGY)
+            .setReplicationFactor(2)
+            .setPreferredReads(1)
+            .setRequiredReads(1)
+            .setPreferredWrites(1)
+            .setRequiredWrites(1)
+            .build();
         storesToBeUpdatedList.add(definitionNew);
         updateAndResetStoreDefinitions(storesToBeUpdatedList);
 
@@ -451,44 +484,58 @@ public class AdminServiceBasicTest {
 
         doClientOperation();
 
-        // Create store definitions for existing stores with a different
-        // replication factor
+        AdminClient client = getAdminClient();
+        List<StoreDefinition> originalStoreDefinitions = client.metadataMgmtOps.getRemoteStoreDefList(0).getValue();
+        StoreDefinition oldTestReplicationStore = getStoreDefinitionFromList(originalStoreDefinitions, "test-replication-memory");
+        StoreDefinition oldTestRecoveryStore = getStoreDefinitionFromList(originalStoreDefinitions, "test-recovery-data");
+        StoreDefinition oldTestBasicStore = getStoreDefinitionFromList(originalStoreDefinitions, "test-basic-replication-memory");
+
+        // Create store definitions for existing stores with different 'safe' changes
         List<StoreDefinition> storesToBeUpdatedList = new ArrayList<StoreDefinition>();
         StoreDefinition definition1 = new StoreDefinitionBuilder().setName("test-replication-memory")
                                                                   .setType(InMemoryStorageConfiguration.TYPE_NAME)
-                                                                  .setKeySerializer(new SerializerDefinition("string"))
-                                                                  .setValueSerializer(new SerializerDefinition("string"))
+                                                                  /* New serializer of same type (name) should still be ok */
+                                                                  .setKeySerializer(new SerializerDefinition(
+                                                                      oldTestReplicationStore.getKeySerializer()
+                                                                          .getName()))
+                                                                  .setValueSerializer(
+                                                                      oldTestReplicationStore.getValueSerializer())
                                                                   .setRoutingPolicy(RoutingTier.CLIENT)
-                                                                  .setRoutingStrategyType(RoutingStrategyType.CONSISTENT_STRATEGY)
-                                                                  .setReplicationFactor(2)
-                                                                  .setPreferredReads(1)
-                                                                  .setRequiredReads(1)
-                                                                  .setPreferredWrites(1)
-                                                                  .setRequiredWrites(1)
-                                                                  .build();
-
-        StoreDefinition definition2 = new StoreDefinitionBuilder().setName("test-recovery-data")
-                                                                  .setType(InMemoryStorageConfiguration.TYPE_NAME)
-                                                                  .setKeySerializer(new SerializerDefinition("string"))
-                                                                  .setValueSerializer(new SerializerDefinition("string"))
-                                                                  .setRoutingPolicy(RoutingTier.CLIENT)
-                                                                  .setRoutingStrategyType(RoutingStrategyType.CONSISTENT_STRATEGY)
+                                                                  .setRoutingStrategyType(
+                                                                      RoutingStrategyType.CONSISTENT_STRATEGY)
                                                                   .setReplicationFactor(1)
                                                                   .setPreferredReads(1)
                                                                   .setRequiredReads(1)
                                                                   .setPreferredWrites(1)
                                                                   .setRequiredWrites(1)
+                                                                  .setOwners(Collections.singletonList("alice")) /* change */
+                                                                  .build();
+
+        StoreDefinition definition2 = new StoreDefinitionBuilder().setName("test-recovery-data")
+                                                                  .setType(InMemoryStorageConfiguration.TYPE_NAME)
+                                                                  .setKeySerializer(
+                                                                      oldTestRecoveryStore.getKeySerializer())
+                                                                  .setValueSerializer(
+                                                                      oldTestRecoveryStore.getValueSerializer())
+                                                                  .setRoutingPolicy(RoutingTier.CLIENT)
+                                                                  .setRoutingStrategyType(
+                                                                      RoutingStrategyType.CONSISTENT_STRATEGY)
+                                                                  .setReplicationFactor(2)
+                                                                  .setPreferredReads(1)
+                                                                  .setRequiredReads(1)
+                                                                  .setPreferredWrites(2) /* change */
+                                                                  .setRequiredWrites(1)
                                                                   .build();
 
         StoreDefinition definition3 = new StoreDefinitionBuilder().setName("test-basic-replication-memory")
                                                                   .setType(InMemoryStorageConfiguration.TYPE_NAME)
-                                                                  .setKeySerializer(new SerializerDefinition("string"))
-                                                                  .setValueSerializer(new SerializerDefinition("string"))
+                                                                  .setKeySerializer(oldTestBasicStore.getKeySerializer())
+                                                                  .setValueSerializer(oldTestBasicStore.getValueSerializer())
                                                                   .setRoutingPolicy(RoutingTier.CLIENT)
                                                                   .setRoutingStrategyType(RoutingStrategyType.CONSISTENT_STRATEGY)
                                                                   .setReplicationFactor(2)
                                                                   .setPreferredReads(2)
-                                                                  .setRequiredReads(2)
+                                                                  .setRequiredReads(1) /* change */
                                                                   .setPreferredWrites(2)
                                                                   .setRequiredWrites(2)
                                                                   .build();
@@ -512,15 +559,18 @@ public class AdminServiceBasicTest {
         Versioned<List<StoreDefinition>> originalStoreDefinitions = client.metadataMgmtOps.getRemoteStoreDefList(nodeId);
         List<StoreDefinition> updatedStoreDefList = new ArrayList<StoreDefinition>();
 
+        StoreDefinition oldDefinition = getStoreDefinitionFromList(originalStoreDefinitions.getValue(), storeNameToBeUpdated);
+
         // Create an updated store definition for store: 'users'
         StoreDefinition newDefinition = new StoreDefinitionBuilder().setName(storeNameToBeUpdated)
-                                                                    .setType(BdbStorageConfiguration.TYPE_NAME)
-                                                                    .setKeySerializer(new SerializerDefinition("string"))
-                                                                    .setValueSerializer(new SerializerDefinition("string"))
-                                                                    .setRoutingPolicy(RoutingTier.CLIENT)
-                                                                    .setRoutingStrategyType(RoutingStrategyType.CONSISTENT_STRATEGY)
+                                                                    .setType(oldDefinition.getType())
+                                                                    .setKeySerializer(oldDefinition.getKeySerializer())
+                                                                    .setValueSerializer(oldDefinition.getValueSerializer())
+                                                                    .setRoutingPolicy(oldDefinition.getRoutingPolicy())
+                                                                    .setRoutingStrategyType(
+                                                                        oldDefinition.getRoutingStrategyType())
                                                                     .setReplicationFactor(2)
-                                                                    .setPreferredReads(1)
+                                                                    .setPreferredReads(2)/* change the preferred reads */
                                                                     .setRequiredReads(1)
                                                                     .setPreferredWrites(2)
                                                                     .setRequiredWrites(2)
@@ -1625,11 +1675,8 @@ public class AdminServiceBasicTest {
             }
         }
 
-        Iterator<ByteArray> fetchIt = getAdminClient().bulkFetchOps.fetchKeys(0,
-                                                                              testStoreName,
-                                                                              fetchPartitionsList,
-                                                                              null,
-                                                                              false);
+        Iterator<ByteArray> fetchIt = getAdminClient().bulkFetchOps.fetchKeys(0, testStoreName, fetchPartitionsList,
+            null, false);
         // check values
         int count = 0;
         while(fetchIt.hasNext()) {
@@ -1887,8 +1934,7 @@ public class AdminServiceBasicTest {
     public void testGetROStorageFormat() {
 
         Map<String, String> storesToStorageFormat = getAdminClient().readonlyOps.getROStorageFormat(0,
-                                                                                                    Lists.newArrayList("test-readonly-fetchfiles",
-                                                                                                                       "test-readonly-versions"));
+            Lists.newArrayList("test-readonly-fetchfiles", "test-readonly-versions"));
         assertEquals(storesToStorageFormat.size(), 2);
         assertEquals(storesToStorageFormat.get("test-readonly-fetchfiles"),
                      ReadOnlyStorageFormat.READONLY_V2.getCode());
@@ -2404,14 +2450,9 @@ public class AdminServiceBasicTest {
 
     @Test
     public void testUpdateSlops() {
-        final List<Versioned<Slop>> entrySet = ServerTestUtils.createRandomSlops(0,
-                                                                                 10000,
-                                                                                 testStoreName,
-                                                                                 "users",
-                                                                                 "test-replication-persistent",
-                                                                                 "test-readrepair-memory",
-                                                                                 "test-consistent",
-                                                                                 "test-consistent-with-pref-list");
+        final List<Versioned<Slop>> entrySet = ServerTestUtils.createRandomSlops(0, 10000, testStoreName, "users",
+            "test-replication-persistent", "test-readrepair-memory", "test-consistent",
+            "test-consistent-with-pref-list");
 
         Iterator<Versioned<Slop>> slopIterator = entrySet.iterator();
         getAdminClient().streamingOps.updateSlopEntries(0, slopIterator);
@@ -2524,9 +2565,8 @@ public class AdminServiceBasicTest {
 
         // Check the values
         for(Entry<ByteArray, byte[]> entry: keysMovedWith0AsSecondary.entrySet()) {
-            assertEquals("server1 store should contain fetchAndupdated partitions.",
-                         1,
-                         store1.get(entry.getKey(), null).size());
+            assertEquals("server1 store should contain fetchAndupdated partitions.", 1,
+                store1.get(entry.getKey(), null).size());
             assertEquals("entry value should match",
                          new String(entry.getValue()),
                          new String(store1.get(entry.getKey(), null).get(0).getValue()));
@@ -2595,10 +2635,22 @@ public class AdminServiceBasicTest {
         Long getQuota0 = Long.parseLong(client.quotaMgmtOps.getQuotaForNode(storeName,
                                                                                  quotaType,
                                                                                  0).getValue());
-        Long getQuota1 = Long.parseLong(client.quotaMgmtOps.getQuotaForNode(storeName,
-                                                                                 quotaType,
-                                                                                 1).getValue());
+        Long getQuota1 = Long.parseLong(client.quotaMgmtOps.getQuotaForNode(storeName, quotaType, 1).getValue());
         assertEquals(targetQuota, getQuota0);
         assertEquals(targetQuota, getQuota1);
     }
+
+  private StoreDefinition getStoreDefinitionFromList(List<StoreDefinition> storeList, String storeName){
+    StoreDefinition oldDefinition = null;
+    for (StoreDefinition storeDef : storeList){
+      if (storeDef.getName().equals(storeName)){
+        oldDefinition = storeDef;
+        break;
+      }
+    }
+    if (oldDefinition == null){
+      throw new VoldemortApplicationException("Could not find store to update in existing store definitions");
+    }
+    return oldDefinition;
+  }
 }
