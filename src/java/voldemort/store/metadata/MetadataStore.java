@@ -53,6 +53,7 @@ import voldemort.store.StorageEngine;
 import voldemort.store.Store;
 import voldemort.store.StoreCapabilityType;
 import voldemort.store.StoreDefinition;
+import voldemort.store.StoreNotFoundException;
 import voldemort.store.StoreUtils;
 import voldemort.store.configuration.ConfigurationStorageEngine;
 import voldemort.store.memory.InMemoryStorageEngine;
@@ -559,7 +560,7 @@ public class MetadataStore extends AbstractStorageEngine<ByteArray, byte[], byte
                // Since there is no way to tell the difference between 1&2, the error message
                // is focused on use case 2. In the future, if that is a problem the error message
                // can be made to reflect both the cases.
-                throw new VoldemortException("Store " + key + " does not exist on node "
+                throw new StoreNotFoundException("Store " + key + " does not exist on node "
                                              + this.getNodeId());
             }
         } finally {

@@ -1,0 +1,17 @@
+<stores>
+<store>
+  <name>abc-xyz-read-only</name>
+  <persistence>read-only</persistence>
+  <routing-strategy>consistent-routing</routing-strategy>
+  <routing>client</routing>
+  <replication-factor>1</replication-factor>
+  <required-reads>1</required-reads>
+  <required-writes>1</required-writes>
+  <key-serializer>
+    <type>string</type>
+  </key-serializer>
+  <value-serializer>
+    <type>string</type>
+  </value-serializer>
+</store>
+</stores>

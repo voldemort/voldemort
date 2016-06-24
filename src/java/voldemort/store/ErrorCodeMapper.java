@@ -68,6 +68,7 @@ public class ErrorCodeMapper {
         codeToException.put((short) 19, UnauthorizedStoreException.class);
         codeToException.put((short) 20, AsyncOperationStoppedException.class);
         codeToException.put((short) 21, ReadOnlyFetchDisabledException.class);
+        codeToException.put((short) 22, StoreNotFoundException.class);
 
         exceptionToCode = new HashMap<Class<? extends VoldemortException>, Short>();
         for(Map.Entry<Short, Class<? extends VoldemortException>> entry: codeToException.entrySet())

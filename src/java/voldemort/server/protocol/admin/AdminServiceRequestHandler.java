@@ -1493,24 +1493,13 @@ public class AdminServiceRequestHandler implements RequestHandler {
                                              "supported on this version of the Voldemort server.");
             }
 
-            /**
-             * GET can be done on any of the standard metadata keys
-             * ('cluster.xml', 'server.state', 'node.id', ...) or any of the
-             * store names.
-             */
-            if(MetadataStore.METADATA_KEYS.contains(keyString)
-               || metadataStore.isValidStore(keyString)) {
-                List<Versioned<byte[]>> versionedList = metadataStore.get(key, null);
-                int size = (versionedList.size() > 0) ? 1 : 0;
+            List<Versioned<byte[]>> versionedList = metadataStore.get(key, null);
 
-                if(size > 0) {
-                    Versioned<byte[]> versioned = versionedList.get(0);
-                    response.setVersion(ProtoUtils.encodeVersioned(versioned));
-                }
-            } else {
-                throw new VoldemortException("Metadata Key passed '" + keyString
-                                             + "' is not handled yet");
+            if(versionedList.size() > 0) {
+                Versioned<byte[]> versioned = versionedList.get(0);
+                response.setVersion(ProtoUtils.encodeVersioned(versioned));
             }
+
         } catch(VoldemortException e) {
             response.setError(ProtoUtils.encodeError(errorCodeMapper, e));
             logger.error("handleGetMetadata failed for request(" + request.toString() + ")", e);

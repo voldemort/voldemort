@@ -99,6 +99,7 @@ import voldemort.utils.Utils;
 import voldemort.versioning.VectorClock;
 import voldemort.versioning.Version;
 import voldemort.versioning.Versioned;
+import voldemort.xml.ClusterMapper;
 import voldemort.xml.StoreDefinitionsMapper;
 
 import com.google.common.collect.AbstractIterator;
@@ -234,18 +235,28 @@ public class AdminServiceBasicTest {
     }
 
     @Test
+    public void testIsClusterModified() {
+        AdminClient client = getAdminClient();
+        assertFalse("Newly Created admin client has valid cluster", client.isClusterModified());
+
+        String clusterXml = new ClusterMapper().writeCluster(cluster);
+
+        client.metadataMgmtOps.updateRemoteMetadata(cluster.getNodeIds(),
+                                                    MetadataStore.CLUSTER_KEY,
+                                                    clusterXml);
+
+        assertTrue("After cluster update", client.isClusterModified());
+    }
+
+    @Test
     public void testUpdateClusterMetadata() {
         Cluster updatedCluster = ServerTestUtils.getLocalCluster(4);
         AdminClient client = getAdminClient();
-        assertFalse("Newly Created admin client has valid cluster", client.isClusterModified());
         for(int i = 0; i < NUM_RUNS; i++) {
-            VectorClock clock = ((VectorClock) client.metadataMgmtOps.getRemoteCluster(0)
-                                                                     .getVersion()).incremented(0,
-                                                                                                System.currentTimeMillis());
+            VectorClock existingClock = ((VectorClock) client.metadataMgmtOps.getRemoteCluster(0)
+                                                                             .getVersion());
+            VectorClock clock = existingClock.incremented(0, System.currentTimeMillis());
             client.metadataMgmtOps.updateRemoteCluster(0, updatedCluster, clock);
-
-            assertTrue("After cluster update", client.isClusterModified());
-
             assertEquals("Cluster should match",
                          updatedCluster,
                          getVoldemortServer(0).getMetadataStore().getCluster());

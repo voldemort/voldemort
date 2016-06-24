@@ -86,6 +86,7 @@ import voldemort.store.ErrorCodeMapper;
 import voldemort.store.InvalidMetadataException;
 import voldemort.store.Store;
 import voldemort.store.StoreDefinition;
+import voldemort.store.StoreNotFoundException;
 import voldemort.store.StoreUtils;
 import voldemort.store.UnreachableStoreException;
 import voldemort.store.metadata.MetadataStore;
@@ -169,6 +170,7 @@ public class AdminClient implements Closeable {
     private final NetworkClassLoader networkClassLoader;
     private final AdminClientConfig adminClientConfig;
     private final long clusterVersion;
+    private final boolean fetchSingleStore;
     private final String debugInfo;
     private Cluster currentCluster;
     private SystemStoreClient<String, String> metadataVersionSysStoreClient = null;
@@ -230,6 +232,7 @@ public class AdminClient implements Closeable {
         this.adminClientConfig = adminClientConfig;
         this.socketPool = helperOps.createSocketPool(adminClientConfig);
         this.adminStoreClient = new AdminStoreClient(clientConfig);
+        this.fetchSingleStore = !clientConfig.isFetchAllStoresXmlInBootstrap();
 
         this.clusterVersion = System.currentTimeMillis();
         if(cluster != null) {
@@ -1714,6 +1717,16 @@ public class AdminClient implements Closeable {
                 throws VoldemortException {
             updateRemoteStoreDefList(storeDefs, currentCluster.getNodeIds());
         }
+        
+        private Versioned<List<StoreDefinition>> getRemoteStoreDefList(int nodeId,
+                                                                       String metadataKey)
+                throws VoldemortException {
+            Versioned<String> value = metadataMgmtOps.getRemoteMetadata(nodeId,
+                                                                        metadataKey);
+            List<StoreDefinition> storeList = storeMapper.readStoreList(new StringReader(value.getValue()),
+                                                                        false);
+            return new Versioned<List<StoreDefinition>>(storeList, value.getVersion());
+        }
 
         /**
          * Retrieve the store definitions from a remote node.
@@ -1726,11 +1739,7 @@ public class AdminClient implements Closeable {
          */
         public Versioned<List<StoreDefinition>> getRemoteStoreDefList(int nodeId)
                 throws VoldemortException {
-            Versioned<String> value = metadataMgmtOps.getRemoteMetadata(nodeId,
-                                                                        MetadataStore.STORES_KEY);
-            List<StoreDefinition> storeList = storeMapper.readStoreList(new StringReader(value.getValue()),
-                                                                        false);
-            return new Versioned<List<StoreDefinition>>(storeList, value.getVersion());
+            return getRemoteStoreDefList(nodeId, MetadataStore.STORES_KEY);
         }
 
         public Versioned<List<StoreDefinition>> getRemoteStoreDefList() throws VoldemortException {
@@ -1933,7 +1942,7 @@ public class AdminClient implements Closeable {
          * @param newStoreDef StoreDefinition to make sure exists on all online Voldemort Servers
          * @param localProcessName Name of the process interested in creating the store
          *                         (for example: Build and Push), used for debugging purposes.
-         * @param createStore whether or not add new store if sotres are not found in the cluster.
+         * @param createStore whether or not add new store if stores are not found in the cluster.
          * @throws UnreachableStoreException Thrown if one or more server was unreachable. Can
          *                                   potentially be ignored, in certain use cases.
          * @throws VoldemortException Thrown if a server contains an incompatible StoreDefinitions.
@@ -1952,9 +1961,17 @@ public class AdminClient implements Closeable {
                 List<StoreDefinition> remoteStoreDefs = Lists.newArrayList();
 
                 try {
+                    String metadataKey = fetchSingleStore ? newStoreDef.getName()
+                                                         : MetadataStore.STORES_KEY;
                     // Get all StoreDefinitions from each nodes in the cluster
-                    remoteStoreDefs = metadataMgmtOps.getRemoteStoreDefList(nodeId).getValue();
+                    remoteStoreDefs = metadataMgmtOps.getRemoteStoreDefList(nodeId, metadataKey)
+                                                     .getValue();
+                } catch (StoreNotFoundException ex) {
+                    if (logger.isDebugEnabled()) {
+                        logger.debug("Store does not exist " + node.briefToString() + " message " + ex.getMessage());
+                    }
                 } catch (VoldemortException e) {
+
                     // getRemoteStoreDefList() internally results in a socket pool checkout which can throw
                     // SocketException and possibly other subclasses of IOException, so we check for IOException
                     // to catch all of these cases...

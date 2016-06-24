@@ -22,6 +22,7 @@ import java.io.IOException;
 import java.io.StringReader;
 import java.net.BindException;
 import java.net.ServerSocket;
+import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Date;
@@ -1046,6 +1047,32 @@ public class ServerTestUtils {
         } catch(InterruptedException e) {}
     }
 
+    private static SocketStoreFactory getSocketStoreFactory() {
+        return new ClientRequestExecutorPool(2, 10000, 100000, 32 * 1024);
+    }
+
+    public static VoldemortServer restartServer(VoldemortServer oldServer, int nodeId, Cluster cluster)
+            throws Exception {
+        ServerTestUtils.stopVoldemortServer(oldServer);
+
+
+        String baseDirPath = oldServer.getVoldemortConfig().getVoldemortHome();
+        String parentDirPath = Paths.get(baseDirPath).getParent().toString();
+        List<StoreDefinition> storeDefs = oldServer.getMetadataStore().getStoreDefList();
+
+        final boolean ENABLE_NIO = true;
+        VoldemortConfig config =
+                ServerTestUtils.createServerConfigWithDefs(ENABLE_NIO, nodeId, parentDirPath, cluster, storeDefs,
+                        new Properties());
+        SocketStoreFactory socketStoreFactory = getSocketStoreFactory();
+        try {
+            return startVoldemortServer(socketStoreFactory, config, cluster);
+        } finally {
+            socketStoreFactory.close();
+        }
+
+    }
+
 
     /**
      * Starts a Voldemort server for testing purposes.
@@ -1359,11 +1386,7 @@ public class ServerTestUtils {
         boolean started = false;
         Cluster cluster = null;
 
-        SocketStoreFactory socketStoreFactory = new ClientRequestExecutorPool(2,
-                                                                              10000,
-                                                                              100000,
-                                                                              32 * 1024);
-
+        SocketStoreFactory socketStoreFactory = getSocketStoreFactory();
         try {
             while(!started) {
                 try {
@@ -1393,10 +1416,7 @@ public class ServerTestUtils {
                                                 Properties serverProperties,
                                                 String storesXmlFile) throws IOException {
 
-        SocketStoreFactory socketStoreFactory = new ClientRequestExecutorPool(2,
-                                                                              10000,
-                                                                              100000,
-                                                                              32 * 1024);
+        SocketStoreFactory socketStoreFactory = getSocketStoreFactory();
         Cluster cluster = null;
         try {
             cluster = ServerTestUtils.startVoldemortCluster(servers.length,
@@ -1421,10 +1441,7 @@ public class ServerTestUtils {
         VoldemortServer[] servers = new VoldemortServer[1];
         int partitionMap[][] = { { 0, 1, 2, 3 } };
 
-        SocketStoreFactory socketStoreFactory = new ClientRequestExecutorPool(2,
-                                                                              10000,
-                                                                              100000,
-                                                                              32 * 1024);
+        SocketStoreFactory socketStoreFactory = getSocketStoreFactory();
         try {
             Cluster cluster = ServerTestUtils.startVoldemortCluster(1,
                                                                     servers,
