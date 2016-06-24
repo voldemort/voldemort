@@ -168,6 +168,7 @@ public class AdminClient implements Closeable {
     private final AdminStoreClient adminStoreClient;
     private final NetworkClassLoader networkClassLoader;
     private final AdminClientConfig adminClientConfig;
+    private final long clusterVersion;
     private final String debugInfo;
     private Cluster currentCluster;
     private SystemStoreClient<String, String> metadataVersionSysStoreClient = null;
@@ -230,6 +231,7 @@ public class AdminClient implements Closeable {
         this.socketPool = helperOps.createSocketPool(adminClientConfig);
         this.adminStoreClient = new AdminStoreClient(clientConfig);
 
+        this.clusterVersion = System.currentTimeMillis();
         if(cluster != null) {
             this.currentCluster = cluster;
         } else {
@@ -238,7 +240,6 @@ public class AdminClient implements Closeable {
 
         Utils.notNull(this.currentCluster);
         helperOps.initSystemStoreClient(clientConfig);
-
     }
 
     public AdminClient(String bootstrapURL) {
@@ -289,12 +290,35 @@ public class AdminClient implements Closeable {
     /**
      * Stop the AdminClient cleanly freeing all resources.
      */
+    @Override
     public void close() {
         this.socketPool.close();
         this.adminStoreClient.close();
 
         if(systemStoreFactory != null) {
             systemStoreFactory.close();
+        }
+    }
+
+    /**
+     * If Cluster is modified ( nodes are added/removed), using the old
+     * AdminClient will cause inconsistent operations. This method returns true
+     * under such cases, so that caller can discard the current AdminClient and
+     * create new AdminClient.
+     * 
+     * @return true if cluster is modified since the AdminClient is create,
+     *         false otherwise
+     */
+    public boolean isClusterModified() {
+        try {
+            Properties props = MetadataVersionStoreUtils.getProperties(metadataVersionSysStoreClient);
+            long retrievedVersion = MetadataVersionStoreUtils.getVersion(props,
+                                                                         SystemStoreConstants.CLUSTER_VERSION_KEY);
+
+            return retrievedVersion > this.clusterVersion;
+        } catch(Exception e) {
+            logger.info("Error retrieving cluster metadata version");
+            return true;
         }
     }
 
@@ -1601,6 +1625,8 @@ public class AdminClient implements Closeable {
             updateRemoteMetadata(nodeId,
                                  MetadataStore.CLUSTER_KEY,
                                  new Versioned<String>(clusterMapper.writeCluster(cluster), clock));
+
+            metadataMgmtOps.updateMetadataversion(Arrays.asList(nodeId), MetadataStore.CLUSTER_KEY);
         }
 
         /**

@@ -237,11 +237,14 @@ public class AdminServiceBasicTest {
     public void testUpdateClusterMetadata() {
         Cluster updatedCluster = ServerTestUtils.getLocalCluster(4);
         AdminClient client = getAdminClient();
+        assertFalse("Newly Created admin client has valid cluster", client.isClusterModified());
         for(int i = 0; i < NUM_RUNS; i++) {
             VectorClock clock = ((VectorClock) client.metadataMgmtOps.getRemoteCluster(0)
                                                                      .getVersion()).incremented(0,
                                                                                                 System.currentTimeMillis());
             client.metadataMgmtOps.updateRemoteCluster(0, updatedCluster, clock);
+
+            assertTrue("After cluster update", client.isClusterModified());
 
             assertEquals("Cluster should match",
                          updatedCluster,

@@ -72,6 +72,20 @@ public class MetadataVersionStoreUtils {
         }
     }
 
+    public static Long getVersion(Properties prop, String versionKey) {
+        long value = 0;
+
+        if(prop != null && prop.getProperty(versionKey) != null) {
+            String strValue = prop.getProperty(versionKey);
+            value = tryParse(strValue);
+        }
+
+        if(logger.isDebugEnabled()) {
+            logger.debug("*********** For key : " + versionKey + " received value = " + value);
+        }
+        return value;
+    }
+
     public static Properties mergeVersions(Properties prop1, Properties prop2) {
         if(prop1 == null) {
             return prop2;
