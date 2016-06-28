@@ -1749,11 +1749,60 @@ public class AdminClient implements Closeable {
         }
 
         public Versioned<List<StoreDefinition>> getRemoteStoreDefList() throws VoldemortException {
-            Integer nodeId = AdminClient.this.getAdminClientCluster()
-                                             .getNodeIds()
-                                             .iterator()
-                                             .next();
+            Integer nodeId = currentCluster.getNodeIds().iterator().next();
             return getRemoteStoreDefList(nodeId);
+        }
+
+        /**
+         * Retrieve a store from a random node in the cluster.
+         * Note that, store may present on some nodes and not on other
+         * nodes, due to node failures or other reasons. In those cases
+         * results will be inconsistent based on the node it choose to query.
+         * 
+         * @param storeName name of the store
+         * @return null if it does not exist, StoreDefinition if it exists. 
+         */
+        public StoreDefinition getStoreDefinition(String storeName) {
+            Integer nodeId = currentCluster.getNodeIds().iterator().next();
+            return getStoreDefinition(nodeId, storeName);
+        }
+
+        /**
+         * Retrieve the storeDefinition from a particular node.
+         * 
+         * @param nodeId node to retrieve the store from
+         * @param storeName name of the store.
+         * @return null if it does not exist, StoreDefinition if it exists.
+         */
+        public StoreDefinition getStoreDefinition(int nodeId, String storeName) {
+            if (storeName == null || storeName.length() == 0) {
+                throw new IllegalArgumentException("storeName");
+            }
+
+            String storeKey = fetchSingleStore ? storeName : MetadataStore.STORES_KEY;
+
+            Versioned<List<StoreDefinition>> storeDef;
+            try {
+                storeDef = getRemoteStoreDefList(nodeId, storeKey);
+            } catch (StoreNotFoundException ex) {
+                logger.info("Store " + storeName + " is not found in node " + nodeId + " key used " + storeKey);
+                return null;
+            }
+
+            if (storeDef == null || storeDef.getValue() == null) {
+                logger.warn("Unexpected null returned from getRemoteStoreDefList " + storeDef);
+                return null;
+            }
+
+            List<StoreDefinition> retrievedStoreDefs = storeDef.getValue();
+            for (StoreDefinition retrievedStoreDef : retrievedStoreDefs) {
+                if (retrievedStoreDef.getName().equals(storeName)) {
+                    return retrievedStoreDef;
+                }
+            }
+            logger.info("Store " + storeName + " is not found in node " + nodeId + " Total Store"
+                    + retrievedStoreDefs.size() + " key used " + storeKey);
+            return null;
         }
 
         /**
@@ -1921,7 +1970,8 @@ public class AdminClient implements Closeable {
 
             @Override
             public void run() {
-                List<StoreDefinition> retrievedStoreDefs = metadataMgmtOps.getRemoteStoreDefList(nodeId, key).getValue();
+                List<StoreDefinition> retrievedStoreDefs =
+                        metadataMgmtOps.getRemoteStoreDefList(nodeId, key).getValue();
                 results.put(nodeId, retrievedStoreDefs);
             }
         }

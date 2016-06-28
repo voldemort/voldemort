@@ -12,6 +12,7 @@ import java.util.Properties;
 import java.util.Random;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 
 import org.junit.After;
 import org.junit.Assert;
@@ -58,6 +59,8 @@ public class VerifyOrAddStoreTest {
     private String newStoreName;
     private final ClientConfig clientConfig;
     private final ExecutorService service;
+    private final int FAILED_NODE_ID;
+    private static final int NUM_SERVERS = 4;
 
     @Parameters
     public static Collection<Object[]> configs() {
@@ -79,16 +82,17 @@ public class VerifyOrAddStoreTest {
             service = Executors.newFixedThreadPool(numberOfThreads);
         }
 
-        serverProps = new Properties();
         // Set default quota in between 100 and 1100 at random
         defaultQuota = 100 + new Random().nextInt(1000);
+
+        FAILED_NODE_ID = new Random().nextInt(NUM_SERVERS);
+        serverProps = new Properties();
         serverProps.setProperty(VoldemortConfig.DEFAULT_STORAGE_SPACE_QUOTA_IN_KB, Long.toString(defaultQuota));
     }
 
     @Before
     public void setUp() throws IOException {
-        int numServers = 4;
-        servers = new VoldemortServer[numServers];
+        servers = new VoldemortServer[NUM_SERVERS];
         int partitionMap[][] = { { 0, 1, 2, 3 }, { 4, 5, 6, 7 }, { 8, 9, 10, 11 }, { 12, 13, 14, 15 } };
         cluster = ServerTestUtils.startVoldemortCluster(servers, partitionMap, serverProps, storesXmlfile);
 
@@ -103,23 +107,19 @@ public class VerifyOrAddStoreTest {
     }
 
     @After
-    public void tearDown() throws IOException {
+    public void tearDown() throws Exception {
         adminClient.close();
         for(VoldemortServer server: servers) {
             ServerTestUtils.stopVoldemortServer(server);
         }
+        if (service != null) {
+            service.shutdown();
+            service.awaitTermination(100, TimeUnit.MILLISECONDS);
+        }
     }
 
     private StoreDefinition retrieveStoreOnNode(String storeName, int nodeId) {
-        List<StoreDefinition> storeDefs = adminClient.metadataMgmtOps.getRemoteStoreDefList(nodeId).getValue();
-        StoreDefinition retrieved = null;
-        for (StoreDefinition storeDef : storeDefs) {
-            if (storeDef.getName().equals(newStoreName)) {
-                retrieved = storeDef;
-                break;
-            }
-        }
-        return retrieved;
+        return adminClient.metadataMgmtOps.getStoreDefinition(nodeId, storeName);
     }
 
     private Long getQuotaForNode(String storeName, QuotaType quotaType, int nodeId) {
@@ -131,8 +131,15 @@ public class VerifyOrAddStoreTest {
     }
 
     private void verifyStoreAddedOnAllNodes() {
+
+        // Get from a random node, verify
+        StoreDefinition retrieved = adminClient.metadataMgmtOps.getStoreDefinition(newStoreName);
+        assertNotNull("Created store can't be retrieved", retrieved);
+        assertEquals("Store Created and retrieved are different ", newStoreDef, retrieved);
+
+        // Get from one by one verify
         for (Integer nodeId : cluster.getNodeIds()) {
-            StoreDefinition retrieved = retrieveStoreOnNode(newStoreName, nodeId);
+            retrieved = retrieveStoreOnNode(newStoreName, nodeId);
             assertNotNull("Created store can't be retrieved", retrieved);
             assertEquals("Store Created and retrieved are different ", newStoreDef, retrieved);
 
@@ -142,8 +149,11 @@ public class VerifyOrAddStoreTest {
     }
 
     private void verifyStoreDoesNotExist() {
+        StoreDefinition retrieved = adminClient.metadataMgmtOps.getStoreDefinition(newStoreName);
+        assertNull("Store should not be created", retrieved);
+
         for (Integer nodeId : cluster.getNodeIds()) {
-            StoreDefinition retrieved = retrieveStoreOnNode(newStoreName, nodeId);
+            retrieved = retrieveStoreOnNode(newStoreName, nodeId);
             assertNull("Store should not be created", retrieved);
 
             Long quota = getQuotaForNode(newStoreName, QuotaType.STORAGE_SPACE, nodeId);
@@ -220,9 +230,8 @@ public class VerifyOrAddStoreTest {
     @Test
     public void verifyMisMatchFails() throws Exception {
         StoreDefinition incompatibleDef = getIncompatibleStoreDef();
-        final int NODE_ID = 0;
         // Add the incompatible store definition to Node 0
-        adminClient.storeMgmtOps.addStore(incompatibleDef, NODE_ID);
+        adminClient.storeMgmtOps.addStore(incompatibleDef, FAILED_NODE_ID);
 
         // Adding the store with different definition should fail.
         try {
@@ -234,7 +243,7 @@ public class VerifyOrAddStoreTest {
 
         for (Integer nodeId : cluster.getNodeIds()) {
             StoreDefinition retrieved = retrieveStoreOnNode(newStoreName, nodeId);
-            if (nodeId == NODE_ID) {
+            if (nodeId == FAILED_NODE_ID) {
                 assertEquals("mismatched store def should be left intact", incompatibleDef, retrieved);
             } else {
                 assertNull("Store should not exist in this node", retrieved);
@@ -244,8 +253,7 @@ public class VerifyOrAddStoreTest {
 
     @Test
     public void verifyCreateWithNodeFailure() throws Exception {
-        final int NODE_ID = servers.length - 1;
-        ServerTestUtils.stopVoldemortServer(servers[NODE_ID]);
+        ServerTestUtils.stopVoldemortServer(servers[FAILED_NODE_ID]);
 
         // Set CreateStore to false, node down should have thrown an error
         try {
@@ -257,7 +265,7 @@ public class VerifyOrAddStoreTest {
 
         // Verify that.
         for (Integer nodeId : cluster.getNodeIds()) {
-            if (nodeId == NODE_ID) {
+            if (nodeId == FAILED_NODE_ID) {
                 // this is a dead server, continue;
             } else {
                 StoreDefinition retrieved = retrieveStoreOnNode(newStoreName, nodeId);
@@ -276,7 +284,7 @@ public class VerifyOrAddStoreTest {
 
         // Verify that.
         for(Integer nodeId: cluster.getNodeIds()) {
-            if(nodeId == NODE_ID) {
+            if (nodeId == FAILED_NODE_ID) {
                 // this is a dead server, continue;
             } else {
                 StoreDefinition retrieved = retrieveStoreOnNode(newStoreName, nodeId);
@@ -295,7 +303,7 @@ public class VerifyOrAddStoreTest {
             }
 
             for (Integer nodeId : cluster.getNodeIds()) {
-                if (nodeId == NODE_ID) {
+                if (nodeId == FAILED_NODE_ID) {
                     // this is dead server, continue.
                 } else {
                     Long retrievedQuota = getQuotaForNode(newStoreName, quotaType, nodeId);
@@ -317,11 +325,10 @@ public class VerifyOrAddStoreTest {
             adminClient.quotaMgmtOps.setQuota(newStoreName, quotaType, newQuota, service);
         }
                 
-        final int NODE_ID = servers.length - 1;
-        ServerTestUtils.stopVoldemortServer(servers[NODE_ID]);
+        ServerTestUtils.stopVoldemortServer(servers[FAILED_NODE_ID]);
 
         try {
-            retrieveStoreOnNode(newStoreName, NODE_ID);
+            retrieveStoreOnNode(newStoreName, FAILED_NODE_ID);
             Assert.fail("Downed node retrieval should have thrown an error");
         } catch (VoldemortException ex) {
             // Expected
@@ -344,8 +351,9 @@ public class VerifyOrAddStoreTest {
             }
         }
 
-        servers[NODE_ID] = ServerTestUtils.restartServer(servers[NODE_ID], NODE_ID, cluster, serverProps);
-        StoreDefinition retrieved = retrieveStoreOnNode(newStoreName, NODE_ID);
+        servers[FAILED_NODE_ID] =
+                ServerTestUtils.restartServer(servers[FAILED_NODE_ID], FAILED_NODE_ID, cluster, serverProps);
+        StoreDefinition retrieved = retrieveStoreOnNode(newStoreName, FAILED_NODE_ID);
         assertEquals("After restart, should retrieve the store", newStoreDef, retrieved);
         adminClient.storeMgmtOps.verifyOrAddStore(newStoreDef, PROCESS_NAME, service);
 
