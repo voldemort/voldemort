@@ -157,7 +157,7 @@ public class StoreDefinitionsMapper {
         }
     }
 
-    public StoreDefinition readStore(Reader input) {
+    public static StoreDefinition readStore(Reader input) {
         SAXBuilder builder = new SAXBuilder();
         try {
             Document doc = builder.build(input);
@@ -171,7 +171,7 @@ public class StoreDefinitionsMapper {
     }
 
     @SuppressWarnings("unchecked")
-    private StoreDefinition readStore(Element store) {
+    private static StoreDefinition readStore(Element store) {
         String name = store.getChildText(STORE_NAME_ELMT);
         String storeType = store.getChildText(STORE_PERSISTENCE_ELMT);
         String description = store.getChildText(STORE_DESCRIPTION_ELMT);

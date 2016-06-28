@@ -39,6 +39,16 @@ public class QuotaUtils {
         return String.format("%s.%s", storeName, quotaType.toString());
     }
 
+    public static ByteArray getByteArrayKey(String storeName, QuotaType quotaType) {
+        String quotaKey = makeQuotaKey(storeName, quotaType);
+
+        try {
+            return new ByteArray(quotaKey.getBytes("UTF8"));
+        } catch (UnsupportedEncodingException ex) {
+            throw new VoldemortApplicationException("Error converting key" + quotaKey, ex);
+        }
+    }
+
     public static Set<String> validQuotaTypes() {
         HashSet<String> quotaTypes = new HashSet<String>();
         for(QuotaType type: QuotaType.values()) {

@@ -1051,7 +1051,8 @@ public class ServerTestUtils {
         return new ClientRequestExecutorPool(2, 10000, 100000, 32 * 1024);
     }
 
-    public static VoldemortServer restartServer(VoldemortServer oldServer, int nodeId, Cluster cluster)
+    public static VoldemortServer restartServer(VoldemortServer oldServer, int nodeId, Cluster cluster,
+            Properties serverProps)
             throws Exception {
         ServerTestUtils.stopVoldemortServer(oldServer);
 
@@ -1063,7 +1064,7 @@ public class ServerTestUtils {
         final boolean ENABLE_NIO = true;
         VoldemortConfig config =
                 ServerTestUtils.createServerConfigWithDefs(ENABLE_NIO, nodeId, parentDirPath, cluster, storeDefs,
-                        new Properties());
+                        serverProps);
         SocketStoreFactory socketStoreFactory = getSocketStoreFactory();
         try {
             return startVoldemortServer(socketStoreFactory, config, cluster);

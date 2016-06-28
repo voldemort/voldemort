@@ -6,10 +6,12 @@ import static org.junit.Assert.assertNull;
 
 import java.io.File;
 import java.io.IOException;
-import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
 import java.util.Properties;
+import java.util.Random;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 import org.junit.After;
 import org.junit.Assert;
@@ -25,10 +27,15 @@ import voldemort.client.protocol.admin.AdminClient;
 import voldemort.client.protocol.admin.AdminClientConfig;
 import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
+import voldemort.server.VoldemortConfig;
 import voldemort.server.VoldemortServer;
 import voldemort.store.StoreDefinition;
 import voldemort.store.memory.InMemoryStorageConfiguration;
+import voldemort.store.quota.QuotaType;
+import voldemort.versioning.Versioned;
 import voldemort.xml.StoreDefinitionsMapper;
+
+import com.google.common.collect.Lists;
 
 
 @RunWith(Parameterized.class)
@@ -44,18 +51,38 @@ public class VerifyOrAddStoreTest {
     private Cluster cluster;
 
     private AdminClient adminClient;
+    private final Properties serverProps;
+    private final long defaultQuota;
 
     private StoreDefinition newStoreDef;
     private String newStoreName;
     private final ClientConfig clientConfig;
+    private final ExecutorService service;
 
     @Parameters
     public static Collection<Object[]> configs() {
-        return Arrays.asList(new Object[][] { { true }, { false } });
+        List<Object[]> allConfigs = Lists.newArrayList();
+        
+        for (boolean fetchAllStores : new boolean[] { true, false }) {
+            for (int threads : new int[] { 0, 2, 4, 6 }) {
+                allConfigs.add(new Object[] { fetchAllStores, threads });
+            }
+        }
+        return allConfigs;
     }
 
-    public VerifyOrAddStoreTest(boolean fetchAllStores) {
+    public VerifyOrAddStoreTest(boolean fetchAllStores, int numberOfThreads) {
         clientConfig = new ClientConfig().setFetchAllStoresXmlInBootstrap(fetchAllStores);
+        if (numberOfThreads == 0) {
+            service = null;
+        } else {
+            service = Executors.newFixedThreadPool(numberOfThreads);
+        }
+
+        serverProps = new Properties();
+        // Set default quota in between 100 and 1100 at random
+        defaultQuota = 100 + new Random().nextInt(1000);
+        serverProps.setProperty(VoldemortConfig.DEFAULT_STORAGE_SPACE_QUOTA_IN_KB, Long.toString(defaultQuota));
     }
 
     @Before
@@ -63,7 +90,7 @@ public class VerifyOrAddStoreTest {
         int numServers = 4;
         servers = new VoldemortServer[numServers];
         int partitionMap[][] = { { 0, 1, 2, 3 }, { 4, 5, 6, 7 }, { 8, 9, 10, 11 }, { 12, 13, 14, 15 } };
-        cluster = ServerTestUtils.startVoldemortCluster(servers, partitionMap, new Properties(), storesXmlfile);
+        cluster = ServerTestUtils.startVoldemortCluster(servers, partitionMap, serverProps, storesXmlfile);
 
         newStoreDef = new StoreDefinitionsMapper().readStoreList(new File(readOnlyXmlFilePath)).get(0);
         newStoreName = newStoreDef.getName();
@@ -95,11 +122,22 @@ public class VerifyOrAddStoreTest {
         return retrieved;
     }
 
+    private Long getQuotaForNode(String storeName, QuotaType quotaType, int nodeId) {
+        Versioned<String> quotaStr = adminClient.quotaMgmtOps.getQuotaForNode(storeName, quotaType, nodeId);
+        if (quotaStr == null) {
+            return null;
+        }
+        return Long.parseLong(quotaStr.getValue());
+    }
+
     private void verifyStoreAddedOnAllNodes() {
         for (Integer nodeId : cluster.getNodeIds()) {
             StoreDefinition retrieved = retrieveStoreOnNode(newStoreName, nodeId);
             assertNotNull("Created store can't be retrieved", retrieved);
             assertEquals("Store Created and retrieved are different ", newStoreDef, retrieved);
+
+            Long quota = getQuotaForNode(newStoreName, QuotaType.STORAGE_SPACE, nodeId);
+            assertEquals("Default quota mismatch", defaultQuota, quota.longValue());
         }
     }
 
@@ -107,19 +145,33 @@ public class VerifyOrAddStoreTest {
         for (Integer nodeId : cluster.getNodeIds()) {
             StoreDefinition retrieved = retrieveStoreOnNode(newStoreName, nodeId);
             assertNull("Store should not be created", retrieved);
+
+            Long quota = getQuotaForNode(newStoreName, QuotaType.STORAGE_SPACE, nodeId);
+            assertNull("Default quota should not exist", quota);
         }
     }
 
     @Test
     public void verifyNewStoreAddition() {
-        adminClient.storeMgmtOps.verifyOrAddStore(newStoreDef, PROCESS_NAME);
+        adminClient.storeMgmtOps.verifyOrAddStore(newStoreDef, PROCESS_NAME, service);
         verifyStoreAddedOnAllNodes();
+
+        // Verify set quota on the stores as well.
+        for (QuotaType quotaType : new QuotaType[] { QuotaType.STORAGE_SPACE, QuotaType.GET_THROUGHPUT }) {
+            long newQuota = 100000 + new Random().nextInt(10000);
+            adminClient.quotaMgmtOps.setQuota(newStoreName, quotaType, newQuota, service);
+
+            for (Integer nodeId : cluster.getNodeIds()) {
+                Long retrievedQuota = getQuotaForNode(newStoreName, quotaType, nodeId);
+                assertEquals("Set and retrieved different quota", newQuota, retrievedQuota.longValue());
+            }
+        }
     }
 
     @Test
     public void verifyNoStoreCreated() {
         try {
-            adminClient.storeMgmtOps.verifyOrAddStore(newStoreDef, PROCESS_NAME, false);
+            adminClient.storeMgmtOps.verifyOrAddStore(newStoreDef, PROCESS_NAME, false, service);
             Assert.fail("Non existent store create with flag disabled should have thrown error");
         } catch (VoldemortException ex) {
             // Pass
@@ -131,7 +183,7 @@ public class VerifyOrAddStoreTest {
     public void verifyPartialCreatedStores() {
         // Add the store on one node with same definition.
         adminClient.storeMgmtOps.addStore(newStoreDef, 0);
-        adminClient.storeMgmtOps.verifyOrAddStore(newStoreDef, PROCESS_NAME);
+        adminClient.storeMgmtOps.verifyOrAddStore(newStoreDef, PROCESS_NAME, service);
         verifyStoreAddedOnAllNodes();
     }
     
@@ -174,7 +226,7 @@ public class VerifyOrAddStoreTest {
 
         // Adding the store with different definition should fail.
         try {
-            adminClient.storeMgmtOps.verifyOrAddStore(newStoreDef, PROCESS_NAME, false);
+            adminClient.storeMgmtOps.verifyOrAddStore(newStoreDef, PROCESS_NAME, false, service);
             Assert.fail("Non existent store create with flag disabled should have thrown error");
         } catch (VoldemortException ex) {
             // Pass
@@ -195,13 +247,34 @@ public class VerifyOrAddStoreTest {
         final int NODE_ID = servers.length - 1;
         ServerTestUtils.stopVoldemortServer(servers[NODE_ID]);
 
+        // Set CreateStore to false, node down should have thrown an error
         try {
-            adminClient.storeMgmtOps.verifyOrAddStore(newStoreDef, PROCESS_NAME);
-            Assert.fail("Non existent store create with flag disabled should have thrown error");
+            adminClient.storeMgmtOps.verifyOrAddStore(newStoreDef, PROCESS_NAME, false, service);
+            Assert.fail("Node failure should have raised an error");
         } catch(VoldemortException ex) {
             // Pass
         }
 
+        // Verify that.
+        for (Integer nodeId : cluster.getNodeIds()) {
+            if (nodeId == NODE_ID) {
+                // this is a dead server, continue;
+            } else {
+                StoreDefinition retrieved = retrieveStoreOnNode(newStoreName, nodeId);
+                assertNull("store should not exist", retrieved);
+            }
+        }
+
+        // Default is to set createStore to true, it should create stores on all 
+        // nodes that are up and thrown an exception at the end.
+        try {
+            adminClient.storeMgmtOps.verifyOrAddStore(newStoreDef, PROCESS_NAME, service);
+            Assert.fail("Node failure should have raised an error");
+        } catch (VoldemortException ex) {
+            // Pass
+        }
+
+        // Verify that.
         for(Integer nodeId: cluster.getNodeIds()) {
             if(nodeId == NODE_ID) {
                 // this is a dead server, continue;
@@ -210,13 +283,40 @@ public class VerifyOrAddStoreTest {
                 assertEquals("store successfully created on online nodes", newStoreDef, retrieved);
             }
         }
+
+        // Verify set quota on the stores as well.
+        for (QuotaType quotaType : new QuotaType[] { QuotaType.STORAGE_SPACE, QuotaType.GET_THROUGHPUT }) {
+            long newQuota = 100000 + new Random().nextInt(10000);
+            try {
+                adminClient.quotaMgmtOps.setQuota(newStoreName, quotaType, newQuota, service);
+                Assert.fail("Node failure should have raised an error");
+            } catch (VoldemortException ex) {
+                // expected.
+            }
+
+            for (Integer nodeId : cluster.getNodeIds()) {
+                if (nodeId == NODE_ID) {
+                    // this is dead server, continue.
+                } else {
+                    Long retrievedQuota = getQuotaForNode(newStoreName, quotaType, nodeId);
+                    assertEquals("Set and retrieved different quota", newQuota, retrievedQuota.longValue());
+                }
+            }
+        }
     }
 
     @Test
     public void verifyAdminClientAcrossNodeRestart() throws Exception {
-        // Do a query create the connections.
-        adminClient.storeMgmtOps.verifyOrAddStore(newStoreDef, PROCESS_NAME);
+        long newQuota = 500000 + new Random().nextInt(10000);
 
+        // Do a query create the connections.
+        adminClient.storeMgmtOps.verifyOrAddStore(newStoreDef, PROCESS_NAME, service);
+
+        // Create client pool as well.
+        for (QuotaType quotaType : new QuotaType[] { QuotaType.STORAGE_SPACE, QuotaType.GET_THROUGHPUT }) {
+            adminClient.quotaMgmtOps.setQuota(newStoreName, quotaType, newQuota, service);
+        }
+                
         final int NODE_ID = servers.length - 1;
         ServerTestUtils.stopVoldemortServer(servers[NODE_ID]);
 
@@ -228,15 +328,36 @@ public class VerifyOrAddStoreTest {
         }
 
         try {
-            adminClient.storeMgmtOps.verifyOrAddStore(newStoreDef, PROCESS_NAME);
+            adminClient.storeMgmtOps.verifyOrAddStore(newStoreDef, PROCESS_NAME, service);
             Assert.fail("Downed node should have thrown an error");
         } catch (VoldemortException ex) {
             // Expected
         }
 
-        servers[NODE_ID] = ServerTestUtils.restartServer(servers[NODE_ID], NODE_ID, cluster);
+        // setQuota should throw as well.
+        for (QuotaType quotaType : new QuotaType[] { QuotaType.STORAGE_SPACE, QuotaType.GET_THROUGHPUT }) {
+            try {
+                adminClient.quotaMgmtOps.setQuota(newStoreName, quotaType, newQuota, service);
+                Assert.fail("Node failure should have raised an error");
+            } catch (VoldemortException ex) {
+                // expected.
+            }
+        }
+
+        servers[NODE_ID] = ServerTestUtils.restartServer(servers[NODE_ID], NODE_ID, cluster, serverProps);
         StoreDefinition retrieved = retrieveStoreOnNode(newStoreName, NODE_ID);
         assertEquals("After restart, should retrieve the store", newStoreDef, retrieved);
-        adminClient.storeMgmtOps.verifyOrAddStore(newStoreDef, PROCESS_NAME);
+        adminClient.storeMgmtOps.verifyOrAddStore(newStoreDef, PROCESS_NAME, service);
+
+        long updatedQuota = newQuota + 100;
+        for (QuotaType quotaType : new QuotaType[] { QuotaType.STORAGE_SPACE, QuotaType.GET_THROUGHPUT }) {
+            adminClient.quotaMgmtOps.setQuota(newStoreName, quotaType, updatedQuota, service);
+
+            for (Integer nodeId : cluster.getNodeIds()) {
+                Long retrievedQuota = getQuotaForNode(newStoreName, quotaType, nodeId);
+                assertEquals("Set and retrieved different quota", updatedQuota, retrievedQuota.longValue());
+            }
+        }
+
     }
 }
