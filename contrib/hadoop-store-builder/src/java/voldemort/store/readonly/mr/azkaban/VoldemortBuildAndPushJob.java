@@ -126,6 +126,7 @@ public class VoldemortBuildAndPushJob extends AbstractJob {
     public final static String VALUE_SELECTION = "value.selection";
     public final static String BUILD = "build";
     public final static String PUSH = "push";
+    public final static String FETCH_ALL_STORES_XML = "fetch.all.stores.xml";
     public final static String VOLDEMORT_FETCHER_PROTOCOL = "voldemort.fetcher.protocol";
     public final static String VOLDEMORT_FETCHER_PORT = "voldemort.fetcher.port";
     public final static String AVRO_SERIALIZER_VERSIONED = "avro.serializer.versioned";
@@ -176,6 +177,15 @@ public class VoldemortBuildAndPushJob extends AbstractJob {
     private Future heartBeatHookFuture = null;
     private Map<String, VAdminProto.GetHighAvailabilitySettingsResponse> haSettingsPerCluster;
     private boolean buildPrimaryReplicasOnly;
+    
+    private AdminClient createAdminClient(String url, boolean fetchAllStoresXml) {
+        ClientConfig config = new ClientConfig().setBootstrapUrls(url)
+                .setConnectionTimeout(15,TimeUnit.SECONDS)
+                .setFetchAllStoresXmlInBootstrap(fetchAllStoresXml);
+
+        AdminClientConfig adminConfig = new AdminClientConfig().setAdminSocketTimeoutSec(60);
+        return new AdminClient(adminConfig, config);
+    }
 
     public VoldemortBuildAndPushJob(String name, azkaban.utils.Props azkabanProps) {
         super(name, Logger.getLogger(name));
@@ -190,16 +200,14 @@ public class VoldemortBuildAndPushJob extends AbstractJob {
         this.adminClientPerCluster = Maps.newHashMap();
 
         String clusterUrlText = props.getString(PUSH_CLUSTER);
+        boolean fetchAllStoresXml = props.getBoolean(FETCH_ALL_STORES_XML, true);
         for(String url: Utils.COMMA_SEP.split(clusterUrlText.trim())) {
             if(url.trim().length() > 0) {
-                if (clusterURLs.contains(url))
-                    throw new VoldemortException("the URL: " + url + " is duplicated. Please check it out.");
+                if (clusterURLs.contains(url)) {
+                    throw new VoldemortException("the URL: " + url + " is repeated in the "+ PUSH_CLUSTER + " property ");
+                }
                 this.clusterURLs.add(url);
-                ClientConfig config = new ClientConfig().setBootstrapUrls(url)
-                                    .setConnectionTimeout(15,TimeUnit.SECONDS);
-                
-                AdminClientConfig adminConfig = new AdminClientConfig().setAdminSocketTimeoutSec(60);
-                AdminClient adminClient = new AdminClient(adminConfig, config);
+                AdminClient adminClient = createAdminClient(url, fetchAllStoresXml);
                 this.adminClientPerCluster.put(url, adminClient);
                 this.closeables.add(adminClient);
             }
