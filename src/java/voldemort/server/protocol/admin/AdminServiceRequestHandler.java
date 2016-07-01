@@ -1054,14 +1054,12 @@ public class AdminServiceRequestHandler implements RequestHandler {
                                                                                                             .setStatus("started");
         try {
             if(!metadataStore.getReadOnlyFetchEnabledUnlocked()) {
-                throw new ReadOnlyFetchDisabledException("Read-only fetcher is disabled in "
-                                             + metadataStore.getServerStateUnlocked()
-                                             + " state on node " + metadataStore.getNodeId());
+                throw new ReadOnlyFetchDisabledException("Pushes to this node have been disabled."
+                        + " Please reach out to the cluster admin for assistance.");
             }
             final ReadOnlyStorageEngine store = getReadOnlyStorageEngine(metadataStore,
                                                                          storeRepository,
                                                                          storeName);
-            final long currentVersion = store.getCurrentVersionId();
             final long pushVersion;
             if(request.hasPushVersion()) {
                 pushVersion = request.getPushVersion();

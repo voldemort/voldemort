@@ -3333,8 +3333,6 @@ public class AdminClient implements Closeable {
             }
             return result;
         }
-
-        // As needed, add 'getall', and so on interfaces...
     }
 
     /**
