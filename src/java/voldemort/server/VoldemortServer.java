@@ -46,7 +46,6 @@ import voldemort.server.niosocket.NioSocketService;
 import voldemort.server.protocol.ClientRequestHandlerFactory;
 import voldemort.server.protocol.RequestHandlerFactory;
 import voldemort.server.protocol.SocketRequestHandlerFactory;
-import voldemort.server.protocol.admin.AsyncOperation;
 import voldemort.server.protocol.admin.AsyncOperationService;
 import voldemort.server.rebalance.Rebalancer;
 import voldemort.server.rebalance.RebalancerService;
@@ -96,37 +95,66 @@ public class VoldemortServer extends AbstractService {
     private StorageService storageService;
     private JmxService jmxService;
 
-    public VoldemortServer(VoldemortConfig config) {
+    private VoldemortServer(VoldemortConfig config, MetadataStore metadataStore) {
         super(ServiceType.VOLDEMORT);
         this.voldemortConfig = config;
         this.setupSSLProvider();
+        this.metadata = metadataStore;
         this.storeRepository = new StoreRepository(config.isJmxEnabled());
-        this.metadata = MetadataStore.readFromDirectory(new File(this.voldemortConfig.getMetadataDirectory()),
-                                                        voldemortConfig.getNodeId());
-        this.identityNode = metadata.getCluster().getNodeById(voldemortConfig.getNodeId());
+        int nodeId = this.metadata.getNodeId();
+        // Update the config with right node Id
+        this.voldemortConfig.setNodeId(nodeId);
+        this.identityNode = metadata.getCluster().getNodeById(nodeId);
+
         this.checkHostName();
+        this.validateNodeId();
+
         this.validateRestServiceConfiguration();
         this.basicServices = createBasicServices();
         createOnlineServices();
     }
 
-    /**
-     * Constructor is used exclusively by tests. I.e., this is not a code path
-     * that is exercised in production.
-     *
-     * @param config
-     * @param cluster
-     */
-    public VoldemortServer(VoldemortConfig config, Cluster cluster) {
-        super(ServiceType.VOLDEMORT);
-        this.voldemortConfig = config;
-        this.setupSSLProvider();
-        this.identityNode = cluster.getNodeById(voldemortConfig.getNodeId());
+    public static int computeNodeId(VoldemortConfig config, Cluster cluster) {
+        HostMatcher matcher = config.getNodeIdImplementation();
+        return NodeIdUtils.findNodeId(cluster, matcher);
+    }
 
-        this.checkHostName();
-        this.validateRestServiceConfiguration();
-        this.storeRepository = new StoreRepository(config.isJmxEnabled());
-        // update cluster details in metaDataStore
+    public void validateNodeId() {
+        if(voldemortConfig.getNodeId() != metadata.getNodeId()) {
+            throw new VoldemortException("Voldmeort Config Node Id " + voldemortConfig.getNodeId() + 
+                                         " does not match with metadata store node Id " + metadata.getNodeId());
+        }
+        
+        if(voldemortConfig.isValidateNodeId() || voldemortConfig.isEnableNodeIdDetection()) {
+            HostMatcher matcher = voldemortConfig.getNodeIdImplementation();
+            NodeIdUtils.validateNodeId(metadata.getCluster(), matcher, metadata.getNodeId());
+        } else {
+            logger.info("Ignoring node id validation as it is disable in the config ");
+        }
+    }
+
+    public static int getNodeId(VoldemortConfig config, Cluster cluster) {
+        int configNodeId = config.getNodeId();
+        if(configNodeId >= 0) {
+            return configNodeId;
+        }
+        if(!config.isEnableNodeIdDetection()) {
+            // Node Id is missing and auto detection is disabled, error out.
+            throw new VoldemortException(VoldemortConfig.NODE_ID
+                                         + " is a required proeprty of the Voldmeort Server");
+        }
+        return computeNodeId(config, cluster);
+    }
+
+    private static MetadataStore createMetadataFromConfig(VoldemortConfig voldemortConfig) {
+        MetadataStore metadataStore = MetadataStore.readFromDirectory(new File(voldemortConfig.getMetadataDirectory()));
+        int nodeId = getNodeId(voldemortConfig, metadataStore.getCluster());
+        metadataStore.initNodeId(nodeId);
+        return metadataStore;
+    }
+
+    private static MetadataStore getTestMetadataStore(VoldemortConfig voldemortConfig,
+                                                      Cluster cluster) {
         ConfigurationStorageEngine metadataInnerEngine = new ConfigurationStorageEngine("metadata-config-store",
                                                                                         voldemortConfig.getMetadataDirectory());
 
@@ -139,16 +167,30 @@ public class VoldemortServer extends AbstractService {
         } else {
             version = (VectorClock) clusterXmlValue.get(0).getVersion();
         }
-        version.incrementVersion(voldemortConfig.getNodeId(), System.currentTimeMillis());
+
+        int nodeId = getNodeId(voldemortConfig, cluster);
+        version.incrementVersion(nodeId, System.currentTimeMillis());
 
         metadataInnerEngine.put(MetadataStore.CLUSTER_KEY,
-                new Versioned<String>(new ClusterMapper().writeCluster(cluster),
-                        version),
-                null);
-        this.metadata = new MetadataStore(metadataInnerEngine, voldemortConfig.getNodeId());
+                                new Versioned<String>(new ClusterMapper().writeCluster(cluster),
+                                                      version),
+                                null);
+        return MetadataStore.createInMemoryMetadataStore(metadataInnerEngine, nodeId);
+    }
 
-        this.basicServices = createBasicServices();
-        createOnlineServices();
+    public VoldemortServer(VoldemortConfig config) {
+        this(config, createMetadataFromConfig(config));
+    }
+
+    /**
+     * Constructor is used exclusively by tests. I.e., this is not a code path
+     * that is exercised in production.
+     *
+     * @param config
+     * @param cluster
+     */
+    public VoldemortServer(VoldemortConfig config, Cluster cluster) {
+        this(config, getTestMetadataStore(config, cluster));
     }
 
     private void setupSSLProvider() {

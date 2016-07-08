@@ -780,7 +780,7 @@ public class ServerTestUtils {
                        new Versioned<String>(new StoreDefinitionsMapper().writeStoreList(storeDefs)),
                        null);
 
-        return new MetadataStore(innerStore, 0);
+        return MetadataStore.createInMemoryMetadataStore(innerStore, 0);
     }
 
     public static MetadataStore createMetadataStore(Cluster cluster,
@@ -794,7 +794,7 @@ public class ServerTestUtils {
                        new Versioned<String>(new StoreDefinitionsMapper().writeStoreList(storeDefs)),
                        null);
 
-        return new MetadataStore(innerStore, nodeId);
+        return MetadataStore.createInMemoryMetadataStore(innerStore, nodeId);
     }
 
     public static List<StoreDefinition> getStoreDefs(int numStores) {
