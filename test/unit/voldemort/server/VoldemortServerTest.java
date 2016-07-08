@@ -16,38 +16,63 @@
 
 package voldemort.server;
 
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNull;
+
+import java.io.IOException;
 import java.security.Security;
 import java.util.Properties;
-import junit.framework.TestCase;
+
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
+import org.junit.After;
+import org.junit.Test;
+
+import voldemort.ServerTestUtils;
+import voldemort.TestUtils;
+import voldemort.cluster.Cluster;
 
 
 /**
  * Unit test for  VodemortServer.
  */
-public class VoldemortServerTest extends TestCase {
-    public void testJCEProvider() {
+public class VoldemortServerTest {
+
+    private VoldemortServer server;
+
+    @After
+    public void tearDown() {
+        if(server != null) {
+            server.stop();
+        }
+    }
+
+    private VoldemortServer getVoldemortServer(Properties properties) throws IOException {
+        properties.setProperty(VoldemortConfig.ENABLE_NODE_ID_DETECTION, Boolean.toString(true));
+        VoldemortConfig config = ServerTestUtils.createServerConfig(true,
+                                                                    -1,
+                                           TestUtils.createTempDir().getAbsolutePath(),
+                                           null,
+                                           null,
+                                           properties);
+        Cluster cluster = ServerTestUtils.getLocalCluster(1);
+        return new VoldemortServer(config, cluster);
+    }
+    @Test
+    public void testJCEProvider() throws IOException {
         Properties properties = new Properties();
-        properties.setProperty("node.id", "1");
-        properties.setProperty("voldemort.home", "/test");
 
         // Default configuration. Bouncy castle provider will not be used.
-        VoldemortConfig config = new VoldemortConfig(properties);
-        try {
-            VoldemortServer server = new VoldemortServer(config, null);
-        } catch (Throwable e) {
-            //ignore
-        }
+        server = getVoldemortServer(properties);
         assertNull(Security.getProvider(BouncyCastleProvider.PROVIDER_NAME));
+    }
 
+    @Test
+    public void testBouncyCastleProvider() throws IOException {
+        Properties properties = new Properties();
         // Use bouncy castle as first choice of JCE provider.
         properties.setProperty("use.bouncycastle.for.ssl", "true");
-        config = new VoldemortConfig(properties);
-        try {
-            VoldemortServer server = new VoldemortServer(config, null);
-        } catch (Throwable e) {
-            //ignore
-        }
+
+        server = getVoldemortServer(properties);
         assertEquals(BouncyCastleProvider.PROVIDER_NAME, Security.getProviders()[0].getName());
     }
 }

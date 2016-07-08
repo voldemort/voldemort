@@ -25,7 +25,6 @@ import java.util.Timer;
 import java.util.TimerTask;
 import java.util.concurrent.TimeUnit;
 
-import com.google.common.collect.Lists;
 import voldemort.client.ClientConfig;
 import voldemort.client.DefaultStoreClient;
 import voldemort.client.TimeoutConfig;
@@ -66,6 +65,7 @@ import voldemort.utils.UndefinedPropertyException;
 import voldemort.utils.Utils;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Lists;
 
 /**
  * Configuration parameters for the voldemort server.
@@ -259,6 +259,8 @@ public class VoldemortConfig implements Serializable {
     public static final String REPAIRJOB_MAX_KEYS_SCANNED_PER_SEC = "repairjob.max.keys.scanned.per.sec";
     public static final String PRUNEJOB_MAX_KEYS_SCANNED_PER_SEC = "prunejob.max.keys.scanned.per.sec";
     public static final String SLOP_PURGEJOB_MAX_KEYS_SCANNED_PER_SEC = "slop.purgejob.max.keys.scanned.per.sec";
+    public static final String ENABLE_NODE_ID_DETECTION = "enable.node.id.detection";
+    public static final String VALIDATE_NODE_ID = "validate.node.id";
     // Options prefixed with "rocksdb.db.options." or "rocksdb.cf.options." can be used to tune RocksDB performance
     // and are passed directly to the RocksDB configuration code. See the RocksDB documentation for details:
     //   https://github.com/facebook/rocksdb/blob/master/include/rocksdb/options.h
@@ -505,8 +507,12 @@ public class VoldemortConfig implements Serializable {
                                                                  READONLY_KERBEROS_USER,
                                                                  READONLY_KERBEROS_KDC,
                                                                  READONLY_KERBEROS_REALM));
+
+        defaultConfig.put(ENABLE_NODE_ID_DETECTION, false);
+        defaultConfig.put(VALIDATE_NODE_ID, false);
     }
 
+    public static final int INVALID_NODE_ID = -1;
     private int nodeId;
     private String voldemortHome;
     private String dataDirectory;
@@ -559,6 +565,11 @@ public class VoldemortConfig implements Serializable {
     private String rocksdbDataDirectory;
     private boolean rocksdbPrefixKeysWithPartitionId;
     private boolean rocksdbEnableReadLocks;
+
+    private boolean enableNodeIdDetection;
+    private boolean validateNodeId;
+    private List<String> nodeIdHostTypes;
+    private HostMatcher nodeIdImplementation;
 
     private int numReadOnlyVersions;
     private String readOnlyStorageDir;
@@ -723,6 +734,23 @@ public class VoldemortConfig implements Serializable {
         this(new Props().with(NODE_ID, nodeId).with(VOLDEMORT_HOME, voldemortHome));
     }
 
+    private void initializeNodeId(Props combinedConfigs, Props dynamicDefaults) {
+        boolean nodeIdExists = combinedConfigs.containsKey(NODE_ID);
+        if(!nodeIdExists) {
+            try {
+                // If node Id is not present in the configs, look for the
+                // environment variable and save it in dynamic defaults.
+                int nodeId = getIntEnvVariable(VOLDEMORT_NODE_ID_VAR_NAME);
+                dynamicDefaults.put(NODE_ID, nodeId);
+            }catch(ConfigurationException ex) {
+                // missingNodeId is handled in the server startup.
+            }
+        } else {
+            // Make sure it is a valid integer
+            combinedConfigs.getInt(NODE_ID);
+        }
+    }
+
     /**
      * This function returns a set of default configs which cannot be defined statically,
      * because they (at least potentially) depend on the config values provided by the user.
@@ -735,12 +763,7 @@ public class VoldemortConfig implements Serializable {
         // Set of dynamic configs which depend on the combined configs in order to be determined.
         Props dynamicDefaults = new Props();
 
-        try {
-            combinedConfigs.getInt(NODE_ID);
-        } catch(UndefinedPropertyException e) {
-            // Pull node ID from an environment variable if it's not included in the config
-            dynamicDefaults.put(NODE_ID, getIntEnvVariable(VOLDEMORT_NODE_ID_VAR_NAME));
-        }
+        initializeNodeId(combinedConfigs, dynamicDefaults);
 
         // Define various paths
         String defaultDataDirectory = combinedConfigs.getString(VOLDEMORT_HOME) + File.separator + "data";
@@ -790,7 +813,7 @@ public class VoldemortConfig implements Serializable {
      * @throws UndefinedPropertyException if any required property has not been set.
      */
     private void initializeStateFromProps() throws UndefinedPropertyException {
-        this.nodeId = this.allProps.getInt(NODE_ID);
+        this.nodeId = this.allProps.getInt(NODE_ID, INVALID_NODE_ID);
         this.voldemortHome = this.allProps.getString(VOLDEMORT_HOME);
         this.dataDirectory = this.allProps.getString(DATA_DIRECTORY);
         this.metadataDirectory = this.allProps.getString(METADATA_DIRECTORY);
@@ -1013,6 +1036,11 @@ public class VoldemortConfig implements Serializable {
         this.rocksdbEnableReadLocks = this.allProps.getBoolean(ROCKSDB_ENABLE_READ_LOCKS);
 
         this.restrictedConfigs = this.allProps.getList(RESTRICTED_CONFIGS);
+        // Node Id auto detection configs
+        this.enableNodeIdDetection = this.allProps.getBoolean(ENABLE_NODE_ID_DETECTION, false);
+        // validation is defaulted based on node id detection.
+        this.validateNodeId = this.allProps.getBoolean(VALIDATE_NODE_ID);
+        this.nodeIdImplementation = new HostMatcher();
     }
 
     private void validateParams() {
@@ -4086,5 +4114,43 @@ public class VoldemortConfig implements Serializable {
 
     public boolean isNioConnectorKeepAlive() {
         return nioConnectorKeepAlive;
+    }
+
+    public boolean isEnableNodeIdDetection() {
+        return enableNodeIdDetection;
+    }
+
+    public void setEnableNodeIdDetection(boolean enableNodeIdDetection) {
+        this.enableNodeIdDetection = enableNodeIdDetection;
+    }
+
+    public boolean isValidateNodeId() {
+        return validateNodeId;
+    }
+
+    public void setValidateNodeId(boolean validateNodeId) {
+        this.validateNodeId = validateNodeId;
+    }
+
+    public List<String> getNodeIdHostTypes() {
+        return nodeIdHostTypes;
+    }
+
+    public void setNodeIdHostTypes(List<String> nodeIdHostTypes) {
+        this.nodeIdHostTypes = nodeIdHostTypes;
+    }
+
+    public HostMatcher getNodeIdImplementation() {
+        if(nodeIdImplementation == null) {
+            throw new ConfigurationException("Node Id implementation is incorrectly configured ");
+        }
+        return nodeIdImplementation;
+    }
+
+    public void setNodeIdImplementation(HostMatcher nodeIdImplementation) {
+        if(nodeIdImplementation == null) {
+            throw new ConfigurationException("Node Id implementation can't be null");
+        }
+        this.nodeIdImplementation = nodeIdImplementation;
     }
 }
