@@ -33,4 +33,9 @@ public class HostMatcher {
         }
         return hostAddress.isAnyLocalAddress() || hostAddress.isLoopbackAddress();
     }
+
+    public String getDebugInfo() {
+        return "FQDN : " + getHost();
+    }
+
 }
