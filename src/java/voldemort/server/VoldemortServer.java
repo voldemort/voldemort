@@ -124,10 +124,13 @@ public class VoldemortServer extends AbstractService {
             throw new VoldemortException("Voldmeort Config Node Id " + voldemortConfig.getNodeId() + 
                                          " does not match with metadata store node Id " + metadata.getNodeId());
         }
-        
-        if(voldemortConfig.isValidateNodeId() || voldemortConfig.isEnableNodeIdDetection()) {
-            HostMatcher matcher = voldemortConfig.getNodeIdImplementation();
-            NodeIdUtils.validateNodeId(metadata.getCluster(), matcher, metadata.getNodeId());
+        validateNodeId(voldemortConfig, metadata.getCluster());
+    }
+
+    public static void validateNodeId(VoldemortConfig config, Cluster cluster) {
+        if(config.isValidateNodeId() || config.isEnableNodeIdDetection()) {
+            HostMatcher matcher = config.getNodeIdImplementation();
+            NodeIdUtils.validateNodeId(cluster, matcher, config.getNodeId());
         } else {
             logger.info("Ignoring node id validation as it is disable in the config ");
         }

@@ -101,7 +101,7 @@ import voldemort.versioning.Versioned;
 
 public class DeleteKeysCLI {
 
-    private static final Logger logger = Logger.getLogger(ZoneClipperCLI.class);
+    private static final Logger logger = Logger.getLogger(DeleteKeysCLI.class);
 
     private static OptionParser setupParser() {
         OptionParser parser = new OptionParser();
