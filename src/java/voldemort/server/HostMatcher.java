@@ -2,6 +2,7 @@ package voldemort.server;
 
 import java.net.InetAddress;
 import java.net.UnknownHostException;
+import java.util.Arrays;
 import java.util.List;
 
 import voldemort.VoldemortApplicationException;
@@ -63,4 +64,15 @@ public abstract class HostMatcher {
         }
         return hostAddress.isAnyLocalAddress() || hostAddress.isLoopbackAddress();
     }
+
+    public String getDebugInfo() {
+        String debugInfo = "HostMatcher [types=" + Arrays.toString(types.toArray()) + "].";
+        for(String type: types) {
+            String host = getHost(type);
+            debugInfo += " Type : " + type;
+            debugInfo += " , Value " + host + " .";
+        }
+        return debugInfo;
+    }
+
 }

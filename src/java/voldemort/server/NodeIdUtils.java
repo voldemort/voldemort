@@ -28,6 +28,7 @@ public class NodeIdUtils {
     }
 
     public static int findNodeId(Cluster cluster, HostMatcher matcher) {
+        logger.info(" Using Matcher " + matcher.getDebugInfo());
         if(isSingleLocalCluster(cluster, matcher)) {
             int nodeId = cluster.getNodeIds().iterator().next();
             logger.info(" Cluster is a single local node cluster. Node Id " + nodeId);
@@ -46,8 +47,10 @@ public class NodeIdUtils {
             throw new VoldemortApplicationException(" No nodes in the cluster matched the current node "
                                                 + Arrays.toString(cluster.getNodes().toArray()));
         } else if ( matches.size() > 1) {
-            throw new VoldemortApplicationException(" More than one node matched "
-                                                    + Arrays.toString(matches.toArray()));
+            String errorMessage = " More than one node matched "
+                                  + Arrays.toString(matches.toArray());
+            logger.error(errorMessage);
+            throw new VoldemortApplicationException(errorMessage);
         } else {
             logger.info(" computed node Id match successfully " + matches.get(0).briefToString());
             return matches.get(0).getId();
@@ -55,9 +58,11 @@ public class NodeIdUtils {
     }
 
     public static void validateNodeId(Cluster cluster, HostMatcher matcher, int nodeId) {
+        logger.info(" Using Matcher " + matcher.getDebugInfo());
+        // Make sure nodeId exists.
+        cluster.getNodeById(nodeId);
+
         if(isSingleLocalCluster(cluster, matcher)) {
-            // Make sure nodeId exists.
-            cluster.getNodeById(nodeId);
             return;
         }
         
@@ -77,12 +82,13 @@ public class NodeIdUtils {
         }
 
         if(!errors.isEmpty()) {
+            String errorMessage = " Number of Validation failures " + errors.size()
+                                  + ". Details : " + Arrays.toString(errors.toArray());
+            logger.error(errorMessage);
             if(errors.size() == 1) {
                 throw new VoldemortApplicationException(errors.get(0));
             } else {
-                throw new VoldemortApplicationException(" Number of Validation failures "
-                                                        + errors.size() + ". Details : "
-                                                        + Arrays.toString(errors.toArray()));
+                throw new VoldemortApplicationException(errorMessage);
             }
         } else {
             logger.info("Node Id Validation succeeded. Node Id " + nodeId);
