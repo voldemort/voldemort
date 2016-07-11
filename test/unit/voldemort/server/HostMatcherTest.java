@@ -19,7 +19,7 @@ public class HostMatcherTest {
 
     private static final int PORT = 6666; // No socket is created, so hard coded
 
-    private Cluster getCluster(List<String> hostNames, List<Integer> nodeIds) {
+    public static Cluster getCluster(List<String> hostNames, List<Integer> nodeIds) {
         List<Node> nodes = Lists.newArrayList();
         for(int i = 0; i < hostNames.size(); i++) {
             int nodeId = (nodeIds == null) ? i : nodeIds.get(i);
@@ -28,7 +28,7 @@ public class HostMatcherTest {
         return new Cluster("HostMatcherTest", nodes);
     }
 
-    private Cluster getCluster(List<String> hostNames) {
+    public static Cluster getCluster(List<String> hostNames) {
         return getCluster(hostNames, null);
     }
 

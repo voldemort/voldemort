@@ -28,6 +28,7 @@ import java.util.List;
 import org.apache.commons.io.IOUtils;
 import org.apache.log4j.Logger;
 
+import voldemort.VoldemortApplicationException;
 import voldemort.VoldemortException;
 import voldemort.annotations.jmx.JmxOperation;
 import voldemort.client.protocol.RequestFormatType;
@@ -85,7 +86,7 @@ public class VoldemortServer extends AbstractService {
 
     private final static int ASYNC_REQUEST_CACHE_SIZE = 64;
 
-    private final Node identityNode;
+    private Node identityNode;
     private final List<VoldemortService> basicServices;
     private final StoreRepository storeRepository;
     private final VoldemortConfig voldemortConfig;
@@ -101,13 +102,10 @@ public class VoldemortServer extends AbstractService {
         this.setupSSLProvider();
         this.metadata = metadataStore;
         this.storeRepository = new StoreRepository(config.isJmxEnabled());
-        int nodeId = this.metadata.getNodeId();
         // Update the config with right node Id
-        this.voldemortConfig.setNodeId(nodeId);
-        this.identityNode = metadata.getCluster().getNodeById(nodeId);
+        this.refreshNodeIdFromMetadata();
 
         this.checkHostName();
-        this.validateNodeId();
 
         this.validateRestServiceConfiguration();
         this.basicServices = createBasicServices();
@@ -147,6 +145,37 @@ public class VoldemortServer extends AbstractService {
                                          + " is a required proeprty of the Voldmeort Server");
         }
         return computeNodeId(config, cluster);
+    }
+
+    public void refreshNodeIdFromMetadata() {
+        int nodeId = this.metadata.getNodeId();
+
+        voldemortConfig.setNodeId(nodeId);
+        validateNodeId();
+        Node oldNode = this.identityNode;
+        this.identityNode = metadata.getCluster().getNodeById(nodeId);
+        if(oldNode != null) {
+            if(oldNode.getSocketPort() != this.identityNode.getSocketPort()
+               || oldNode.getAdminPort() != this.identityNode.getAdminPort()) {
+                throw new VoldemortApplicationException("Node Id update, changes the Socket And Or Admin Port. "
+                                                        + "The Server will be in an inconsistent state, until the next restart. Old State "
+                                                        + oldNode.getStateString()
+                                                        + "New State "
+                                                        + this.identityNode.getStateString());
+                }
+        }
+    }
+
+    public void handleClusterUpdate() {
+        if(!voldemortConfig.isEnableNodeIdDetection()) {
+            logger.info("Auto detection is disabled, returning");
+            return;
+        }
+
+        int nodeId = computeNodeId(voldemortConfig, metadata.getCluster());
+        // Put reInitializes the node Id as required.
+        metadata.put(MetadataStore.NODE_ID_KEY, new Integer(nodeId));
+        refreshNodeIdFromMetadata();
     }
 
     private static MetadataStore createMetadataFromConfig(VoldemortConfig voldemortConfig) {

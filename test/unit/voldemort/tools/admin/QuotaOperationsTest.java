@@ -16,6 +16,7 @@
 
 package voldemort.tools.admin;
 
+import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 
 import java.io.IOException;
@@ -105,7 +106,8 @@ public class QuotaOperationsTest {
             // get quota value
             Versioned<String> versionedQuotaValueToVerify = adminClient.quotaMgmtOps.getQuota(storeName,
                                                                                               quotaType);
-            assertTrue(versionedQuotaValueToVerify == null);
+            assertNull("Value retrieved should be null" + versionedQuotaValueToVerify,
+                       versionedQuotaValueToVerify);
         }
     }
 
