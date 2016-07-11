@@ -50,9 +50,9 @@ public class VoldemortServerTest {
     private VoldemortServer server;
 
     @After
-    public void tearDown() {
+    public void tearDown() throws IOException {
         if(server != null) {
-            server.stop();
+            ServerTestUtils.stopVoldemortServer(server);
         }
     }
 

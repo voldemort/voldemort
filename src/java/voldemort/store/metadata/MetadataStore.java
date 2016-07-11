@@ -1151,11 +1151,6 @@ public class MetadataStore extends AbstractStorageEngine<ByteArray, byte[], byte
         }
     }
 
-    public void updateNodeId(Integer newNodeId) {
-        put(NODE_ID_KEY, newNodeId);
-        initNodeId(newNodeId);
-    }
-
     public void initNodeId(int nodeId) {
         writeLock.lock();
         try {
