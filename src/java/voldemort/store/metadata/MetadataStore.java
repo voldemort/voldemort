@@ -382,6 +382,8 @@ public class MetadataStore extends AbstractStorageEngine<ByteArray, byte[], byte
                 // do special stuff if needed
                 if(CLUSTER_KEY.equals(key)) {
                     updateRoutingStrategies((Cluster) value.getValue(), getStoreDefList());
+                } else if(NODE_ID_KEY.equals(key)) {
+                    initNodeId(getNodeIdNoLock());
                 } else if(SYSTEM_STORES_KEY.equals(key))
                     throw new VoldemortException("Cannot overwrite system store definitions");
 
@@ -643,11 +645,15 @@ public class MetadataStore extends AbstractStorageEngine<ByteArray, byte[], byte
         }
     }
 
+    private int getNodeIdNoLock() {
+        return (Integer) (metadataCache.get(NODE_ID_KEY).getValue());
+    }
+
     public int getNodeId() {
         // acquire read lock
         readLock.lock();
         try {
-            return (Integer) (metadataCache.get(NODE_ID_KEY).getValue());
+            return getNodeIdNoLock();
         } finally {
             readLock.unlock();
         }
@@ -986,7 +992,7 @@ public class MetadataStore extends AbstractStorageEngine<ByteArray, byte[], byte
                     put(READONLY_FETCH_ENABLED_KEY, true);
                     initCache(READONLY_FETCH_ENABLED_KEY);
                     init();
-                    initNodeId(getNodeId());
+                    initNodeId(getNodeIdNoLock());
                 } else {
                     logger.error("Cannot enter NORMAL_SERVER state from " + currentState);
                     throw new VoldemortException("Cannot enter NORMAL_SERVER state from "
@@ -1149,7 +1155,7 @@ public class MetadataStore extends AbstractStorageEngine<ByteArray, byte[], byte
         writeLock.lock();
         try {
             initCache(NODE_ID_KEY, nodeId);
-            if(getNodeId() != nodeId)
+            if(getNodeIdNoLock() != nodeId)
                 throw new RuntimeException("Attempt to start previous node:"
                                            + getNodeId()
                                            + " as node:"
