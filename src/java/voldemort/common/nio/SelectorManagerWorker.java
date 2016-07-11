@@ -106,11 +106,9 @@ public abstract class SelectorManagerWorker implements Runnable {
             else if(selectionKey.isWritable())
                 write(selectionKey);
             else if(!selectionKey.isValid())
-                throw new IllegalStateException("Selection key not valid for "
-                                                + socketChannel.socket());
+                throw new IllegalStateException("Selection key not valid for " + getDebugInfo());
             else
-                throw new IllegalStateException("Unknown state, not readable, writable, or valid for "
-                                                + socketChannel.socket());
+                throw new IllegalStateException("Unknown state, not readable, writable, or valid for " + getDebugInfo());
         } catch(ClosedByInterruptException e) {
             reportException(e);
             close();
@@ -122,12 +120,11 @@ public abstract class SelectorManagerWorker implements Runnable {
             reportException(e);
             close();
         } catch(IOException e) {
-            logger.info("Connection reset from " + socketChannel.socket() + " with message - "
-                        + e.getMessage());
+            logger.info("IOException from " + getDebugInfo() + " with message - " + e.getMessage());
             reportException(e);
             close();
         } catch(Throwable t) {
-            logger.error("Caught throwable from " + socketChannel.socket(), t);
+            logger.error("Caught throwable from " + getDebugInfo(), t);
             close();
         }
     }
@@ -208,6 +205,10 @@ public abstract class SelectorManagerWorker implements Runnable {
                      + inputStream.getBuffer().limit() + ", remaining: "
                      + inputStream.getBuffer().remaining() + ", capacity: "
                      + inputStream.getBuffer().capacity() + " - for " + socketChannel.socket());
+    }
+
+    protected String getDebugInfo() {
+        return String.valueOf(socketChannel.socket());
     }
 
 }

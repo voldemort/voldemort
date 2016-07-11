@@ -80,6 +80,12 @@ public class ClientRequestExecutor extends SelectorManagerWorker implements Clos
 
     }
 
+    @Override
+    protected String getDebugInfo() {
+        return "Destination: " + String.valueOf(socketDesination) + " , Socket: "
+               + String.valueOf(socketChannel.socket());
+    }
+
     public SocketChannel getSocketChannel() {
         return socketChannel;
     }

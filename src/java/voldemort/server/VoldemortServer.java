@@ -119,8 +119,9 @@ public class VoldemortServer extends AbstractService {
 
     public void validateNodeId() {
         if(voldemortConfig.getNodeId() != metadata.getNodeId()) {
-            throw new VoldemortException("Voldmeort Config Node Id " + voldemortConfig.getNodeId() + 
-                                         " does not match with metadata store node Id " + metadata.getNodeId());
+            throw new VoldemortException("Voldemort Config Node Id " + voldemortConfig.getNodeId()
+                                         + " does not match with metadata store node Id "
+                                         + metadata.getNodeId());
         }
         validateNodeId(voldemortConfig, metadata.getCluster());
     }
@@ -142,7 +143,7 @@ public class VoldemortServer extends AbstractService {
         if(!config.isEnableNodeIdDetection()) {
             // Node Id is missing and auto detection is disabled, error out.
             throw new VoldemortException(VoldemortConfig.NODE_ID
-                                         + " is a required proeprty of the Voldmeort Server");
+                                         + " is a required proeprty of the Voldemort Server");
         }
         return computeNodeId(config, cluster);
     }
