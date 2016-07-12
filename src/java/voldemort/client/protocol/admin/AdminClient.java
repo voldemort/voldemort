@@ -176,7 +176,6 @@ public class AdminClient implements Closeable {
     private final String debugInfo;
     private Cluster currentCluster;
     private SystemStoreClient<String, String> metadataVersionSysStoreClient = null;
-    private SystemStoreClient<String, String> quotaSysStoreClient = null;
     private SystemStoreClientFactory<String, String> systemStoreFactory = null;
 
     final public AdminClient.HelperOperations helperOps;
@@ -403,13 +402,9 @@ public class AdminClient implements Closeable {
                     systemStoreFactory = new SystemStoreClientFactory<String, String>(clientConfig);
                 }
                 String metadataVersionStoreName = SystemStoreConstants.SystemStoreName.voldsys$_metadata_version_persistence.name();
-                String quotaStoreName = SystemStoreConstants.SystemStoreName.voldsys$_store_quotas.name();
                 metadataVersionSysStoreClient = systemStoreFactory.createSystemStore(metadataVersionStoreName,
                                                                                      null,
                                                                                      null);
-                quotaSysStoreClient = systemStoreFactory.createSystemStore(quotaStoreName,
-                                                                           null,
-                                                                           null);
             } catch(Exception e) {
                 logger.info("Error while creating a system store client for metadata version store/quota store.",
                             e);
@@ -3305,6 +3300,22 @@ public class AdminClient implements Closeable {
         }
 
         /**
+         * Fetch values for given keys on a specific store present on a specific node.
+         * 
+         * @param storeName Name of the Store
+         * @param nodeId Id of the node to query from
+         * @param keys List of keys to be required.
+         * @return
+         * Only keys that has values will be returned in a Map.
+         * Keys that does not exists will not be present in the Map.
+         */
+        public Map<ByteArray, List<Versioned<byte[]>>> getAllNodeKeys(String storeName, int nodeId,
+                Iterable<ByteArray> keys) {
+            SocketStore socketStore = adminStoreClient.getSocketStore(nodeId, storeName);
+            return socketStore.getAll(keys, null);
+        }
+
+        /**
          * Delete a given key
          * 
          * @param storeName
@@ -3322,8 +3333,6 @@ public class AdminClient implements Closeable {
             }
             return result;
         }
-
-        // As needed, add 'getall', and so on interfaces...
     }
 
     /**
@@ -5086,14 +5095,28 @@ public class AdminClient implements Closeable {
         }
 
         public void unsetQuota(String storeName, QuotaType quotaType) {
-            String quotaKey = QuotaUtils.makeQuotaKey(storeName, quotaType);
-            quotaSysStoreClient.deleteSysStore(quotaKey);
-            logger.info("Unset quota " + quotaType + " for store " + storeName);
+            RuntimeException lastEx = null;
+
+            for (Integer nodeId : currentCluster.getNodeIds()) {
+                try {
+                    deleteQuotaForNode(storeName, quotaType, nodeId);
+                } catch (RuntimeException ex) {
+                    lastEx = ex;
+                    logger.info("Deleting Quota on Store " + storeName + " Type " + quotaType + "failed", ex);
+                }
+            }
+
+            if (lastEx != null) {
+                throw lastEx;
+            }
         }
 
         public Versioned<String> getQuota(String storeName, QuotaType quotaType) {
-            String quotaKey = QuotaUtils.makeQuotaKey(storeName, quotaType);
-            return quotaSysStoreClient.getSysStore(quotaKey);
+            return getQuotaForNode(storeName, quotaType, currentCluster.getNodeIds().iterator().next());
+        }
+
+        public Map<String, Versioned<String>> getQuota(List<String> storeNames, QuotaType quotaType) {
+            return getQuotaForNode(storeNames, quotaType, currentCluster.getNodeIds().iterator().next());
         }
 
         public void setQuotaForNode(String storeName, QuotaType quotaType, Integer nodeId, Long quota) {
@@ -5116,6 +5139,25 @@ public class AdminClient implements Closeable {
                                                    keyArray);
         }
 
+        private Versioned<String> convertToString(List<Versioned<byte[]>> retrievedValue) {
+            if (retrievedValue == null || retrievedValue.size() == 0) {
+                return null;
+            }
+
+            if (retrievedValue.size() > 1) {
+                throw new VoldemortApplicationException("More than one value present for same quota "
+                        + Arrays.toString(retrievedValue.toArray()));
+            }
+
+            try {
+                String quotaValue = new String(retrievedValue.get(0).getValue(), "UTF8");
+                Version version = retrievedValue.get(0).getVersion();
+                return new Versioned<String>(quotaValue, version);
+            } catch (UnsupportedEncodingException ex) {
+                throw new VoldemortApplicationException("Error converting quota value to String", ex);
+            }
+        }
+
         public Versioned<String> getQuotaForNode(String storeName,
                                                  QuotaType quotaType,
                                                  Integer nodeId) {
@@ -5124,18 +5166,38 @@ public class AdminClient implements Closeable {
                     storeOps.getNodeKey(SystemStoreConstants.SystemStoreName.voldsys$_store_quotas.name(), nodeId,
                             keyArray);
 
-            if (valueObj.size() == 0) {
-                return null;
+            return convertToString(valueObj);
+        }
+
+        public Map<String, Versioned<String>> getQuotaForNode(List<String> storeNames, QuotaType quotaType,
+                Integer nodeId) {
+            if (storeNames == null || storeNames.size() == 0) {
+                throw new IllegalArgumentException("Storenames is a required parameter");
             }
 
-            String quotaValue;
-            try {
-                quotaValue = new String(valueObj.get(0).getValue(), "UTF8");
-            } catch (UnsupportedEncodingException ex) {
-                throw new VoldemortApplicationException("Error converting quota value to String", ex);
+            Map<String, ByteArray> storeToKeysMap = new HashMap<String, ByteArray>();
+            for (String storeName : storeNames) {
+                ByteArray key = QuotaUtils.getByteArrayKey(storeName, quotaType);
+                storeToKeysMap.put(storeName, key);
             }
-            Version version = valueObj.get(0).getVersion();
-            return new Versioned<String>(quotaValue, version);
+            
+            Map<ByteArray, List<Versioned<byte[]>>> storeToValueMap =
+                    storeOps.getAllNodeKeys(SystemStoreConstants.SystemStoreName.voldsys$_store_quotas.name(), nodeId,
+                    storeToKeysMap.values());
+
+            Map<String, Versioned<String>> results = new HashMap<String, Versioned<String>>();
+
+            for (Map.Entry<String, ByteArray> storeToKey : storeToKeysMap.entrySet()) {
+                String storeName = storeToKey.getKey();
+                ByteArray storeKey = storeToKey.getValue();
+                
+                Versioned<String> storeQuota = null;
+                if (storeToValueMap.containsKey(storeKey)) {
+                    storeQuota = convertToString(storeToValueMap.get(storeKey));
+                }
+                results.put(storeName, storeQuota);
+            }
+            return results;
         }
 
         /**
