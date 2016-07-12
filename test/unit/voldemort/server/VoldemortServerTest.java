@@ -74,7 +74,16 @@ public class VoldemortServerTest {
     }
 
     @Test
-    public void testJCEProvider() throws IOException {
+    public void testSSLProviders() throws IOException {
+        // The SSL providers changes the state of the JVM
+        // if the methods are run in parallel or the ordering
+        // changes the test fails. TestBouncyCastle is the
+        // only test to enable this SSL. If other tests introduce
+        // them the test could fails as well.
+        testJCEProvider();
+        testBouncyCastleProvider();
+    }
+    private void testJCEProvider() throws IOException {
         Properties properties = new Properties();
 
         // Default configuration. Bouncy castle provider will not be used.
@@ -82,8 +91,7 @@ public class VoldemortServerTest {
         assertNull(Security.getProvider(BouncyCastleProvider.PROVIDER_NAME));
     }
 
-    @Test
-    public void testBouncyCastleProvider() throws IOException {
+    private void testBouncyCastleProvider() throws IOException {
         Properties properties = new Properties();
         // Use bouncy castle as first choice of JCE provider.
         properties.setProperty("use.bouncycastle.for.ssl", "true");
