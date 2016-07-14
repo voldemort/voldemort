@@ -88,8 +88,9 @@ public abstract class PipelineData<K, V> {
     }
 
     public PipelineData() {
+        // responses are always added from single thread.
         this.responses = new ArrayList<Response<K, V>>();
-        this.failures = new ArrayList<Exception>();
+        this.failures = new CopyOnWriteArrayList<Exception>();
         this.failedNodes = new CopyOnWriteArrayList<Node>();
     }
 

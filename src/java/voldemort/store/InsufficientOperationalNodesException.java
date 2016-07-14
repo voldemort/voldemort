@@ -17,8 +17,6 @@
 package voldemort.store;
 
 import java.util.ArrayList;
-import java.util.Collection;
-import java.util.Collections;
 import java.util.List;
 
 import org.apache.log4j.Logger;
@@ -35,54 +33,43 @@ public class InsufficientOperationalNodesException extends VoldemortException {
 
     private static final long serialVersionUID = 1L;
 
-    private Collection<? extends Throwable> causes;
-
     private static final Logger logger = Logger.getLogger(InsufficientOperationalNodesException.class);
 
     public InsufficientOperationalNodesException(String s, Throwable e) {
         super(s, e);
-        causes = Collections.singleton(e);
     }
 
     public InsufficientOperationalNodesException(String s) {
         super(s);
-        causes = Collections.emptyList();
     }
 
     public InsufficientOperationalNodesException(Throwable e) {
         super(e);
-        causes = Collections.singleton(e);
     }
 
-    public InsufficientOperationalNodesException(Collection<? extends Throwable> failures) {
+    public InsufficientOperationalNodesException(List<? extends Throwable> failures) {
         this("Insufficient operational nodes to immediately satisfy request.", failures);
     }
 
-    public InsufficientOperationalNodesException(String message,
-                                                 Collection<? extends Throwable> failures) {
-        super(message, failures.size() > 0 ? failures.iterator().next() : null);
-        this.causes = failures;
+    public InsufficientOperationalNodesException(String message, List<? extends Throwable> failures) {
+        super(message, failures.size() > 0 ? failures.get(0) : null);
     }
 
     public InsufficientOperationalNodesException(String message,
                                                  List<Node> replicationSet,
                                                  List<Node> preferenceList,
                                                  List<Node> failedList,
-                                                 Collection<? extends Throwable> failures) {
+                                                 List<? extends Throwable> failures) {
         this(message + " Original replication set :" + stripNodeIds(replicationSet)
                      + " Known failed nodes before operation :"
                      + stripNodeIds(difference(replicationSet, preferenceList))
                      + " Estimated live nodes in preference list :" + stripNodeIds(preferenceList)
                      + " New failed nodes during operation :"
                      + stripNodeIds(difference(failedList, replicationSet)),
-             failures.size() > 0 ? failures.iterator().next() : null);
+             failures.size() > 0 ? failures.get(0) : null);
         if(logger.isDebugEnabled()) {
             logger.debug(this.getMessage());
         }
-    }
-
-    public Collection<? extends Throwable> getCauses() {
-        return this.causes;
     }
 
     /**

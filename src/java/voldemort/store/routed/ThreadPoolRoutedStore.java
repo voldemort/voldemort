@@ -19,10 +19,10 @@ package voldemort.store.routed;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
-import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.Callable;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -171,7 +171,7 @@ public class ThreadPoolRoutedStore extends RoutedStore {
         final AtomicInteger successes = new AtomicInteger(0);
         final AtomicBoolean deletedSomething = new AtomicBoolean(false);
         // A list of thrown exceptions, indicating the number of failures
-        final List<Exception> failures = Collections.synchronizedList(new LinkedList<Exception>());
+        final List<Exception> failures = new CopyOnWriteArrayList<Exception>();
 
         // A semaphore indicating the number of completed operations
         // Once inititialized all permits are acquired, after that
@@ -301,7 +301,7 @@ public class ThreadPoolRoutedStore extends RoutedStore {
         }
 
         // A list of thrown exceptions, indicating the number of failures
-        List<Throwable> failures = Lists.newArrayList();
+        List<Throwable> failures = new CopyOnWriteArrayList<Throwable>();
         List<NodeValue<ByteArray, byte[]>> nodeValues = Lists.newArrayList();
 
         Map<ByteArray, MutableInt> keyToSuccessCount = Maps.newHashMap();
@@ -462,7 +462,7 @@ public class ThreadPoolRoutedStore extends RoutedStore {
         // A count of the number of successful operations
         int successes = 0;
         // A list of thrown exceptions, indicating the number of failures
-        final List<Throwable> failures = Lists.newArrayListWithCapacity(3);
+        final List<Throwable> failures = new CopyOnWriteArrayList<Throwable>();
 
         // Do the preferred number of reads in parallel
         int attempts = Math.min(this.storeDef.getPreferredReads(), nodes.size());
@@ -659,7 +659,7 @@ public class ThreadPoolRoutedStore extends RoutedStore {
         final AtomicInteger successes = new AtomicInteger(0);
 
         // A list of thrown exceptions, indicating the number of failures
-        final List<Exception> failures = Collections.synchronizedList(new ArrayList<Exception>(1));
+        final List<Exception> failures = new CopyOnWriteArrayList<Exception>();
 
         // If requiredWrites > 0 then do a single blocking write to the first
         // live node in the preference list if this node throws an
@@ -688,9 +688,7 @@ public class ThreadPoolRoutedStore extends RoutedStore {
         }
 
         if(successes.get() < 1)
-            throw new InsufficientOperationalNodesException("No master node succeeded!",
-                                                            failures.size() > 0 ? failures.get(0)
-                                                                               : null);
+            throw new InsufficientOperationalNodesException("No master node succeeded!", failures);
         else
             currentNode++;
 
