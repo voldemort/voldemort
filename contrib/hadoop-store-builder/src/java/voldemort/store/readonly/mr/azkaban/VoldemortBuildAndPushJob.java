@@ -141,8 +141,10 @@ public class VoldemortBuildAndPushJob extends AbstractJob {
     public final static String MIN_NUMBER_OF_RECORDS = "min.number.of.records";
     public final static String REDUCER_OUTPUT_COMPRESS_CODEC = "reducer.output.compress.codec";
     public final static String REDUCER_OUTPUT_COMPRESS = "reducer.output.compress";
+    public final static String STORE_VERIFICATION_MAX_THREAD_NUM = "store.verification.max.thread.num";
     // default
     private final static String RECOMMENDED_FETCHER_PROTOCOL = "webhdfs";
+    private final int DEFAULT_THREAD_NUM_FOR_STORE_VERIFICATION = 20;
 
     // CONFIG VALUES (and other immutable state)
     private final Props props;
@@ -168,6 +170,9 @@ public class VoldemortBuildAndPushJob extends AbstractJob {
     private final List<Closeable> closeables = Lists.newArrayList();
     private final ExecutorService executorService;
     private final boolean enableStoreCreation;
+    // Executor to do store/schema verification in parallel
+    private final int maxThreadNumForStoreVerification;
+    private ExecutorService storeVerificationExecutorService;
 
     // Mutable state
     private StoreDefinition storeDef;
@@ -177,7 +182,7 @@ public class VoldemortBuildAndPushJob extends AbstractJob {
     private Future heartBeatHookFuture = null;
     private Map<String, VAdminProto.GetHighAvailabilitySettingsResponse> haSettingsPerCluster;
     private boolean buildPrimaryReplicasOnly;
-    
+
     private AdminClient createAdminClient(String url, boolean fetchAllStoresXml) {
         ClientConfig config = new ClientConfig().setBootstrapUrls(url)
                 .setConnectionTimeout(15,TimeUnit.SECONDS)
@@ -308,6 +313,16 @@ public class VoldemortBuildAndPushJob extends AbstractJob {
             requiredNumberOfThreads++;
         }
         this.executorService = Executors.newFixedThreadPool(requiredNumberOfThreads);
+
+        this.maxThreadNumForStoreVerification = props.getInt(STORE_VERIFICATION_MAX_THREAD_NUM,
+            DEFAULT_THREAD_NUM_FOR_STORE_VERIFICATION);
+        // Specifying value <= 1 for prop: STORE_VERIFICATION_MAX_THREAD_NUM will enable sequential store verification.
+        if (this.maxThreadNumForStoreVerification > 1) {
+            this.storeVerificationExecutorService = Executors.newFixedThreadPool(this.maxThreadNumForStoreVerification);
+            log.info("Build and Push Job will run store verification in parallel, thread num: " + this.maxThreadNumForStoreVerification);
+        } else {
+            log.info("Build and Push Job will run store verification sequentially.");
+        }
 
         log.info("Build and Push Job constructed for " + numberOfClusters + " cluster(s).");
     }
@@ -602,6 +617,11 @@ public class VoldemortBuildAndPushJob extends AbstractJob {
                     tasks.put(url, executorService.submit(new StorePushTask(props, url, buildOutputDir)));
                 }
             }
+            // We can safely shutdown storeVerificationExecutorService here since all the verifications are done.
+            if (null != storeVerificationExecutorService) {
+                storeVerificationExecutorService.shutdownNow();
+                storeVerificationExecutorService = null;
+            }
 
             for (Map.Entry<String, Future<Boolean>> task: tasks.entrySet()) {
                 String url = task.getKey();
@@ -674,6 +694,9 @@ public class VoldemortBuildAndPushJob extends AbstractJob {
             }
         }
         this.executorService.shutdownNow();
+        if (null != this.storeVerificationExecutorService) {
+            this.storeVerificationExecutorService.shutdownNow();
+        }
     }
 
     public String runBuildStore(Props props, String url) throws Exception {
@@ -949,7 +972,8 @@ public class VoldemortBuildAndPushJob extends AbstractJob {
         StoreDefinition newStoreDef = VoldemortUtils.getStoreDef(newStoreDefXml);
 
         try {
-            adminClientPerCluster.get(clusterURL).storeMgmtOps.verifyOrAddStore(newStoreDef, "BnP config/data", enableStoreCreation);
+            adminClientPerCluster.get(clusterURL).storeMgmtOps.verifyOrAddStore(newStoreDef, "BnP config/data",
+                enableStoreCreation, this.storeVerificationExecutorService);
         } catch (UnreachableStoreException e) {
             log.info("verifyOrAddStore() failed on some nodes for clusterURL: " + clusterURL + " (this is harmless).", e);
             // When we can't reach some node, we just skip it and won't create the store on it.
