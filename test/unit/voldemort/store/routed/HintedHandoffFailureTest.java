@@ -22,7 +22,6 @@ import static voldemort.VoldemortTestConstants.getThreeNodeCluster;
 import java.util.Date;
 import java.util.List;
 import java.util.Map;
-import java.util.Properties;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
@@ -33,8 +32,6 @@ import org.apache.log4j.Logger;
 import org.junit.After;
 import org.junit.Test;
 
-import voldemort.ServerTestUtils;
-import voldemort.TestUtils;
 import voldemort.VoldemortException;
 import voldemort.client.RoutingTier;
 import voldemort.client.TimeoutConfig;
@@ -51,9 +48,7 @@ import voldemort.routing.RoutingStrategy;
 import voldemort.routing.RoutingStrategyFactory;
 import voldemort.routing.RoutingStrategyType;
 import voldemort.serialization.SerializerDefinition;
-import voldemort.server.StoreRepository;
 import voldemort.server.scheduler.slop.StreamingSlopPusherJob;
-import voldemort.server.storage.ScanPermitWrapper;
 import voldemort.store.ForceFailStore;
 import voldemort.store.SleepyStore;
 import voldemort.store.StorageEngine;
@@ -64,7 +59,6 @@ import voldemort.store.UnreachableStoreException;
 import voldemort.store.logging.LoggingStore;
 import voldemort.store.memory.InMemoryStorageConfiguration;
 import voldemort.store.memory.InMemoryStorageEngine;
-import voldemort.store.metadata.MetadataStore;
 import voldemort.store.nonblockingstore.NonblockingStore;
 import voldemort.store.routed.Pipeline.Event;
 import voldemort.store.routed.Pipeline.Operation;
@@ -94,11 +88,6 @@ import com.google.common.collect.Sets;
 public class HintedHandoffFailureTest {
 
     private final static String SLOP_STORE_NAME = "slop";
-    private static int REPLICATION_FACTOR = 2;
-    private static int P_READS = 1;
-    private static int R_READS = 1;
-    private static int P_WRITES = 1;
-    private static int R_WRITES = 1;
     private static final int NUM_THREADS = 3;
     private static final int NUM_NODES_TOTAL = 3;
 
@@ -111,9 +100,9 @@ public class HintedHandoffFailureTest {
     private RoutedStore store;
     private RoutingStrategy strategy;
 
-    private static long routingTimeoutInMs = 1000;
-    private static long sleepBeforeFailingInMs = 2000;
-    private static long delayBeforeHintedHandoff = 3000;
+    private static final long ROUTING_TIMEOUT_MS = 100;
+    private static final long SLEEP_STORE_TIME = 200;
+    private static final long HINT_DELAY_TIME_MS = 300;
 
     private final Map<Integer, Store<ByteArray, byte[], byte[]>> subStores = new ConcurrentHashMap<Integer, Store<ByteArray, byte[], byte[]>>();
     private final Map<Integer, Store<ByteArray, Slop, byte[]>> slopStores = new ConcurrentHashMap<Integer, Store<ByteArray, Slop, byte[]>>();
@@ -126,12 +115,38 @@ public class HintedHandoffFailureTest {
         FAIL_ALL_REPLICAS
     }
 
+    static class ReplicaFactor {
+        int replicationFactor;
+        int preferredReads;
+        int requiredReads;
+        int preferredWrites;
+        int requiredWrites;
+        
+        
+        public ReplicaFactor(int replicationFactor,
+                             int preferredReads,
+                             int requiredReads,
+                             int preferredWrites,
+                             int requiredWrites) {
+            this.replicationFactor = replicationFactor;
+            this.preferredReads = preferredReads;
+            this.requiredReads = requiredReads;
+            this.preferredWrites = preferredWrites;
+            this.requiredWrites = requiredWrites;
+        }
+    }
+
+    public static ReplicaFactor get322Replica() {
+        return new ReplicaFactor(3, 2, 2, 2, 2);
+    }
+
+    public static ReplicaFactor get211Replica() {
+        return new ReplicaFactor(2, 1, 1, 1, 1);
+    }
+
+
     private StoreDefinition getStoreDef(String storeName,
-                                        int replicationFactor,
-                                        int preads,
-                                        int rreads,
-                                        int pwrites,
-                                        int rwrites,
+                                        ReplicaFactor replicaFactor,
                                         String strategyType) {
         SerializerDefinition serDef = new SerializerDefinition("string");
         return new StoreDefinitionBuilder().setName(storeName)
@@ -140,11 +155,11 @@ public class HintedHandoffFailureTest {
                                            .setValueSerializer(serDef)
                                            .setRoutingPolicy(RoutingTier.SERVER)
                                            .setRoutingStrategyType(strategyType)
-                                           .setReplicationFactor(replicationFactor)
-                                           .setPreferredReads(preads)
-                                           .setRequiredReads(rreads)
-                                           .setPreferredWrites(pwrites)
-                                           .setRequiredWrites(rwrites)
+                                           .setReplicationFactor(replicaFactor.replicationFactor)
+                                           .setPreferredReads(replicaFactor.preferredReads)
+                                           .setRequiredReads(replicaFactor.requiredReads)
+                                           .setPreferredWrites(replicaFactor.preferredWrites)
+                                           .setRequiredWrites(replicaFactor.requiredWrites)
                                            .setHintedHandoffStrategy(HintedHandoffStrategyType.PROXIMITY_STRATEGY)
                                            .build();
     }
@@ -171,8 +186,14 @@ public class HintedHandoffFailureTest {
      * 
      * @throws Exception
      */
-    public List<Integer> customSetup(ByteArray key) throws Exception {
-        return customSetup(key, FAILURE_MODE.FAIL_FIRST_REPLICA_NODE);
+    public List<Integer> customSetup(ByteArray key,
+                                     ReplicaFactor replicaFactor,
+                                     long hintDelayTimeMs) throws Exception {
+        return customSetup(key,
+                           FAILURE_MODE.FAIL_FIRST_REPLICA_NODE,
+                           replicaFactor,
+                           SLEEP_STORE_TIME,
+                           hintDelayTimeMs);
     }
 
     /**
@@ -193,16 +214,15 @@ public class HintedHandoffFailureTest {
      * 
      * @throws Exception
      */
-    public List<Integer> customSetup(ByteArray key, FAILURE_MODE failureMode) throws Exception {
+    public List<Integer> customSetup(ByteArray key,
+                                     FAILURE_MODE failureMode,
+                                     ReplicaFactor replicaFactor,
+                                     long sleepTime,
+                                     long hintDelayTimeMs)
+            throws Exception {
 
         cluster = getThreeNodeCluster();
-        storeDef = getStoreDef(STORE_NAME,
-                               REPLICATION_FACTOR,
-                               P_READS,
-                               R_READS,
-                               P_WRITES,
-                               R_WRITES,
-                               RoutingStrategyType.CONSISTENT_STRATEGY);
+        storeDef = getStoreDef(STORE_NAME, replicaFactor, RoutingStrategyType.CONSISTENT_STRATEGY);
 
         strategy = new RoutingStrategyFactory().updateRoutingStrategy(storeDef, cluster);
 
@@ -212,7 +232,7 @@ public class HintedHandoffFailureTest {
         VoldemortException e = new UnreachableStoreException("Node down");
         ForceFailStore<ByteArray, byte[], byte[]> failureStore = new ForceFailStore<ByteArray, byte[], byte[]>(loggingStore,
                                                                                                                e);
-        SleepyStore<ByteArray, byte[], byte[]> sleepyFailureStore = new SleepyStore<ByteArray, byte[], byte[]>(sleepBeforeFailingInMs,
+        SleepyStore<ByteArray, byte[], byte[]> sleepyFailureStore = new SleepyStore<ByteArray, byte[], byte[]>(sleepTime,
                                                                                                                failureStore);
         failureStore.setFail(true);
 
@@ -247,35 +267,13 @@ public class HintedHandoffFailureTest {
         Map<Integer, NonblockingStore> nonblockingSlopStores = Maps.newHashMap();
         for(Node node: cluster.getNodes()) {
             int nodeId = node.getId();
-            StoreRepository storeRepo = new StoreRepository();
-            storeRepo.addLocalStore(subStores.get(nodeId));
-
-            for(int i = 0; i < NUM_NODES_TOTAL; i++) {
-                storeRepo.addNodeStore(i, subStores.get(i));
-            }
 
             SlopStorageEngine slopStorageEngine = new SlopStorageEngine(new InMemoryStorageEngine<ByteArray, byte[], byte[]>(SLOP_STORE_NAME),
                                                                         cluster);
             StorageEngine<ByteArray, Slop, byte[]> storageEngine = slopStorageEngine.asSlopStore();
-            storeRepo.setSlopStore(slopStorageEngine);
             nonblockingSlopStores.put(nodeId,
                                       routedStoreFactory.toNonblockingStore(slopStorageEngine));
             slopStores.put(nodeId, storageEngine);
-
-            MetadataStore metadataStore = ServerTestUtils.createMetadataStore(cluster,
-                                                                              Lists.newArrayList(storeDef));
-            StreamingSlopPusherJob pusher = new StreamingSlopPusherJob(storeRepo,
-                                                                       metadataStore,
-                                                                       failureDetector,
-                                                                       ServerTestUtils.createServerConfigWithDefs(false,
-                                                                                                                  nodeId,
-                                                                                                                  TestUtils.createTempDir()
-                                                                                                                           .getAbsolutePath(),
-                                                                                                                  cluster,
-                                                                                                                  Lists.newArrayList(storeDef),
-                                                                                                                  new Properties()),
-                                                                       new ScanPermitWrapper(1));
-            slopPusherJobs.add(pusher);
         }
 
         Map<Integer, NonblockingStore> nonblockingStores = Maps.newHashMap();
@@ -289,7 +287,8 @@ public class HintedHandoffFailureTest {
                                                   nonblockingSlopStores,
                                                   cluster,
                                                   storeDef,
-                                                  failureDetector);
+                                                  failureDetector,
+                                                  hintDelayTimeMs);
         return failingNodeIdList;
     }
 
@@ -299,8 +298,17 @@ public class HintedHandoffFailureTest {
             failureDetector.destroy();
         }
 
+        for(Store subStore: subStores.values()) {
+            subStore.close();
+        }
+
+        for(Store subStore: slopStores.values()) {
+            subStore.close();
+        }
+
         if(routedStoreThreadPool != null) {
             routedStoreThreadPool.shutdown();
+            routedStoreThreadPool.awaitTermination(1, TimeUnit.SECONDS);
         }
     }
 
@@ -360,23 +368,17 @@ public class HintedHandoffFailureTest {
      * This is for the 2-1-1 configuration.
      */
     @Test
-    public void testSlopOnDelayedFailingAsyncPut_2_1_1() {
+    public void testSlopOnDelayedFailingAsyncPut_2_1_1() throws Exception {
 
-        String key = "a";
+        String key = "testSlopOnDelayedFailingAsyncPut_2_1_1";
         String val = "xyz";
         Versioned<byte[]> versionedVal = new Versioned<byte[]>(val.getBytes());
         ByteArray keyByteArray = new ByteArray(key.getBytes());
         List<Integer> failingNodeIdList = null;
 
-        // Set the correct replication config
-        REPLICATION_FACTOR = 2;
-        P_READS = 1;
-        R_READS = 1;
-        P_WRITES = 1;
-        R_WRITES = 1;
 
         try {
-            failingNodeIdList = customSetup(keyByteArray);
+            failingNodeIdList = customSetup(keyByteArray, get211Replica(), HINT_DELAY_TIME_MS);
         } catch(Exception e) {
             logger.info(e.getMessage());
             fail("Error in setup.");
@@ -384,6 +386,7 @@ public class HintedHandoffFailureTest {
 
         this.store.put(keyByteArray, versionedVal, null);
 
+        Thread.sleep(HINT_DELAY_TIME_MS + 100);
         // Check the slop stores
         Set<ByteArray> failedKeys = Sets.newHashSet();
         failedKeys.add(keyByteArray);
@@ -406,29 +409,24 @@ public class HintedHandoffFailureTest {
      * This is for the 3-2-2 configuration.
      */
     @Test
-    public void testSlopOnDelayedFailingAsyncPut_3_2_2() {
+    public void testSlopOnDelayedFailingAsyncPut_3_2_2() throws Exception {
 
-        String key = "a";
+        String key = "testSlopOnDelayedFailingAsyncPut_3_2_2";
         String val = "xyz";
         Versioned<byte[]> versionedVal = new Versioned<byte[]>(val.getBytes());
         ByteArray keyByteArray = new ByteArray(key.getBytes());
         List<Integer> failingNodeIdList = null;
 
-        // Set the correct replication config
-        REPLICATION_FACTOR = 3;
-        P_READS = 2;
-        R_READS = 2;
-        P_WRITES = 2;
-        R_WRITES = 2;
-
         try {
-            failingNodeIdList = customSetup(keyByteArray);
+            failingNodeIdList = customSetup(keyByteArray, get322Replica(), HINT_DELAY_TIME_MS);
         } catch(Exception e) {
             logger.info(e.getMessage());
             fail("Error in setup.");
         }
 
         this.store.put(keyByteArray, versionedVal, null);
+
+        Thread.sleep(HINT_DELAY_TIME_MS + 100);
 
         // Check the slop stores
         Set<ByteArray> failedKeys = Sets.newHashSet();
@@ -453,37 +451,25 @@ public class HintedHandoffFailureTest {
     @Test
     public void testSlopViaSerialHint_2_1_1() {
 
-        String key = "a";
+        String key = "testSlopViaSerialHint_2_1_1";
         String val = "xyz";
         Versioned<byte[]> versionedVal = new Versioned<byte[]>(val.getBytes());
         ByteArray keyByteArray = new ByteArray(key.getBytes());
         List<Integer> failingNodeIdList = null;
 
-        // Set the correct replication config
-        REPLICATION_FACTOR = 2;
-        P_READS = 1;
-        R_READS = 1;
-        P_WRITES = 1;
-        R_WRITES = 1;
-
         try {
-            failingNodeIdList = customSetup(keyByteArray);
+            failingNodeIdList = customSetup(keyByteArray, get211Replica(), 0);
         } catch(Exception e) {
             logger.info(e.getMessage());
             fail("Error in setup.");
         }
-
-        // We remove the delay in the pipeline so that the pipeline will finish
-        // before the failing async put returns. At this point it should do a
-        // serial hint.
-        delayBeforeHintedHandoff = 0;
 
         this.store.put(keyByteArray, versionedVal, null);
 
         // Give enough time for the serial hint to work.
         try {
             logger.info("Sleeping for 5 seconds to wait for the serial hint to finish");
-            Thread.sleep(5000);
+            Thread.sleep(1000);
         } catch(Exception e) {}
 
         // Check the slop stores
@@ -509,37 +495,25 @@ public class HintedHandoffFailureTest {
     @Test
     public void testSlopViaSerialHint_3_2_2() {
 
-        String key = "a";
+        String key = "testSlopViaSerialHint_3_2_2";
         String val = "xyz";
         Versioned<byte[]> versionedVal = new Versioned<byte[]>(val.getBytes());
         ByteArray keyByteArray = new ByteArray(key.getBytes());
         List<Integer> failingNodeIdList = null;
 
-        // Set the correct replication config
-        REPLICATION_FACTOR = 3;
-        P_READS = 2;
-        R_READS = 2;
-        P_WRITES = 2;
-        R_WRITES = 2;
-
         try {
-            failingNodeIdList = customSetup(keyByteArray);
+            failingNodeIdList = customSetup(keyByteArray, get322Replica(), 0);
         } catch(Exception e) {
             logger.info(e.getMessage());
             fail("Error in setup.");
         }
-
-        // We remove the delay in the pipeline so that the pipeline will finish
-        // before the failing async put returns. At this point it should do a
-        // serial hint.
-        delayBeforeHintedHandoff = 0;
 
         this.store.put(keyByteArray, versionedVal, null);
 
         // Give enough time for the serial hint to work.
         try {
             logger.info("Sleeping for 5 seconds to wait for the serial hint to finish");
-            Thread.sleep(5000);
+            Thread.sleep(1000);
         } catch(Exception e) {}
 
         // Check the slop stores
@@ -561,43 +535,27 @@ public class HintedHandoffFailureTest {
      * returns with an error and that no slops are registered.
      */
     @Test
-    public void testNoSlopsOnAllReplicaFailures() {
+    public void testNoSlopsOnAllReplicaFailures() throws Exception {
 
-        String key = "a";
+        String key = "testNoSlopsOnAllReplicaFailures";
         String val = "xyz";
         final Versioned<byte[]> versionedVal = new Versioned<byte[]>(val.getBytes());
         final ByteArray keyByteArray = new ByteArray(key.getBytes());
         List<Integer> failingNodeIdList = null;
 
-        // Set the correct replication config
-        REPLICATION_FACTOR = 3;
-        R_READS = 2;
-        R_WRITES = 2;
-
-        // Large sleep time for the replica nodes
-        sleepBeforeFailingInMs = 10000;
-
-        // 0 artificial delay for the put pipeline
-        delayBeforeHintedHandoff = 0;
-
-        try {
-            failingNodeIdList = customSetup(keyByteArray, FAILURE_MODE.FAIL_ALL_REPLICAS);
-        } catch(Exception e) {
-            logger.info(e.getMessage());
-            fail("Error in setup.");
-        }
+        long sleepTime = ROUTING_TIMEOUT_MS + 100;
+        failingNodeIdList = customSetup(keyByteArray,
+                                        FAILURE_MODE.FAIL_ALL_REPLICAS,
+                                        get322Replica(),
+                                        sleepTime,
+                                        0);
 
         PerformAsyncPut asyncPutThread = new PerformAsyncPut(this.store, keyByteArray, versionedVal);
         Executors.newFixedThreadPool(1).submit(asyncPutThread);
 
         // Sleep for the routing timeout with some headroom
         try {
-            logger.info("Sleeping for 5 seconds to wait for the put to finish");
-            Thread.sleep(5000);
-
-            if(!asyncPutThread.isDone) {
-                fail("The main thread for put did not finish.");
-            }
+            Thread.sleep(sleepTime + 100);
         } catch(Exception e) {
             fail("Unknown error while doing a put: " + e);
         }
@@ -624,6 +582,7 @@ public class HintedHandoffFailureTest {
         private ByteArray keyByteArray = null;
         private RoutedStore asyncPutStore = null;
         private boolean isDone = false;
+        private Exception ex = null;
 
         public PerformAsyncPut(RoutedStore asyncPutStore,
                                ByteArray keyByteArray,
@@ -642,13 +601,17 @@ public class HintedHandoffFailureTest {
                 // This is expected. Nothing to do.
                 logger.info("Error occured as expected : " + ve.getMessage());
             } catch(Exception e) {
-                fail("Should've got a Voldemort exception. But got this: " + e);
+                ex = e;
+            } finally {
+                markAsDone(true);
             }
-            markAsDone(true);
         }
 
         @SuppressWarnings("unused")
-        public boolean isDone() {
+        public boolean isDone() throws Exception {
+            if(ex != null) {
+                throw ex;
+            }
             return isDone;
         }
 
@@ -691,13 +654,15 @@ public class HintedHandoffFailureTest {
      */
     private class DelayedPutPipelineRoutedStore extends PipelineRoutedStore {
 
+        private long hintDelayTimeMs = 0;
         public DelayedPutPipelineRoutedStore(Map<Integer, Store<ByteArray, byte[], byte[]>> innerStores,
                                              Map<Integer, NonblockingStore> nonblockingStores,
                                              Map<Integer, Store<ByteArray, Slop, byte[]>> slopStores,
                                              Map<Integer, NonblockingStore> nonblockingSlopStores,
                                              Cluster cluster,
                                              StoreDefinition storeDef,
-                                             FailureDetector failureDetector) {
+                                             FailureDetector failureDetector,
+                                             long hintDelayTimeMs) {
             super(innerStores,
                   nonblockingStores,
                   slopStores,
@@ -706,11 +671,12 @@ public class HintedHandoffFailureTest {
                   storeDef,
                   failureDetector,
                   true,
-                  new TimeoutConfig(routingTimeoutInMs),
+                  new TimeoutConfig(ROUTING_TIMEOUT_MS),
                   Zone.UNSET_ZONE_ID,
                   false,
                   new PipelineRoutedStats(storeDef.getName()),
                   new ZoneAffinity());
+            this.hintDelayTimeMs = hintDelayTimeMs;
 
         }
 
@@ -726,7 +692,7 @@ public class HintedHandoffFailureTest {
             pipelineData.setStartTimeNs(System.nanoTime());
             pipelineData.setStoreName(getName());
 
-            long putOpTimeoutInMs = routingTimeoutInMs;
+            long putOpTimeoutInMs = ROUTING_TIMEOUT_MS;
             Pipeline pipeline = new Pipeline(Operation.PUT, putOpTimeoutInMs, TimeUnit.MILLISECONDS);
             pipeline.setEnableHintedHandoff(true);
             HintedHandoff hintedHandoff = null;
@@ -784,7 +750,7 @@ public class HintedHandoffFailureTest {
             pipeline.addEventAction(Event.RESPONSES_RECEIVED,
                                     new DelayAction(pipelineData,
                                                     Event.INSUFFICIENT_SUCCESSES,
-                                                    delayBeforeHintedHandoff));
+                                                    hintDelayTimeMs));
 
             pipeline.addEventAction(Event.INSUFFICIENT_SUCCESSES,
                                     new PerformPutHintedHandoff(pipelineData,
