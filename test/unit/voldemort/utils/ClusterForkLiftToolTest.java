@@ -468,7 +468,7 @@ public class ClusterForkLiftToolTest {
     }
 
     @After
-    public void tearDownClusters() {
+    public void tearDownClusters() throws IOException {
 
         srcAdminClient.close();
 
@@ -476,7 +476,7 @@ public class ClusterForkLiftToolTest {
         dstfactory.close();
 
         for(VoldemortServer server: srcServers)
-            server.stop();
+            ServerTestUtils.stopVoldemortServer(server);
         for(VoldemortServer server: dstServers)
             server.stop();
     }

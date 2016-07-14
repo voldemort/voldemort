@@ -109,7 +109,7 @@ public abstract class AbstractRebalanceTest {
     @After
     public void tearDown() throws Exception {
         for(VoldemortServer vs: serverMap.values()) {
-            vs.stop();
+            ServerTestUtils.stopVoldemortServer(vs);
         }
     }
 

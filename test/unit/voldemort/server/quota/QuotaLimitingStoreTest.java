@@ -229,9 +229,9 @@ public class QuotaLimitingStoreTest {
     }
 
     @After
-    public void teardown() {
+    public void teardown() throws IOException {
         adminClient.close();
-        server.stop();
+        ServerTestUtils.stopVoldemortServer(server);
 
         factory.close();
     }

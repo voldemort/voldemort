@@ -21,6 +21,7 @@ import static org.junit.Assert.fail;
 import java.io.BufferedWriter;
 import java.io.File;
 import java.io.FileWriter;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
@@ -151,7 +152,7 @@ public class RebalanceRebootstrapConsistencyTest {
         String storesXmlStr = new StoreDefinitionsMapper().writeStoreList(storedefs);
 
         // create a temp file
-        File tempStoresXml = File.createTempFile("tempfile", ".tmp");
+        File tempStoresXml = ServerTestUtils.createTempFile("tempfile", ".tmp");
 
         BufferedWriter bw = new BufferedWriter(new FileWriter(tempStoresXml));
         bw.write(storesXmlStr);
@@ -217,10 +218,10 @@ public class RebalanceRebootstrapConsistencyTest {
     }
 
     @After
-    public void tearDown() {
+    public void tearDown() throws IOException {
         if(servers != null)
             for(VoldemortServer server: servers)
-                server.stop();
+                ServerTestUtils.stopVoldemortServer(server);
     }
 
     /*

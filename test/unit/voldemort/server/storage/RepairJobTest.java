@@ -97,7 +97,7 @@ public class RepairJobTest {
         String storeDefsString = mapper.writeStoreList(storeDefs);
         File file = null;
         try {
-            file = File.createTempFile("single-store-", ".xml");
+            file = ServerTestUtils.createTempFile("single-store-", ".xml");
             FileUtils.writeStringToFile(file, storeDefsString);
             String storeDefFile = file.getAbsolutePath();
             List<Integer> nodesToStart = Arrays.asList(0, 1, 2, 3, 4, 5, 6, 7, 8);
@@ -137,7 +137,7 @@ public class RepairJobTest {
     @After
     public void tearDown() throws Exception {
         for(VoldemortServer vs: serverMap.values()) {
-            vs.stop();
+            ServerTestUtils.stopVoldemortServer(vs);
         }
     }
 

@@ -871,6 +871,12 @@ public class ServerTestUtils {
                                            .build();
     }
 
+    public static File createTempFile(String prefix, String suffix) throws IOException {
+        File file = File.createTempFile(prefix, suffix);
+        file.deleteOnExit();
+        return file;
+    }
+
     public static HashMap<ByteArray, byte[]> createRandomKeyValuePairs(int numKeys) {
         HashMap<ByteArray, byte[]> map = new HashMap<ByteArray, byte[]>();
         for(int cnt = 0; cnt <= numKeys; cnt++) {

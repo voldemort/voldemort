@@ -134,10 +134,10 @@ public class StoreOperationsTest {
     }
 
     @After
-    public void teardown() {
+    public void teardown() throws IOException {
         // shutdown
         for(VoldemortServer vs: vservers.values()) {
-            vs.stop();
+            ServerTestUtils.stopVoldemortServer(vs);
         }
         for(SocketStoreFactory ssf: socketStoreFactories.values()) {
             ssf.close();

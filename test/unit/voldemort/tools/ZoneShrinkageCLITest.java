@@ -108,9 +108,9 @@ public class ZoneShrinkageCLITest {
     }
 
     @After
-    public void shutdown() {
+    public void shutdown() throws IOException {
         for(VoldemortServer vserver: vservers.values()) {
-            vserver.stop();
+            ServerTestUtils.stopVoldemortServer(vserver);
         }
         for(SocketStoreFactory ssf: socketStoreFactories.values()) {
             ssf.close();

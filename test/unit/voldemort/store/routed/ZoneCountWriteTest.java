@@ -148,9 +148,9 @@ public class ZoneCountWriteTest {
     }
 
     @After
-    public void tearDown() {
+    public void tearDown() throws IOException {
         for(VoldemortServer vs: this.vservers.values()) {
-            vs.stop();
+            ServerTestUtils.stopVoldemortServer(vs);
         }
     }
 

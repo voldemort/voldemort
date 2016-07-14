@@ -53,7 +53,7 @@ public class ZoneShrinkageClientTest {
         sourceStoreDefs = ClusterTestUtils.getZZZStoreDefsBDB();
         targetStoreDefs = RebalanceUtils.dropZone(sourceStoreDefs, DROP_ZONE_ID);
 
-        File sourceStoreDefsXml = File.createTempFile("zzz-stores-", ".xml");
+        File sourceStoreDefsXml = ServerTestUtils.createTempFile("zzz-stores-", ".xml");
         FileUtils.writeStringToFile(sourceStoreDefsXml,
                                     new StoreDefinitionsMapper().writeStoreList(sourceStoreDefs));
         servers = new VoldemortServer[sourceCluster.getNumberOfNodes()];
@@ -131,9 +131,9 @@ public class ZoneShrinkageClientTest {
     }
 
     @After
-    public void teardown() {
+    public void teardown() throws IOException {
         for(VoldemortServer server: servers) {
-            server.stop();
+            ServerTestUtils.stopVoldemortServer(server);
         }
         adminClient.close();
         ClusterTestUtils.reset();

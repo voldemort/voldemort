@@ -319,7 +319,7 @@ public class HintedHandoffSendHintTest {
         if(failureDetector != null)
             failureDetector.destroy();
         for(VoldemortServer vs: voldemortServers.values()) {
-            vs.stop();
+            ServerTestUtils.stopVoldemortServer(vs);
         }
         routedStore.close();
         if(logger.isDebugEnabled()) {

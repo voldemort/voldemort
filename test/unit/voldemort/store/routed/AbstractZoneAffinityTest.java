@@ -1,8 +1,5 @@
 package voldemort.store.routed;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.fail;
-
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.Collection;
@@ -10,11 +7,9 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Properties;
-import java.util.Set;
 
 import org.junit.After;
 import org.junit.Before;
-import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
 
@@ -27,7 +22,6 @@ import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
 import voldemort.server.VoldemortConfig;
 import voldemort.server.VoldemortServer;
-import voldemort.store.InsufficientOperationalNodesException;
 import voldemort.store.Store;
 import voldemort.store.StoreDefinition;
 import voldemort.store.socket.SocketStoreFactory;
@@ -121,10 +115,10 @@ public abstract class AbstractZoneAffinityTest {
     }
 
     @After
-    public void tearDown() {
+    public void tearDown() throws IOException {
         client.close();
         for(VoldemortServer vs: this.vservers.values()) {
-            vs.stop();
+            ServerTestUtils.stopVoldemortServer(vs);
         }
         for(SocketStoreFactory ssf: this.socketStoreFactories.values()) {
             ssf.close();

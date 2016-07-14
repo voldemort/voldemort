@@ -259,9 +259,9 @@ public class ExceededQuotaSlopTest {
     }
 
     @After
-    public void tearDown() {
+    public void tearDown() throws IOException {
         for(VoldemortServer server: servers) {
-            server.stop();
+            ServerTestUtils.stopVoldemortServer(server);
         }
         adminClient.close();
     }

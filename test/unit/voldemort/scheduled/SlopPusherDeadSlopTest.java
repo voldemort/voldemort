@@ -4,6 +4,7 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
+import java.io.IOException;
 import java.io.StringReader;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -175,9 +176,9 @@ public class SlopPusherDeadSlopTest {
     }
 
     @After
-    public void tearDown() {
+    public void tearDown() throws IOException {
         for(VoldemortServer server: servers) {
-            server.stop();
+            ServerTestUtils.stopVoldemortServer(server);
         }
         adminClient.close();
     }

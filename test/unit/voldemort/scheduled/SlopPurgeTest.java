@@ -2,6 +2,7 @@ package voldemort.scheduled;
 
 import static org.junit.Assert.assertEquals;
 
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -242,9 +243,9 @@ public class SlopPurgeTest {
     }
 
     @After
-    public void tearDown() {
+    public void tearDown() throws IOException {
         for(VoldemortServer server: servers) {
-            server.stop();
+            ServerTestUtils.stopVoldemortServer(server);
         }
         adminClient.close();
     }

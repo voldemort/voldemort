@@ -133,7 +133,7 @@ public abstract class AbstractZonedRebalanceTest extends AbstractRebalanceTest {
         zzClusterExpansionPP = ClusterTestUtils.getZZClusterWithPP();
 
         zzStores = ClusterTestUtils.getZZStoreDefsBDB();
-        File zzfile = File.createTempFile("zz-stores-", ".xml");
+        File zzfile = ServerTestUtils.createTempFile("zz-stores-", ".xml");
         FileUtils.writeStringToFile(zzfile, new StoreDefinitionsMapper().writeStoreList(zzStores));
         zzStoresXml = zzfile.getAbsolutePath();
 
@@ -145,7 +145,7 @@ public abstract class AbstractZonedRebalanceTest extends AbstractRebalanceTest {
         zzzZoneExpansionXXP = ClusterTestUtils.getZZEClusterXXP();
 
         zzzStores = ClusterTestUtils.getZZZStoreDefsBDB();
-        File zzzfile = File.createTempFile("zzz-stores-", ".xml");
+        File zzzfile = ServerTestUtils.createTempFile("zzz-stores-", ".xml");
         FileUtils.writeStringToFile(zzzfile, new StoreDefinitionsMapper().writeStoreList(zzzStores));
         zzzStoresXml = zzzfile.getAbsolutePath();
     }
@@ -174,7 +174,7 @@ public abstract class AbstractZonedRebalanceTest extends AbstractRebalanceTest {
 
         storeDefWithoutReplication = Lists.newArrayList(rwStoreDefWithoutReplication);
         String storeDefWithoutReplicationString = new StoreDefinitionsMapper().writeStoreList(storeDefWithoutReplication);
-        File file = File.createTempFile("two-stores-", ".xml");
+        File file = ServerTestUtils.createTempFile("two-stores-", ".xml");
         FileUtils.writeStringToFile(file, storeDefWithoutReplicationString);
         storeDefFileWithoutReplication = file.getAbsolutePath();
 
@@ -215,12 +215,12 @@ public abstract class AbstractZonedRebalanceTest extends AbstractRebalanceTest {
                                                                  .setHintedHandoffStrategy(HintedHandoffStrategyType.PROXIMITY_STRATEGY)
                                                                  .build();
 
-        file = File.createTempFile("rw-stores-", ".xml");
+        file = ServerTestUtils.createTempFile("rw-stores-", ".xml");
         FileUtils.writeStringToFile(file,
                                     new StoreDefinitionsMapper().writeStoreList(Lists.newArrayList(rwStoreDefWithReplication)));
         rwStoreDefFileWithReplication = file.getAbsolutePath();
 
-        file = File.createTempFile("rw-two-stores-", ".xml");
+        file = ServerTestUtils.createTempFile("rw-two-stores-", ".xml");
         FileUtils.writeStringToFile(file,
                                     new StoreDefinitionsMapper().writeStoreList(Lists.newArrayList(rwStoreDefWithReplication,
                                                                                                    rwStoreDefWithReplication2)));
@@ -228,7 +228,7 @@ public abstract class AbstractZonedRebalanceTest extends AbstractRebalanceTest {
 
         storeDefWithReplication = Lists.newArrayList(rwStoreDefWithReplication);
         String storeDefWithReplicationString = new StoreDefinitionsMapper().writeStoreList(storeDefWithReplication);
-        file = File.createTempFile("two-stores-", ".xml");
+        file = ServerTestUtils.createTempFile("two-stores-", ".xml");
         FileUtils.writeStringToFile(file, storeDefWithReplicationString);
         storeDefFileWithReplication = file.getAbsolutePath();
     }

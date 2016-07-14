@@ -17,6 +17,7 @@ import org.junit.AfterClass;
 import org.junit.BeforeClass;
 import org.junit.Test;
 
+import voldemort.ServerTestUtils;
 import voldemort.restclient.R2Store;
 import voldemort.restclient.RESTClientConfig;
 import voldemort.server.VoldemortConfig;
@@ -84,9 +85,11 @@ public class RestServerAPITest {
     }
 
     @AfterClass
-    public static void tearDown() throws Exception {
+    public static void tearDown() {
         if(server != null && server.isStarted()) {
-            server.stop();
+        	// Not using ServerTestUtils.stopVoldmeortServer as test uses config
+        	// under git source control, which causes real files to be deleted.
+        	server.stop();
         }
     }
 

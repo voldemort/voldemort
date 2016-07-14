@@ -101,7 +101,7 @@ public class AdminServiceFilterTest extends AbstractAdminServiceFilterTest {
     @After
     public void tearDown() throws IOException, InterruptedException {
         adminClient.close();
-        server.stop();
+        ServerTestUtils.stopVoldemortServer(server);
         FileUtils.deleteDirectory(new File(server.getVoldemortConfig().getVoldemortHome()));
     }
 

@@ -190,11 +190,11 @@ public class StreamingClientTest {
     }
 
     @After
-    public void testCleanup() {
+    public void testCleanup() throws IOException {
         // Teardown for data used by the unit tests
         if(servers != null) {
             for(VoldemortServer server: servers) {
-                server.stop();
+                ServerTestUtils.stopVoldemortServer(server);
             }
         }
     }

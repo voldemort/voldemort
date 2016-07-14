@@ -3,38 +3,16 @@ package voldemort.store.routed;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.fail;
 
-import java.io.IOException;
 import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collection;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Properties;
 import java.util.Set;
 
-import org.junit.After;
-import org.junit.Before;
 import org.junit.Test;
-import org.junit.runner.RunWith;
-import org.junit.runners.Parameterized;
 
-import voldemort.ClusterTestUtils;
-import voldemort.ServerTestUtils;
-import voldemort.TestUtils;
-import voldemort.client.ClientConfig;
-import voldemort.client.SocketStoreClientFactory;
 import voldemort.cluster.Cluster;
-import voldemort.cluster.Node;
-import voldemort.server.VoldemortConfig;
-import voldemort.server.VoldemortServer;
 import voldemort.store.InsufficientOperationalNodesException;
-import voldemort.store.Store;
 import voldemort.store.StoreDefinition;
-import voldemort.store.socket.SocketStoreFactory;
-import voldemort.store.socket.clientrequest.ClientRequestExecutorPool;
-import voldemort.utils.ByteArray;
-import voldemort.versioning.VectorClock;
 import voldemort.versioning.Versioned;
 
 public class ZoneAffinityGetAllTest extends AbstractZoneAffinityTest{

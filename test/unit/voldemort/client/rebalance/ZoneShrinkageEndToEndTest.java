@@ -354,9 +354,9 @@ public class ZoneShrinkageEndToEndTest {
     }
 
     @After
-    public void shutdown() {
+    public void shutdown() throws IOException {
         for(Integer nodeId: vservers.keySet()) {
-            vservers.get(nodeId).stop();
+            ServerTestUtils.stopVoldemortServer(vservers.get(nodeId));
         }
         for(Integer nodeId: socketStoreFactories.keySet()) {
             socketStoreFactories.get(nodeId).close();
