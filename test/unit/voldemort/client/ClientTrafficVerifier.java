@@ -142,8 +142,7 @@ public class ClientTrafficVerifier implements Runnable {
                 // as it is irrelevant for the refactoring I am doing.
 
             } catch(Exception e) {
-                logger.info("CLIENT EXCEPTION FAILURE on key [" + k + "]" + e.toString());
-                e.printStackTrace();
+                logger.info("CLIENT EXCEPTION FAILURE on key [" + k + "]", e);
                 String exceptionName = "Key " + k + " " + e.getClass().toString();
                 if(exceptionCount.containsKey(exceptionName)) {
                     exceptionCount.put(exceptionName, exceptionCount.get(exceptionName) + 1);

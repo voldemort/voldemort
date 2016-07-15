@@ -5,21 +5,27 @@ import static org.junit.Assert.assertTrue;
 
 import java.io.IOException;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Properties;
+import java.util.Random;
 
 import junit.framework.Assert;
 
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.Parameterized;
+import org.junit.runners.Parameterized.Parameters;
 
 import voldemort.ServerTestUtils;
 import voldemort.client.protocol.admin.AdminClient;
 import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
+import voldemort.server.NodeIdHostMatcher;
 import voldemort.server.VoldemortConfig;
 import voldemort.server.VoldemortServer;
 import voldemort.store.StoreDefinition;
@@ -29,6 +35,9 @@ import voldemort.store.socket.TestSocketStoreFactory;
 import voldemort.store.socket.clientrequest.ClientRequestExecutorPool;
 import voldemort.tools.ReplaceNodeCLI;
 
+import com.google.common.collect.Lists;
+
+@RunWith(Parameterized.class)
 public class ReplaceNodeTest {
     
     private static final int PARALELLISM = 3;
@@ -64,6 +73,30 @@ public class ReplaceNodeTest {
         return "tcp://" + node.getHost() + ":" + node.getAdminPort();
     }
 
+    private final boolean autoDetectNodeId;
+    private final int nodeToBeReplaced;
+    private final int healthyNode;
+    private final static int TOTAL_SERVERS = 6;
+    public ReplaceNodeTest(boolean autoDetectNodeId) {
+        this.nodeToBeReplaced = new Random().nextInt(TOTAL_SERVERS);
+        this.healthyNode = (nodeToBeReplaced + 1) % TOTAL_SERVERS;
+        this.autoDetectNodeId = autoDetectNodeId;
+    }
+
+    @Parameters
+    public static Collection<Object[]> configs() {
+        List<Object[]> allConfigs = Lists.newArrayList();
+
+        for(boolean autoDetectNodeId: new boolean[] { true, false }) {
+            allConfigs.add(new Object[] { autoDetectNodeId });
+        }
+        return allConfigs;
+    }
+
+    private void setHostMatcher(VoldemortConfig config) {
+        config.setNodeIdImplementation(new NodeIdHostMatcher(nodeToBeReplaced));
+    }
+
     @Before
     public void setUp() throws IOException {
 
@@ -73,13 +106,11 @@ public class ReplaceNodeTest {
         serverProperties.setProperty("client.max.connections.per.node", "20");
         serverProperties.setProperty("slop.frequency.ms", "8000");
 
-        int originalServerCount = 6;
-
         int partitionMap[][] = { { 0, 1, 2, 3 }, { 4, 5, 6, 7 }, { 8, 9, 10, 11 },
                 { 12, 13, 14, 15 }, { 16, 17, 18, 19 }, { 20, 21, 22, 23 } };
 
-        originalServers = new VoldemortServer[originalServerCount];
-        originalCluster = ServerTestUtils.startVoldemortCluster(originalServerCount,
+        originalServers = new VoldemortServer[TOTAL_SERVERS];
+        originalCluster = ServerTestUtils.startVoldemortCluster(TOTAL_SERVERS,
                                                         originalServers,
                                                         partitionMap,
                                                         originalSocketStoreFactory,
@@ -88,7 +119,7 @@ public class ReplaceNodeTest {
                                                         ORIGINAL_STORES_XML,
                                                         serverProperties);
 
-        Node node = originalCluster.getNodeById(4);
+        Node node = originalCluster.getNodeById(this.healthyNode);
         originalBootstrapUrl = getAdminUrl(node);
         
         finalServers = new HashMap<Integer, VoldemortServer>();
@@ -98,6 +129,10 @@ public class ReplaceNodeTest {
         
         int replacementServerCount = 1;
         int replacementPartitionMap[][] = { { 0, 1, 2, 3 } };
+        
+        Properties otherServerProperties = new Properties();
+        otherServerProperties.putAll(serverProperties);
+        otherServerProperties.put(VoldemortConfig.ENABLE_NODE_ID_DETECTION, Boolean.toString(this.autoDetectNodeId));
 
         otherServers = new VoldemortServer[replacementServerCount];
         ServerTestUtils.startVoldemortCluster(replacementServerCount,
@@ -107,7 +142,11 @@ public class ReplaceNodeTest {
                                               USE_NIO,
                                               null,
                                               EMPTY_STORES_XML,
-                                              serverProperties);
+                                              otherServerProperties);
+
+        if(this.autoDetectNodeId) {
+            setHostMatcher(otherServers[0].getVoldemortConfig());
+        }
     }
 
     @After
@@ -116,12 +155,14 @@ public class ReplaceNodeTest {
         for(VoldemortServer server: originalServers) {
             ServerTestUtils.stopVoldemortServer(server);
         }
+        for(VoldemortServer otherServer: otherServers) {
+            ServerTestUtils.stopVoldemortServer(otherServer);
+        }
         originalSocketStoreFactory.close();
     }
     
     @Test
     public void testNodeDownReplacement() throws Exception {
-        final int NODE_DOWN = 0;
         final int REPLACEMENT_NODE = 0;
         
         // This is to simulate the case where a machine failed but hard disk was intact
@@ -134,24 +175,28 @@ public class ReplaceNodeTest {
         // ( this is to simulate the hard disk move). Now try replacing the node B with
         // newly created node after shutting down the node B.
 
-        Cluster cluster = originalServers[NODE_DOWN].getMetadataStore().getCluster();
-        List<StoreDefinition> storeDefs = originalServers[NODE_DOWN].getMetadataStore()
+        Cluster cluster = originalServers[nodeToBeReplaced].getMetadataStore().getCluster();
+        List<StoreDefinition> storeDefs = originalServers[nodeToBeReplaced].getMetadataStore()
                                                                     .getStoreDefList();
-        Node node = originalServers[NODE_DOWN].getIdentityNode();
+        Node node = originalServers[nodeToBeReplaced].getIdentityNode();
         
         //Verify the node down scenario first
         final boolean DO_RESTORE = false;
         final boolean STOP_OLD_NODE = true;
-        verifyNodeReplacement(NODE_DOWN,
+        verifyNodeReplacement(nodeToBeReplaced,
                               otherServers,
                               REPLACEMENT_NODE,
                               STOP_OLD_NODE,
                               DO_RESTORE );
 
-        SocketStoreFactory ssf = new TestSocketStoreFactory();
-
+        // Now the replacement node is part of the original cluster.
+        // Stop the replacement node, assume you moved the hard disk
+        // to a new node ( This is done by starting another node)
+        // that points to the data directory of the replacement node.
 
         String baseDirPath = otherServers[REPLACEMENT_NODE].getVoldemortConfig().getVoldemortHome();
+        // Using ServerTestUtils stopVoldemortServer also deletes the data
+        // directory so using the stop, to simulate the hard disk move.
         otherServers[REPLACEMENT_NODE].stop();
 
         VoldemortConfig config = ServerTestUtils.createServerConfigWithDefs(true,
@@ -164,15 +209,27 @@ public class ReplaceNodeTest {
         Assert.assertTrue(config.isSlopPusherJobEnabled());
         Assert.assertTrue(config.getAutoPurgeDeadSlops());
         config.setSlopFrequencyMs(8000L);
+        config.setEnableNodeIdDetection(this.autoDetectNodeId);
+        if(this.autoDetectNodeId) {
+            config.setNodeIdImplementation(new NodeIdHostMatcher(nodeToBeReplaced));
+        }
+        // Though baseDir is used as part of Config, TestUtils, always appends
+        // it with node- (nodeId). So forcefully overwriting it here to point to
+        // the old directory.
+        config.setVoldemortHome(baseDirPath);
 
-        VoldemortServer hardDiskMovedServer = ServerTestUtils.startVoldemortServer(ssf, config, cluster);
+        SocketStoreFactory ssf = new TestSocketStoreFactory();
+        VoldemortServer hardDiskMovedServer = ServerTestUtils.startVoldemortServer(ssf,
+                                                                                   config,
+                                                                                   cluster);
         
-        VoldemortServer[] newCluster = new VoldemortServer[] { hardDiskMovedServer };
+        ssf.close();
 
+        otherServers[REPLACEMENT_NODE] = hardDiskMovedServer;
         final boolean SKIP_RESTORE = true;
         final boolean DONOT_STOP_OLD_NODE = true;
-        verifyNodeReplacement(NODE_DOWN,
-                              newCluster,
+        verifyNodeReplacement(nodeToBeReplaced,
+                              otherServers,
                               REPLACEMENT_NODE,
                               DONOT_STOP_OLD_NODE,
                               SKIP_RESTORE);
@@ -180,13 +237,12 @@ public class ReplaceNodeTest {
 
     @Test
     public void testNodeReplacement() throws Exception {
-        final int NODE_DOWN = 0;
-
+        final int REPLACEMENT_NODE = 0;
         final boolean DONOT_SKIP_RESTORE = false;
         final boolean DONOT_STOP_OLD_NODE = false;
-        verifyNodeReplacement(NODE_DOWN,
+        verifyNodeReplacement(nodeToBeReplaced,
                               otherServers,
-                              NODE_DOWN,
+                              REPLACEMENT_NODE,
                               DONOT_STOP_OLD_NODE,
                               DONOT_SKIP_RESTORE);
 
@@ -251,7 +307,7 @@ public class ReplaceNodeTest {
             throws Exception {
         try {
             if(trafficGenerator == null) {
-                Node node = originalCluster.getNodeById(4);
+                Node node = originalCluster.getNodeById(this.healthyNode);
                 String clientBootStrapUrl = "tcp://" + node.getHost() + ":" + node.getSocketPort();
 
                 List<String> storeNames = Arrays.asList(new String[] { STORE211_NAME, STORE322_NAME });
@@ -266,6 +322,9 @@ public class ReplaceNodeTest {
             Thread.sleep(5000);
 
             replacer.execute();
+
+            // After the replacement, validate the node Id
+            replacementServer.validateNodeId();
 
             // cool down
             Thread.sleep(15000);

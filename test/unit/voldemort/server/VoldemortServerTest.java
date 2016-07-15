@@ -16,38 +16,212 @@
 
 package voldemort.server;
 
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNull;
+
+import java.io.IOException;
 import java.security.Security;
+import java.util.List;
 import java.util.Properties;
-import junit.framework.TestCase;
+
+import junit.framework.Assert;
+
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
+import org.junit.After;
+import org.junit.Test;
+
+import voldemort.ServerTestUtils;
+import voldemort.TestUtils;
+import voldemort.VoldemortException;
+import voldemort.client.protocol.admin.AdminClient;
+import voldemort.cluster.Cluster;
+import voldemort.cluster.Node;
+import voldemort.store.metadata.MetadataStore;
+import voldemort.versioning.VectorClockUtils;
+
+import com.google.common.collect.Lists;
 
 
 /**
  * Unit test for  VodemortServer.
  */
-public class VoldemortServerTest extends TestCase {
-    public void testJCEProvider() {
+public class VoldemortServerTest {
+
+    private VoldemortServer server;
+
+    @After
+    public void tearDown() throws IOException {
+        if(server != null) {
+            ServerTestUtils.stopVoldemortServer(server);
+        }
+    }
+
+    private VoldemortConfig getVoldemortConfig(Properties properties) throws IOException {
+        properties.setProperty(VoldemortConfig.ENABLE_NODE_ID_DETECTION, Boolean.toString(true));
+        VoldemortConfig config = ServerTestUtils.createServerConfig(true,
+                                                                    -1,
+                                           TestUtils.createTempDir().getAbsolutePath(),
+                                           null,
+                                           null,
+                                           properties);
+        return config;
+    }
+
+    private VoldemortServer getVoldemortServer(Properties properties) throws IOException {
+        VoldemortConfig config = getVoldemortConfig(properties);
+        Cluster cluster = ServerTestUtils.getLocalCluster(1);
+        return new VoldemortServer(config, cluster);
+    }
+
+    @Test
+    public void testSSLProviders() throws IOException {
+        // The SSL providers changes the state of the JVM
+        // if the methods are run in parallel or the ordering
+        // changes the test fails. TestBouncyCastle is the
+        // only test to enable this SSL. If other tests introduce
+        // them the test could fails as well.
+        testJCEProvider();
+        testBouncyCastleProvider();
+    }
+    private void testJCEProvider() throws IOException {
         Properties properties = new Properties();
-        properties.setProperty("node.id", "1");
-        properties.setProperty("voldemort.home", "/test");
 
         // Default configuration. Bouncy castle provider will not be used.
-        VoldemortConfig config = new VoldemortConfig(properties);
-        try {
-            VoldemortServer server = new VoldemortServer(config, null);
-        } catch (Throwable e) {
-            //ignore
-        }
+        server = getVoldemortServer(properties);
         assertNull(Security.getProvider(BouncyCastleProvider.PROVIDER_NAME));
+    }
 
+    private void testBouncyCastleProvider() throws IOException {
+        Properties properties = new Properties();
         // Use bouncy castle as first choice of JCE provider.
         properties.setProperty("use.bouncycastle.for.ssl", "true");
-        config = new VoldemortConfig(properties);
-        try {
-            VoldemortServer server = new VoldemortServer(config, null);
-        } catch (Throwable e) {
-            //ignore
-        }
+
+        server = getVoldemortServer(properties);
         assertEquals(BouncyCastleProvider.PROVIDER_NAME, Security.getProviders()[0].getName());
+    }
+
+    @Test
+    public void testNodeIdDetection() throws IOException {
+        final int NUM_NODES = 10;
+        final int NODE_ID = 5;
+        VoldemortConfig config = getVoldemortConfig(new Properties());
+        final String SOMEHOST = "host" + NODE_ID;
+        config.setNodeIdImplementation(new MockHostMatcher(config.getNodeIdHostTypes(),
+                                                           SOMEHOST,
+                                                           SOMEHOST + ".domain"));
+        
+        List<String> hostNames = Lists.newArrayList();
+        for(int i = 0; i < NUM_NODES; i ++) {
+            hostNames.add("host"+i);
+        }
+        
+        Assert.assertEquals("At first no node Id", -1, config.getNodeId());
+        Cluster cluster = HostMatcherTest.getCluster(hostNames);
+        server = new VoldemortServer(config, cluster);
+        server.start();
+
+        Assert.assertEquals("Node id is not auto detected", NODE_ID, config.getNodeId());
+        Assert.assertEquals("Node id is not auto detected", NODE_ID, server.getMetadataStore()
+                                                                           .getNodeId());
+    }
+
+    @Test
+    public void testInvalidNodeIdUpdateFails() throws IOException {
+        final int NUM_NODES = 5;
+        Cluster localCluster = ServerTestUtils.getLocalCluster(1);
+        VoldemortConfig config = getVoldemortConfig(new Properties());
+        server = new VoldemortServer(config, localCluster);
+        server.start();
+
+        final int UPDATED_NODE_ID = 3;
+        Node oldNode = localCluster.getNodes().iterator().next();
+        // For single local node, host matcher is not used.
+        config.setNodeIdImplementation(new NodeIdHostMatcher(UPDATED_NODE_ID));
+        Cluster updatedCluster = ServerTestUtils.getLocalCluster(UPDATED_NODE_ID + 1);
+
+        AdminClient oldAdminClient = new AdminClient(localCluster);
+        try {
+            oldAdminClient.metadataMgmtOps.updateRemoteMetadata(oldNode.getId(),
+                                                            MetadataStore.NODE_ID_KEY,
+                                                            Integer.toString(UPDATED_NODE_ID));
+            Assert.fail("Invalid node id should have failed");
+        } catch(VoldemortException ex) {
+            // Expected, ignore
+        }
+    }
+    
+    @Test
+    public void testClusterWithDifferentStateFails() throws IOException {
+        final int NUM_NODES = 5;
+        Cluster localCluster = ServerTestUtils.getLocalCluster(1);
+        VoldemortConfig config = getVoldemortConfig(new Properties());
+        server = new VoldemortServer(config, localCluster);
+        server.start();
+
+        final int UPDATED_NODE_ID = 3;
+        Node oldNode = localCluster.getNodes().iterator().next();
+        // For single local node, host matcher is not used.
+        config.setNodeIdImplementation(new NodeIdHostMatcher(UPDATED_NODE_ID));
+        Cluster updatedCluster = ServerTestUtils.getLocalCluster(UPDATED_NODE_ID + 1);
+
+        AdminClient oldAdminClient = new AdminClient(localCluster);
+        try {
+            oldAdminClient.metadataMgmtOps.updateRemoteCluster(oldNode.getId(),
+                                                           updatedCluster,
+                                                           VectorClockUtils.makeClockWithCurrentTime(localCluster.getNodeIds()));
+            Assert.fail("Invalid node id should have failed");
+        } catch(VoldemortException ex) {
+            // Expected, ignore
+        }
+    }
+
+    @Test
+    public void testClusterUpdateWithAutoDetection() throws IOException {
+        final int NUM_NODES = 5;
+        Cluster localCluster = ServerTestUtils.getLocalCluster(1);
+        VoldemortConfig config = getVoldemortConfig(new Properties());
+        server = new VoldemortServer(config, localCluster);
+        server.start();
+
+        final int UPDATED_NODE_ID = 3;
+        Node oldNode = localCluster.getNodes().iterator().next();
+        // For single local node, host matcher is not used.
+        config.setNodeIdImplementation(new NodeIdHostMatcher(UPDATED_NODE_ID));
+        Cluster updatedCluster = ServerTestUtils.getLocalCluster(UPDATED_NODE_ID + 1);
+
+        AdminClient oldAdminClient = new AdminClient(localCluster);
+        List<Node> newNodes = Lists.newArrayList();
+        for(Node node: updatedCluster.getNodes()) {
+            if(node.getId() != UPDATED_NODE_ID) {
+                newNodes.add(node);
+            }
+        }
+        Node nodeToBeReplaced = updatedCluster.getNodeById(UPDATED_NODE_ID);
+        Node updatedNode = new Node(UPDATED_NODE_ID,
+                                    oldNode.getHost(),
+                                    oldNode.getHttpPort(),
+                                    oldNode.getSocketPort(),
+                                    oldNode.getAdminPort(),
+                                    nodeToBeReplaced.getPartitionIds());
+
+        newNodes.add(updatedNode);
+
+        Cluster updatedClusterWithCorrectNode = new Cluster("updated-cluster", newNodes);
+
+        oldAdminClient.metadataMgmtOps.updateRemoteCluster(oldNode.getId(),
+                                                           updatedClusterWithCorrectNode,
+                                                           VectorClockUtils.makeClockWithCurrentTime(localCluster.getNodeIds()));
+
+        Assert.assertEquals("Identity node is not auto detected",
+                            UPDATED_NODE_ID,
+                            server.getIdentityNode().getId());
+
+        Assert.assertEquals("Voldemort config is not updated",
+                            UPDATED_NODE_ID,
+                            server.getVoldemortConfig().getNodeId());
+
+        Assert.assertEquals("Metadata store is not updated",
+                            UPDATED_NODE_ID,
+                            server.getMetadataStore().getNodeId());
     }
 }

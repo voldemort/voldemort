@@ -114,7 +114,7 @@ public class RebalanceMetadataConsistencyTest {
                                                                  .setRequiredWrites(1)
                                                                  .build();
 
-        metadataStore = new MetadataStore(innerStore, 0);
+        metadataStore = MetadataStore.createInMemoryMetadataStore(innerStore, 0);
         rebalancer = new Rebalancer(null, metadataStore, null, null);
 
     }

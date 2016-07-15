@@ -1388,19 +1388,24 @@ public class AdminServiceRequestHandler implements RequestHandler {
         VAdminProto.UpdateMetadataResponse.Builder response = VAdminProto.UpdateMetadataResponse.newBuilder();
 
         try {
-            ByteArray requestKey = ProtoUtils.decodeBytes(request.getKey());
-            String keyString = ByteUtils.getString(requestKey.get(), "UTF-8");
+            ByteArray keyBytes = ProtoUtils.decodeBytes(request.getKey());
+            String keyString = ByteUtils.getString(keyBytes.get(), "UTF-8");
             if(MetadataStore.METADATA_KEYS.contains(keyString)) {
                 Versioned<byte[]> versionedValue = ProtoUtils.decodeVersioned(request.getVersioned());
 
                 logger.info("Updating metadata for key '" + keyString + "'");
-                ByteArray key = new ByteArray(ByteUtils.getBytes(keyString, "UTF-8"));
-                metadataStore.validate(key,
+                metadataStore.validate(keyBytes,
                                   versionedValue,
                                   null);
-                metadataStore.put(key,
+                metadataStore.put(keyBytes,
                                   versionedValue,
                                   null);
+                
+                if(MetadataStore.CLUSTER_KEY.equals(keyString)) {
+                    server.handleClusterUpdate();
+                } else if(MetadataStore.NODE_ID_KEY.endsWith(keyString)) {
+                    server.refreshNodeIdFromMetadata();
+                }
                 logger.info("Successfully updated metadata for key '" + keyString + "'");
             }
         } catch(VoldemortException e) {
