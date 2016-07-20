@@ -16,15 +16,17 @@
 
 package voldemort.cluster;
 
-import com.google.common.collect.ImmutableList;
-import org.apache.log4j.Logger;
-import voldemort.annotations.concurrency.Threadsafe;
-import voldemort.utils.Utils;
-
 import java.io.Serializable;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.List;
+
+import org.apache.log4j.Logger;
+
+import voldemort.annotations.concurrency.Threadsafe;
+import voldemort.utils.Utils;
+
+import com.google.common.collect.ImmutableList;
 
 /**
  * A node in the voldemort cluster
@@ -161,9 +163,13 @@ public class Node implements Serializable, Comparable<Node> {
     }
 
     public String getStateString() {
-        return briefToString() + " in zone " + getZoneId()
-               + " with admin port " + getAdminPort() + ", socket port " + getSocketPort()
-               + ", and http port " + getHttpPort();
+        String stateString = briefToString() + " in zone " + getZoneId() + " with admin port "
+                             + getAdminPort() + ", socket port " + getSocketPort()
+                             + ", and http port " + getHttpPort();
+        if(getRestPort() > 0) {
+            stateString += ", rest port" + getRestPort();
+        }
+        return stateString;
     }
 
     @Override

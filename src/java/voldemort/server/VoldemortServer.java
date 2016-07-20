@@ -131,7 +131,7 @@ public class VoldemortServer extends AbstractService {
             HostMatcher matcher = config.getNodeIdImplementation();
             NodeIdUtils.validateNodeId(cluster, matcher, config.getNodeId());
         } else {
-            logger.info("Ignoring node id validation as it is disable in the config ");
+            logger.info("Node id Validation is disabled in the config.");
         }
     }
 
@@ -303,8 +303,10 @@ public class VoldemortServer extends AbstractService {
         boolean isRestPortDefined = (identityNode.getRestPort() != -1) ? true : false;
         if(isRestEnabled != isRestPortDefined) {
             if(isRestEnabled) {
-                logger.error("Rest Service is enabled without defining \"rest-port\" in cluster.xml");
-                System.exit(-1);
+                String errorMessage = "Rest Service is enabled without defining \"rest-port\" in cluster.xml .  "
+                                      + this.identityNode.getStateString();
+                logger.error(errorMessage);
+                throw new VoldemortApplicationException(errorMessage);
             } else {
                 logger.warn("\"rest-port\" is defined in cluster.xml but Rest service is not enabled.");
             }

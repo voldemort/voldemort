@@ -206,6 +206,9 @@ public class ClusterMapper {
         server.addContent(new Element(HTTP_PORT_ELMT).setText(Integer.toString(node.getHttpPort())));
         server.addContent(new Element(SOCKET_PORT_ELMT).setText(Integer.toString(node.getSocketPort())));
         server.addContent(new Element(ADMIN_PORT_ELMT).setText(Integer.toString(node.getAdminPort())));
+        if(node.getRestPort() > 0) {
+            server.addContent(new Element(REST_PORT_ELMT).setText(Integer.toString(node.getRestPort())));
+        }
         String serverPartitionsText = StringUtils.join(node.getPartitionIds().toArray(), ", ");
         server.addContent(new Element(SERVER_PARTITIONS_ELMT).setText(serverPartitionsText));
         if(displayZones)

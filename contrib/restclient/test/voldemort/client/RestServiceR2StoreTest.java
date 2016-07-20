@@ -53,31 +53,25 @@ public class RestServiceR2StoreTest extends AbstractByteArrayStoreTest {
 
     @Override
     @Before
-    public void setUp() {
+    public void setUp() throws IOException {
         logger.info(" Initial SEED used for random number generator: " + TestUtils.SEED);
         final int numServers = 1;
         this.nodeId = 0;
         servers = new VoldemortServer[numServers];
-        try {
-
             // Setup the cluster
-            Properties props = new Properties();
-            props.setProperty("rest.enable", "true");
-            props.setProperty("http.enable", "true");
+        Properties props = new Properties();
+        props.setProperty("rest.enable", "true");
+        props.setProperty("http.enable", "true");
 
-            Cluster customCluster = clusterMapper.readCluster(new FileReader(clusterXmlFile), false);
+        Cluster customCluster = clusterMapper.readCluster(new FileReader(clusterXmlFile), false);
+        logger.info(" Node " + customCluster.getNodes().iterator().next().getStateString());
 
-            cluster = ServerTestUtils.startVoldemortCluster(servers,
-                                                            null,
-                                                            clusterXmlFile,
-                                                            storesXmlfile,
-                                                            props,
-                                                            customCluster);
-
-        } catch(IOException e) {
-            fail("Failure to setup the cluster");
-        }
-
+        cluster = ServerTestUtils.startVoldemortCluster(servers,
+                                                        null,
+                                                        clusterXmlFile,
+                                                        storesXmlfile,
+                                                        props,
+                                                        customCluster);
         // Creating R2Store
         RESTClientConfig restClientConfig = new RESTClientConfig();
         restClientConfig.setHttpBootstrapURL("http://localhost:"
