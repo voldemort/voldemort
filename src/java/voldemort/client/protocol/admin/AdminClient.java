@@ -210,7 +210,7 @@ public class AdminClient implements Closeable {
         if(clientConfig.getBootstrapUrls().length == 0) {
             throw new IllegalArgumentException("Client config does not have valid bootstrapUrls");
         }
-        debugInfo = "AdminClient with BootStrapUrls: "
+        debugInfo = "BootStrapUrls: "
                     + Arrays.toString(clientConfig.getBootstrapUrls());
         this.helperOps = this.new HelperOperations();
         this.replicaOps = this.new ReplicationOperations();
@@ -288,7 +288,7 @@ public class AdminClient implements Closeable {
 
     @Override
     public String toString() {
-        return debugInfo;
+        return "AdminClient with " + debugInfo;
     }
 
     /**
@@ -2239,18 +2239,34 @@ public class AdminClient implements Closeable {
                 throw new VoldemortException("verifyOrAddStore() is intended only for Read-Only stores!");
             }
 
+            long startTime = System.currentTimeMillis();
             List<Node> unreachableNodes = Lists.newArrayList();
             List<Integer> nodesMissingNewStore =
                     getNodesMissingNewStore(newStoreDef, localProcessName, executor, unreachableNodes);
 
-            if (!createStore && !nodesMissingNewStore.isEmpty())
-                throw new VoldemortException("Store: " + newStoreDef.getName() + " is not found in the current cluster.");
+            long verifyCompletionTime = System.currentTimeMillis(); 
+            long elapsedTime = verifyCompletionTime - startTime;
+            String timingInfo = "verifyOrAddStore() " + AdminClient.this.debugInfo + " Store: "
+                                + newStoreDef.getName() + " Verification Time: " + elapsedTime
+                                + " ms";
 
-            if (executor == null) {
-                storeMgmtOps.addStore(newStoreDef, nodesMissingNewStore);
-            } else {
-                addStoresViaExecutorService(newStoreDef, nodesMissingNewStore, executor);
+            if(!nodesMissingNewStore.isEmpty()) {
+                if(!createStore) {
+                    throw new VoldemortException("Store: " + newStoreDef.getName()
+                                                 + " is not found in the current cluster.");
+                }
+                if (executor == null) {
+                    storeMgmtOps.addStore(newStoreDef, nodesMissingNewStore);
+                } else {
+                    addStoresViaExecutorService(newStoreDef, nodesMissingNewStore, executor);
+                }
+
+                long createCompletionTime = System.currentTimeMillis();
+                elapsedTime = createCompletionTime - verifyCompletionTime;
+                timingInfo += ", Creation Time: " + elapsedTime + " ms";
             }
+
+            logger.info(timingInfo);
 
             if (unreachableNodes.size() > 0) {
                 String errorMessage = "verifyOrAddStore() failed against the following nodes: ";
