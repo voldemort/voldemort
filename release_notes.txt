@@ -1,3 +1,15 @@
+Release 1.10.19 7/25/2016
+* getAll Quota support
+* meaningful log message, when fetch is disabled
+* Run BnP store verification in parallel.
+* Auto Detect Node Id from Cluster.xml
+* Validate Node Id for Host Match from Cluster.xml
+* Auto update Node Id on cluster.xml update
+* Generate SSH script for running on all hosts in cluster.xml (experimental)
+* Concurrent Modification Exception on InsufficientOperationlNodes Exception
+* Log time taken in verifyOrAddStore
+* Serialize rest-port on cluster.xml
+
 Release 1.10.18 6/28/2016
 * get/set/delete quota takes QuotaType instead of string
 * Fix NPE when diffMessage is called from Build and Push
