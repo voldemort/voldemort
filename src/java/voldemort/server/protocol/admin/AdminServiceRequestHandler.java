@@ -67,6 +67,7 @@ import voldemort.store.StorageEngine;
 import voldemort.store.StoreCapabilityType;
 import voldemort.store.StoreDefinition;
 import voldemort.store.StoreDefinitionBuilder;
+import voldemort.store.StoreNotFoundException;
 import voldemort.store.StoreOperationFailureException;
 import voldemort.store.backup.NativeBackupable;
 import voldemort.store.metadata.MetadataStore;
@@ -1505,7 +1506,13 @@ public class AdminServiceRequestHandler implements RequestHandler {
 
         } catch(VoldemortException e) {
             response.setError(ProtoUtils.encodeError(errorCodeMapper, e));
-            logger.error("handleGetMetadata failed for request(" + request.toString() + ")", e);
+            String errorMessage = "handleGetMetadata failed for request(" + request.toString() + ")";
+            
+            if(e instanceof StoreNotFoundException) {
+                logger.info(errorMessage + " with " + StoreNotFoundException.class.getSimpleName());
+            } else {
+                logger.error(errorMessage, e);
+            }
         }
 
         return response.build();
