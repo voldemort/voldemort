@@ -79,7 +79,6 @@ import voldemort.store.InvalidMetadataException;
 import voldemort.store.Store;
 import voldemort.store.StoreDefinition;
 import voldemort.store.StoreDefinitionBuilder;
-import voldemort.store.bdb.BdbStorageConfiguration;
 import voldemort.store.memory.InMemoryStorageConfiguration;
 import voldemort.store.metadata.MetadataStore;
 import voldemort.store.quota.QuotaType;
@@ -643,8 +642,6 @@ public class AdminServiceBasicTest {
                                                  .setRequiredWrites(1)
                                                  .build();
         adminClient.storeMgmtOps.addStore(definition);
-        validateQuota(definition.getName());
-
         // now test the store
         StoreClientFactory factory = new SocketStoreClientFactory(new ClientConfig().setBootstrapUrls(cluster.getNodeById(0)
                                                                                                              .getSocketUrl()

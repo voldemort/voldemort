@@ -1656,13 +1656,18 @@ public class AdminServiceRequestHandler implements RequestHandler {
                     try {
                         metadataStore.addStoreDefinition(def);
                         
-                        long defaultQuota = voldemortConfig.getDefaultStorageSpaceQuotaInKB();
+                        final boolean isReadOnlyStore = def.getType()
+                                                                .compareTo(ReadOnlyStorageConfiguration.TYPE_NAME) == 0;
 
-                        QuotaUtils.setQuota(def.getName(), 
-                                            QuotaType.STORAGE_SPACE, 
-                                            storeRepository, 
-                                            metadataStore.getCluster().getNodeIds(),
-                                            defaultQuota);
+                        if(isReadOnlyStore) {
+                            // The Storage SPACE quota is enforced only for Read Only Store.
+                            long defaultQuota = voldemortConfig.getDefaultStorageSpaceQuotaInKB();
+                            QuotaUtils.setQuota(def.getName(),
+                                                QuotaType.STORAGE_SPACE,
+                                                storeRepository,
+                                                metadataStore.getCluster().getNodeIds(),
+                                                defaultQuota);
+                        }
                     } catch(Exception e) {
                         // rollback open store operation
                         boolean isReadOnly = ReadOnlyStorageConfiguration.TYPE_NAME.equals(def.getType());
