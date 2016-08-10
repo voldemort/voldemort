@@ -1,3 +1,7 @@
+Release 1.10.21 8/10/16
+* Fix admin request timeout issue because HDFSFailedlock takes long time.
+* Provide chunk size suggetion for BnP jobs.
+
 Release 1.10.20 7/28/2016
 * Reduce the server log level on missing stores
 
