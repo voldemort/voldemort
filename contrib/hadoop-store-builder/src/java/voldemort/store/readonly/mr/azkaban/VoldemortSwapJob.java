@@ -119,10 +119,11 @@ public class VoldemortSwapJob extends AbstractJob {
                     dataDir, e);
         }
 
+        // While processing an admin request, HDFSFailedLock could take long time because of multiple HDFS operations,
+        // especially when the name node is in a different data center. So extend timeout to 5 minutes.
         AdminClientConfig adminConfig = new AdminClientConfig().setMaxConnectionsPerNode(cluster.getNumberOfNodes())
-                                                               .setAdminConnectionTimeoutSec(15)
                                                                .setMaxBackoffDelayMs(maxBackoffDelayMs)
-                                                               .setAdminSocketTimeoutSec(60);
+                                                               .setAdminSocketTimeoutSec(60 * 5);
 
         ClientConfig clientConfig = new ClientConfig().setBootstrapUrls(cluster.getBootStrapUrls())
                                                       .setConnectionTimeout(httpTimeoutMs,

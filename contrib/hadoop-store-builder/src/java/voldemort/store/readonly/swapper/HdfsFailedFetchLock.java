@@ -199,6 +199,7 @@ public class HdfsFailedFetchLock extends FailedFetchLock {
 
     @Override
     public synchronized void acquireLock() throws Exception {
+        logger.info("Try to acquire HDFS distributed lock.");
         if (lockAcquired) {
             logger.info("HdfsFailedFetchLock.acquireLock() called while it is already acquired!");
             return;
@@ -236,6 +237,7 @@ public class HdfsFailedFetchLock extends FailedFetchLock {
         if (!this.lockAcquired) {
             throw new VoldemortException(exceptionMessage(ACQUIRE_LOCK));
         }
+        logger.info("HDFS distributed lock acquired.");
     }
 
     @Override
