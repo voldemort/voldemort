@@ -55,27 +55,6 @@ public class HadoopStoreWriter
 
     private static final Logger logger = Logger.getLogger(HadoopStoreWriter.class);
 
-    /**
-     * For each chunk in a partition, Index files contains the integer offset into
-     * the corresponding data file. So it is capped at {@link Integer#MAX_VALUE}.
-     */
-    public static final long MAX_CHUNK_SIZE = Integer.MAX_VALUE;
-
-    /**
-     * The default chunk size tries to leave an error margin so that compressed
-     * data size on hadoop or skewed data sets don't cause chunk overflows
-     */
-    public static final long DEFAULT_CHUNK_SIZE = MAX_CHUNK_SIZE / 2;
-
-    /**
-     * The max number of keys which can collide to the same hash is based on the
-     * fact that we use a short to store the number of keys hashing to this value
-     * in the {@link voldemort.store.readonly.ReadOnlyStorageFormat#READONLY_V2}
-     * format. Therefore, the number of keys which hash to the same value cannot
-     * exceed {@link Short#MAX_VALUE}.
-     */
-    public static final long MAX_HASH_COLLISIONS = Short.MAX_VALUE;
-
     private Set<Integer> chunksHandled = Sets.newHashSet();
 
     private DataOutputStream[] indexFileStream = null;
@@ -310,7 +289,7 @@ public class HadoopStoreWriter
         if(numTuples < 0) {
             // Overflow
             throw new VoldemortException("Found too many collisions: chunk " + chunkId
-                                         + " has exceeded " + MAX_HASH_COLLISIONS + " collisions.");
+                                         + " has exceeded " + Short.MAX_VALUE + " collisions.");
         } else if(numTuples > 1) {
             // Update number of collisions + max keys per collision
             reporter.incrCounter(CollisionCounter.NUM_COLLISIONS, 1);
@@ -348,7 +327,7 @@ public class HadoopStoreWriter
 
         if(this.position[chunkId] < 0)
             throw new VoldemortException("Chunk overflow exception: chunk " + chunkId
-                                         + " has exceeded " + MAX_CHUNK_SIZE + " bytes.");
+                                         + " has exceeded " + Integer.MAX_VALUE + " bytes.");
 
     }
 

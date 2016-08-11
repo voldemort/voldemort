@@ -61,7 +61,6 @@ import voldemort.store.readonly.ReadOnlyUtils;
 import voldemort.store.readonly.checksum.CheckSum;
 import voldemort.store.readonly.checksum.CheckSum.CheckSumType;
 import voldemort.store.readonly.checksum.CheckSumMetadata;
-import voldemort.store.readonly.disk.HadoopStoreWriter;
 import voldemort.store.readonly.disk.KeyValueWriter;
 import voldemort.store.readonly.mr.azkaban.AbstractHadoopJob;
 import voldemort.store.readonly.mr.azkaban.VoldemortBuildAndPushJob;
@@ -79,6 +78,8 @@ import voldemort.xml.StoreDefinitionsMapper;
 public class HadoopStoreBuilder extends AbstractHadoopJob {
 
     public static final String AVRO_REC_SCHEMA = "avro.rec.schema";
+    public static final long MIN_CHUNK_SIZE = 1L;
+    public static final long MAX_CHUNK_SIZE = (long) (1.9 * 1024 * 1024 * 1024);
     public static final int DEFAULT_BUFFER_SIZE = 64 * 1024;
     public static final short HADOOP_FILE_PERMISSION = 493;
 
@@ -97,6 +98,7 @@ public class HadoopStoreBuilder extends AbstractHadoopJob {
     private final CheckSumType checkSumType;
     private final boolean saveKeys;
     private final boolean reducerPerBucket;
+    private int numChunksOverride;
     private final boolean isAvro;
     private final Long minNumberOfRecords;
     private final boolean buildPrimaryReplicasOnly;
@@ -159,6 +161,16 @@ public class HadoopStoreBuilder extends AbstractHadoopJob {
         this.isAvro = isAvro;
         this.minNumberOfRecords = minNumberOfRecords == null ? 1 : minNumberOfRecords;
         this.buildPrimaryReplicasOnly = buildPrimaryReplicasOnly;
+
+        if(numChunksOverride <= 0) {
+            logger.info("HadoopStoreBuilder constructed with numChunksOverride <= 0, thus relying chunk size.");
+            if(chunkSizeBytes > MAX_CHUNK_SIZE || chunkSizeBytes < MIN_CHUNK_SIZE) {
+                throw new VoldemortException("Invalid chunk size, chunk size must be in the range "
+                        + MIN_CHUNK_SIZE + "..." + MAX_CHUNK_SIZE);
+            }
+        } else {
+            logger.info("HadoopStoreBuilder constructed with numChunksOverride > 0, thus ignoring chunk size.");
+        }
     }
 
 
@@ -211,15 +223,16 @@ public class HadoopStoreBuilder extends AbstractHadoopJob {
             tempFs.delete(tempDir, true);
 
             long size = sizeOfPath(tempFs, inputPath);
-
             logger.info("Data size = " + size +
-                ", replication factor = " + storeDef.getReplicationFactor() +
-                ", numNodes = " + cluster.getNumberOfNodes() +
-                ", numPartitions = " + cluster.getNumberOfPartitions() +
-                ", chunk size = " + chunkSizeBytes);
+                        ", replication factor = " + storeDef.getReplicationFactor() +
+                        ", numNodes = " + cluster.getNumberOfNodes() +
+                        ", numPartitions = " + cluster.getNumberOfPartitions() +
+                        ", chunk size = " + chunkSizeBytes);
+
+            // Dynamically calculate number of chunks and reducers
 
             // Base numbers of chunks and reducers, will get modified according to various settings
-            int numChunks = (int) (size / cluster.getNumberOfPartitions() / chunkSizeBytes) + 1; /* +1 so we round up */
+            int numChunks = (int) (size / cluster.getNumberOfPartitions() / chunkSizeBytes);
             int numReducers = cluster.getNumberOfPartitions();
 
             // In Save Keys mode, which was introduced with the READ_ONLY_V2 file format, the replicas
@@ -253,10 +266,6 @@ public class HadoopStoreBuilder extends AbstractHadoopJob {
             conf.setInt(AbstractStoreBuilderConfigurable.NUM_CHUNKS, numChunks);
             conf.setNumReduceTasks(numReducers);
 
-            logger.info("Number of chunks: " + numChunks + ", number of reducers: " + numReducers
-                + ", save keys: " + saveKeys + ", reducerPerBucket: " + reducerPerBucket
-                + ", buildPrimaryReplicasOnly: " + buildPrimaryReplicasOnly);
-
             if(isAvro) {
                 conf.setPartitionerClass(AvroStoreBuilderPartitioner.class);
                 // conf.setMapperClass(mapperClass);
@@ -280,36 +289,14 @@ public class HadoopStoreBuilder extends AbstractHadoopJob {
                 conf.setReducerClass(AvroStoreBuilderReducer.class);
             }
 
+            logger.info("Number of chunks: " + numChunks + ", number of reducers: " + numReducers
+                        + ", save keys: " + saveKeys + ", reducerPerBucket: " + reducerPerBucket
+                        + ", buildPrimaryReplicasOnly: " + buildPrimaryReplicasOnly);
             logger.info("Building store...");
+            RunningJob job = JobClient.runJob(conf);
 
-            // The snipped below copied and adapted from: JobClient.runJob(conf);
-            // We have more control in the error handling this way.
-
-            JobClient jc = new JobClient(conf);
-            RunningJob runningJob = jc.submitJob(conf);
-            Counters counters = runningJob.getCounters();
-
-            try {
-                if (!jc.monitorAndPrintJob(conf, runningJob)) {
-                    // For some datasets, the number of chunks that we calculated is inadequate.
-                    // Here, we try to identify if this is the case.
-                    long mapOutputBytes = counters.getCounter(Task.Counter.MAP_OUTPUT_BYTES);
-                    long averageNumberOfBytesPerChunk = mapOutputBytes / numChunks / cluster.getNumberOfPartitions();
-                    if (averageNumberOfBytesPerChunk > (HadoopStoreWriter.DEFAULT_CHUNK_SIZE)) {
-                        float chunkSizeBloat = averageNumberOfBytesPerChunk / (float) HadoopStoreWriter.DEFAULT_CHUNK_SIZE;
-                        long suggestedTargetChunkSize = (long) (HadoopStoreWriter.DEFAULT_CHUNK_SIZE / chunkSizeBloat);
-                        logger.error("The number of bytes per chunk may be too high." +
-                            " averageNumberOfBytesPerChunk = " + averageNumberOfBytesPerChunk +
-                            ". Consider setting " + VoldemortBuildAndPushJob.BUILD_CHUNK_SIZE +
-                            "=" + suggestedTargetChunkSize);
-                    } else {
-                        logger.error("Job Failed: " + runningJob.getFailureInfo());
-                    }
-                    throw new VoldemortException("BnP's MapReduce job failed.");
-                }
-            } catch (InterruptedException ie) {
-                Thread.currentThread().interrupt();
-            }
+            // Once the job has completed log the counter
+            Counters counters = job.getCounters();
 
             long numberOfRecords = counters.getCounter(Task.Counter.REDUCE_INPUT_GROUPS);
 
@@ -411,7 +398,7 @@ public class HadoopStoreBuilder extends AbstractHadoopJob {
             long elapsedTimeMs = System.currentTimeMillis() - startTimeMS;
             long elapsedTimeSeconds = TimeUnit.SECONDS.convert(elapsedTimeMs, TimeUnit.MILLISECONDS);
             logger.info("Total Processed directories: "+ directorySuffixes.size() + ". Elapsed Time (Seconds):" + elapsedTimeSeconds );
-
+            
             if(emptyDirectories.size() > 0 ) {
               logger.info("Empty directories: " + Arrays.toString(emptyDirectories.toArray()));
             }
@@ -605,7 +592,5 @@ public class HadoopStoreBuilder extends AbstractHadoopJob {
         }
         return size;
     }
-
-
 
 }
