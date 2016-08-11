@@ -1,3 +1,6 @@
+Release 1.19,19.1 8/10.2016
+* Hot fix of admin request timeout issue.
+
 Release 1.10.19 7/25/2016
 * getAll Quota support
 * meaningful log message, when fetch is disabled
