@@ -2076,6 +2076,7 @@ public class AdminServiceRequestHandler implements RequestHandler {
                     for (Integer nodeId: nodesFailedInThisFetch) {
                         logger.warn("Will disable store '" + storeName + "' on node " + nodeId);
                         distributedLock.addDisabledNode(nodeId, storeName, pushVersion);
+                        logger.warn("Store '" + storeName + "' is disabled on node " + nodeId);
                         if (firstNode) {
                             firstNode = false;
                         } else {
