@@ -99,19 +99,17 @@ public class DataCleanupJob<K, V, T> implements Runnable {
 
         StoreDefinition storeDef = null;
         try {
-            storeDef = metadataStore.getStoreDef(storeName);
+            storeDef = MetadataStore.getStoreDef(storeName, metadataStore);
         } catch (VoldemortException ex) {
             logger.info("Error retrieving store " + storeName + " for data cleanup job ", ex);
-        }
-
-        if (storeDef == null) {
             return;
         }
 
         Integer retentionDays = storeDef.getRetentionDays();
-        if (retentionDays != null && retentionDays > 0) {
+        if (retentionDays == null || retentionDays <= 0) {
             logger.info("Store " + storeName
                     + " does not have retention period set, skipping cleanup job . RetentionDays " + retentionDays);
+            return;
         }
         long maxAgeMs = retentionDays * Time.MS_PER_DAY;
         logger.info("Store " + storeName + " cleanup job is starting with RetentionDays " + retentionDays);

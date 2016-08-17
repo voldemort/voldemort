@@ -38,7 +38,6 @@ import voldemort.store.StorageEngine;
 import voldemort.store.StoreDefinition;
 import voldemort.store.metadata.MetadataStore;
 import voldemort.store.stats.StreamingStats;
-import voldemort.store.system.SystemStoreConstants;
 import voldemort.utils.ByteArray;
 import voldemort.utils.EventThrottler;
 import voldemort.utils.NetworkClassLoader;
@@ -113,7 +112,7 @@ public abstract class FetchStreamRequestHandler implements StreamRequestHandler 
         }
 
         this.operation = operation;
-        this.storeDef = getStoreDef(request.getStore(), metadataStore);
+        this.storeDef = MetadataStore.getStoreDef(request.getStore(), metadataStore);
         if(request.hasInitialCluster()) {
             this.initialCluster = new ClusterMapper().readCluster(new StringReader(request.getInitialCluster()));
         } else {
@@ -138,16 +137,6 @@ public abstract class FetchStreamRequestHandler implements StreamRequestHandler 
             this.recordsPerPartition = 0;
         }
         this.fetchOrphaned = request.hasFetchOrphaned() && request.getFetchOrphaned();
-    }
-
-    private StoreDefinition getStoreDef(String store, MetadataStore metadataStore) {
-        StoreDefinition def = null;
-        if(SystemStoreConstants.isSystemStore(store)) {
-            def = SystemStoreConstants.getSystemStoreDef(store);
-        } else {
-            def = metadataStore.getStoreDef(request.getStore());
-        }
-        return def;
     }
 
     @Override

@@ -1168,6 +1168,20 @@ public class MetadataStore extends AbstractStorageEngine<ByteArray, byte[], byte
         }
     }
 
+    public static StoreDefinition getStoreDef(String storeName, MetadataStore metadataStore) {
+        StoreDefinition def = null;
+        if(SystemStoreConstants.isSystemStore(storeName)) {
+            def = SystemStoreConstants.getSystemStoreDef(storeName);
+        } else {
+            def = metadataStore.getStoreDef(storeName);
+        }
+
+        if(def == null) {
+            throw new StoreNotFoundException("Store" + storeName + " does not exist");
+        }
+        return def;
+    }
+
     /**
      * Initializes the metadataCache for MetadataStore
      */
