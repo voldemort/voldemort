@@ -201,6 +201,23 @@ public class AdminToolUtils {
         return storeNames;
     }
 
+    public static void validateStoreNameOnNode(AdminClient adminClient,
+                                         Integer nodeId,
+                                         List<String> storeNames) {
+
+        List<String> userStores = new ArrayList<String>();
+
+        for(String storeName: storeNames) {
+            if(!SystemStoreConstants.isSystemStore(storeName)) {
+                userStores.add(storeName);
+            }
+        }
+
+        if(userStores.size() > 0) {
+            validateUserStoreNamesOnNode(adminClient, nodeId, userStores);
+        }
+    }
+
     /**
      * Utility function that checks if store names are valid on a node.
      * 

@@ -274,7 +274,7 @@ public class AdminCommandStream extends AbstractAdminCommand {
             if(allStores) {
                 storeNames = AdminToolUtils.getAllUserStoreNamesOnNode(adminClient, nodeId);
             } else {
-                AdminToolUtils.validateUserStoreNamesOnNode(adminClient, nodeId, storeNames);
+                AdminToolUtils.validateStoreNameOnNode(adminClient, nodeId, storeNames);
             }
 
             doStreamFetchEntries(adminClient,
@@ -594,7 +594,7 @@ public class AdminCommandStream extends AbstractAdminCommand {
             if(allStores) {
                 storeNames = AdminToolUtils.getAllUserStoreNamesOnNode(adminClient, nodeId);
             } else {
-                AdminToolUtils.validateUserStoreNamesOnNode(adminClient, nodeId, storeNames);
+                AdminToolUtils.validateStoreNameOnNode(adminClient, nodeId, storeNames);
             }
 
             doStreamFetchKeys(adminClient, nodeId, storeNames, partIds, orphaned, directory, format);
