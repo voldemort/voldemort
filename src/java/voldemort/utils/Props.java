@@ -128,7 +128,11 @@ public class Props implements Map<String, String> {
     }
 
     public String put(String key, Integer value) {
-        return props.put(key, value.toString());
+        if (null == value) {
+          return props.remove(key);
+        } else {
+          return props.put(key, value.toString());
+        }
     }
 
     public String put(String key, Long value) {

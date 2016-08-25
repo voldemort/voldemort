@@ -144,8 +144,8 @@ public class VoldemortUtils {
         return new StoreDefinitionsMapper().readStore(new StringReader(xml));
     }
 
-    public static String modifyURL(String originalUrl, String newProtocol, int newPort) {
-        if (newProtocol == null || newProtocol.isEmpty() || newPort < 0) {
+    public static String modifyURL(String originalUrl, String newProtocol, Integer newPort) {
+        if (newProtocol == null || newProtocol.isEmpty() || newPort == null) {
             return originalUrl;
         }
 
