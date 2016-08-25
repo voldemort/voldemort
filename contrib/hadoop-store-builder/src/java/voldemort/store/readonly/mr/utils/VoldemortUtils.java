@@ -25,6 +25,7 @@ import java.net.URLStreamHandler;
 import java.util.List;
 
 import org.apache.log4j.Logger;
+import voldemort.server.VoldemortConfig;
 import voldemort.store.StoreDefinition;
 import voldemort.utils.Utils;
 import voldemort.xml.StoreDefinitionsMapper;
@@ -144,8 +145,15 @@ public class VoldemortUtils {
         return new StoreDefinitionsMapper().readStore(new StringReader(xml));
     }
 
-    public static String modifyURL(String originalUrl, String newProtocol, int newPort) {
-        if (newProtocol == null || newProtocol.isEmpty() || newPort < 0) {
+    public static String modifyURL(String originalUrl, VoldemortConfig config) {
+        return modifyURL(originalUrl,
+                         config.getReadOnlyModifyProtocol(),
+                         config.getReadOnlyModifyPort(),
+                         config.getReadOnlyOmitPort());
+    }
+
+    public static String modifyURL(String originalUrl, String newProtocol, int newPort, boolean omitPort) {
+        if (newProtocol == null || newProtocol.isEmpty() || (!omitPort && newPort < 0)) {
             return originalUrl;
         }
 
@@ -162,6 +170,12 @@ public class VoldemortUtils {
 
             URL url = new URL(null, originalUrl, handler);
             logger.info("Existing protocol = " + url.getProtocol() + " and port = " + url.getPort());
+
+            if (omitPort) {
+                // The URL constructor will omit the port if we pass -1 in the port.
+                newPort = -1;
+            }
+
             URL newUrl = new URL(newProtocol, url.getHost(), newPort, url.getFile(), handler);
             logger.info("New protocol = " + newUrl.getProtocol() + " and port = " + newUrl.getPort());
             return newUrl.toString();

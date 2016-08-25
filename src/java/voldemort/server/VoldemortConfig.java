@@ -141,6 +141,7 @@ public class VoldemortConfig implements Serializable {
     public static final String READONLY_COMPRESSION_CODEC = "readonly.compression.codec";
     public static final String READONLY_MODIFY_PROTOCOL = "readonly.modify.protocol";
     public static final String READONLY_MODIFY_PORT = "readonly.modify.port";
+    public static final String READONLY_OMIT_PORT = "readonly.omit.port";
     public static final String USE_BOUNCYCASTLE_FOR_SSL = "use.bouncycastle.for.ssl";
     public static final String READONLY_BUILD_PRIMARY_REPLICAS_ONLY = "readonly.build.primary.replicas.only";
     public static final String PUSH_HA_ENABLED = "push.ha.enabled";
@@ -350,6 +351,7 @@ public class VoldemortConfig implements Serializable {
         defaultConfig.put(READONLY_COMPRESSION_CODEC, "NO_CODEC");
         defaultConfig.put(READONLY_MODIFY_PROTOCOL, "");
         defaultConfig.put(READONLY_MODIFY_PORT, -1);
+        defaultConfig.put(READONLY_OMIT_PORT, false);
         defaultConfig.put(USE_BOUNCYCASTLE_FOR_SSL, false);
         defaultConfig.put(READONLY_BUILD_PRIMARY_REPLICAS_ONLY, true);
 
@@ -594,8 +596,9 @@ public class VoldemortConfig implements Serializable {
     private int readOnlyMaxValueBufferAllocationSize;
     private long readOnlyLoginIntervalMs;
     private long defaultStorageSpaceQuotaInKB;
-    private String modifiedProtocol;
-    private int modifiedPort;
+    private String readOnlyModifyProtocol;
+    private int readOnlyModifyPort;
+    private boolean readOnlyOmitPort;
     private boolean bouncyCastleEnabled;
     private boolean readOnlyBuildPrimaryReplicasOnly;
 
@@ -879,8 +882,9 @@ public class VoldemortConfig implements Serializable {
         this.readOnlyMaxVersionsStatsFile = this.allProps.getInt(READONLY_STATS_FILE_MAX_VERSIONS);
         this.readOnlyMaxValueBufferAllocationSize = this.allProps.getInt(READONLY_MAX_VALUE_BUFFER_ALLOCATION_SIZE);
         this.readOnlyCompressionCodec = this.allProps.getString(READONLY_COMPRESSION_CODEC);
-        this.modifiedProtocol = this.allProps.getString(READONLY_MODIFY_PROTOCOL);
-        this.modifiedPort = this.allProps.getInt(READONLY_MODIFY_PORT);
+        this.readOnlyModifyProtocol = this.allProps.getString(READONLY_MODIFY_PROTOCOL);
+        this.readOnlyModifyPort = this.allProps.getInt(READONLY_MODIFY_PORT);
+        this.readOnlyOmitPort = this.allProps.getBoolean(READONLY_OMIT_PORT);
         this.bouncyCastleEnabled = this.allProps.getBoolean(USE_BOUNCYCASTLE_FOR_SSL);
         this.readOnlyBuildPrimaryReplicasOnly = this.allProps.getBoolean(READONLY_BUILD_PRIMARY_REPLICAS_ONLY);
 
@@ -3436,8 +3440,8 @@ public class VoldemortConfig implements Serializable {
         this.readOnlySearchStrategy = readOnlySearchStrategy;
     }
 
-    public String getModifiedProtocol() {
-        return this.modifiedProtocol;
+    public String getReadOnlyModifyProtocol() {
+        return this.readOnlyModifyProtocol;
     }
 
     /**
@@ -3449,24 +3453,54 @@ public class VoldemortConfig implements Serializable {
      * <li>Default : ""</li>
      * </ul>
      */
-    public void setModifiedProtocol(String modifiedProtocol) {
-        this.modifiedProtocol = modifiedProtocol;
+    public void setReadOnlyModifyProtocol(String modifiedProtocol) {
+        this.readOnlyModifyProtocol = modifiedProtocol;
     }
 
-    public int getModifiedPort() {
-        return this.modifiedPort;
+    public Integer getReadOnlyModifyPort() {
+        return this.readOnlyModifyPort;
     }
 
     /**
      * Set modified port used to fetch file.
+     *
+     * If -1, the port will not be modified.
+     *
+     * N.B.: This setting is ignored if:
+     * 1. "{@value #READONLY_OMIT_PORT}" is set to true, or
+     * 2. "{@value #READONLY_MODIFY_PROTOCOL}" is empty or null.
      *
      * <ul>
      * <li>Property : "{@value #READONLY_MODIFY_PORT}"</li>
      * <li>Default : -1</li>
      * </ul>
      */
-    public void setModifiedPort(int modifiedPort) {
-        this.modifiedPort = modifiedPort;
+    public void setReadOnlyModifyPort(Integer readOnlyModifyPort) {
+        this.readOnlyModifyPort = readOnlyModifyPort;
+    }
+
+    public boolean getReadOnlyOmitPort() {
+      return this.readOnlyOmitPort;
+    }
+
+    /**
+     * If true, the port used to fetch file will be omitted completely. For example, a URL like this:
+     *
+     * scheme://host:port/path
+     *
+     * will be changed to this:
+     *
+     * scheme://host/path
+     *
+     * N.B.: This setting is ignored if "{@value #READONLY_MODIFY_PROTOCOL}" is empty or null.
+     *
+     * <ul>
+     * <li>Property : "{@value #READONLY_OMIT_PORT}"</li>
+     * <li>Default : false</li>
+     * </ul>
+     */
+    public void setReadOnlyOmitPort(boolean readOnlyOmitPort) {
+      this.readOnlyOmitPort = readOnlyOmitPort;
     }
 
     public boolean isReadOnlyBuildPrimaryReplicasOnly() {

@@ -104,7 +104,7 @@ public class VoldemortSwapJob extends AbstractJob {
          */
         try {
             modifiedDataDir =
-                VoldemortUtils.modifyURL(modifiedDataDir, hdfsFetcherProtocol, Integer.valueOf(hdfsFetcherPort));
+                VoldemortUtils.modifyURL(modifiedDataDir, hdfsFetcherProtocol, Integer.valueOf(hdfsFetcherPort), false);
         } catch (NumberFormatException nfe) {
             info("The dataDir will not be modified, since hdfsFetcherPort is not a valid port number");
         } catch (IllegalArgumentException e) {

@@ -210,8 +210,7 @@ public class HdfsFetcher implements FileFetcher {
         ObjectName jmxName = null;
         HdfsCopyStats stats = null;
         FileSystem fs = null;
-        sourceFileUrl = VoldemortUtils
-            .modifyURL(sourceFileUrl, voldemortConfig.getModifiedProtocol(), voldemortConfig.getModifiedPort());
+        sourceFileUrl = VoldemortUtils.modifyURL(sourceFileUrl, voldemortConfig);
         // Flag to indicate whether the fetch is complete or not
         boolean isCompleteFetch = false;
         try {
