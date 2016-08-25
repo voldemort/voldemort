@@ -349,7 +349,7 @@ public class VoldemortConfig implements Serializable {
         // To enable block-level compression over the wire for Read-Only fetches, set this property to "GZIP"
         defaultConfig.put(READONLY_COMPRESSION_CODEC, "NO_CODEC");
         defaultConfig.put(READONLY_MODIFY_PROTOCOL, "");
-        defaultConfig.put(READONLY_MODIFY_PORT, -1);
+        defaultConfig.put(READONLY_MODIFY_PORT, (Integer) null);
         defaultConfig.put(USE_BOUNCYCASTLE_FOR_SSL, false);
         defaultConfig.put(READONLY_BUILD_PRIMARY_REPLICAS_ONLY, true);
 
@@ -595,7 +595,7 @@ public class VoldemortConfig implements Serializable {
     private long readOnlyLoginIntervalMs;
     private long defaultStorageSpaceQuotaInKB;
     private String modifiedProtocol;
-    private int modifiedPort;
+    private Integer modifiedPort;
     private boolean bouncyCastleEnabled;
     private boolean readOnlyBuildPrimaryReplicasOnly;
 
@@ -880,7 +880,7 @@ public class VoldemortConfig implements Serializable {
         this.readOnlyMaxValueBufferAllocationSize = this.allProps.getInt(READONLY_MAX_VALUE_BUFFER_ALLOCATION_SIZE);
         this.readOnlyCompressionCodec = this.allProps.getString(READONLY_COMPRESSION_CODEC);
         this.modifiedProtocol = this.allProps.getString(READONLY_MODIFY_PROTOCOL);
-        this.modifiedPort = this.allProps.getInt(READONLY_MODIFY_PORT);
+        this.modifiedPort = this.allProps.getNullableInt(READONLY_MODIFY_PORT);
         this.bouncyCastleEnabled = this.allProps.getBoolean(USE_BOUNCYCASTLE_FOR_SSL);
         this.readOnlyBuildPrimaryReplicasOnly = this.allProps.getBoolean(READONLY_BUILD_PRIMARY_REPLICAS_ONLY);
 
@@ -3453,19 +3453,23 @@ public class VoldemortConfig implements Serializable {
         this.modifiedProtocol = modifiedProtocol;
     }
 
-    public int getModifiedPort() {
+    public Integer getModifiedPort() {
         return this.modifiedPort;
     }
 
     /**
      * Set modified port used to fetch file.
      *
+     * If null, the port will not be modified.
+     *
+     * If -1, the port will be completely omitted (i.e.: a URL like host:port/path will be changed to host/path).
+     *
      * <ul>
      * <li>Property : "{@value #READONLY_MODIFY_PORT}"</li>
-     * <li>Default : -1</li>
+     * <li>Default : null</li>
      * </ul>
      */
-    public void setModifiedPort(int modifiedPort) {
+    public void setModifiedPort(Integer modifiedPort) {
         this.modifiedPort = modifiedPort;
     }
 
