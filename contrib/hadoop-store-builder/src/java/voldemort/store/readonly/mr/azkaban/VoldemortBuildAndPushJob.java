@@ -59,6 +59,7 @@ import voldemort.store.StoreDefinition;
 import voldemort.store.UnreachableStoreException;
 import voldemort.store.readonly.checksum.CheckSum;
 import voldemort.store.readonly.checksum.CheckSum.CheckSumType;
+import voldemort.store.readonly.disk.HadoopStoreWriter;
 import voldemort.store.readonly.disk.KeyValueWriter;
 import voldemort.store.readonly.hooks.BuildAndPushHook;
 import voldemort.store.readonly.hooks.BuildAndPushStatus;
@@ -741,7 +742,8 @@ public class VoldemortBuildAndPushJob extends AbstractJob {
                                                             checkSumType,
                                                             props.getBoolean(SAVE_KEYS, true),
                                                             props.getBoolean(REDUCER_PER_BUCKET, true),
-                                                            props.getInt(BUILD_CHUNK_SIZE, 1024 * 1024 * 1024),
+                                                            props.getInt(BUILD_CHUNK_SIZE,
+                                                                (int) HadoopStoreWriter.DEFAULT_CHUNK_SIZE),
                                                             this.isAvroJob,
                                                             this.minNumberOfRecords,
                                                             this.buildPrimaryReplicasOnly);
