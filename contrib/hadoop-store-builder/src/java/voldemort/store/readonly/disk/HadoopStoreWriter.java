@@ -55,6 +55,22 @@ public class HadoopStoreWriter
 
     private static final Logger logger = Logger.getLogger(HadoopStoreWriter.class);
 
+    /**
+     * The max chunk size is based on the fact that we use an integer for the bytes
+     * offset into the chunked file. Therefore, the amount of bytes in a single
+     * chunk cannot exceed {@link Integer#MAX_VALUE}.
+     */
+    public static final long MAX_CHUNK_SIZE = Integer.MAX_VALUE;
+
+    /**
+     * The max number of keys which can collide to the same hash is based on the
+     * fact that we use a short to store the number of keys hashing to this value
+     * in the {@link voldemort.store.readonly.ReadOnlyStorageFormat#READONLY_V2}
+     * format. Therefore, the number of keys which hash to the same value cannot
+     * exceed {@link Short#MAX_VALUE}.
+     */
+    public static final long MAX_KEY_COLLISIONS = Short.MAX_VALUE;
+
     private Set<Integer> chunksHandled = Sets.newHashSet();
 
     private DataOutputStream[] indexFileStream = null;
@@ -289,7 +305,7 @@ public class HadoopStoreWriter
         if(numTuples < 0) {
             // Overflow
             throw new VoldemortException("Found too many collisions: chunk " + chunkId
-                                         + " has exceeded " + Short.MAX_VALUE + " collisions.");
+                                         + " has exceeded " + MAX_KEY_COLLISIONS + " collisions.");
         } else if(numTuples > 1) {
             // Update number of collisions + max keys per collision
             reporter.incrCounter(CollisionCounter.NUM_COLLISIONS, 1);
@@ -327,7 +343,7 @@ public class HadoopStoreWriter
 
         if(this.position[chunkId] < 0)
             throw new VoldemortException("Chunk overflow exception: chunk " + chunkId
-                                         + " has exceeded " + Integer.MAX_VALUE + " bytes.");
+                                         + " has exceeded " + MAX_CHUNK_SIZE + " bytes.");
 
     }
 
