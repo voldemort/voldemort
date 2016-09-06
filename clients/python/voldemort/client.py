@@ -168,7 +168,7 @@ class StoreClient:
             raise VoldemortException("Cannot find store [%s] at %s" % (store_name, bootstrap_urls))
 
         self.node_id = random.randint(0, len(self.nodes) - 1)
-	self.connection = None
+        self.connection = None
         self.node_id, self.connection = self._reconnect()
         self.reconnect_interval = reconnect_interval
         self.open = True
