@@ -47,6 +47,7 @@ import org.apache.hadoop.mapred.JobConf;
 import org.apache.log4j.Logger;
 
 import voldemort.VoldemortException;
+import voldemort.client.BootstrapFailureException;
 import voldemort.client.ClientConfig;
 import voldemort.client.protocol.admin.AdminClient;
 import voldemort.client.protocol.admin.AdminClientConfig;
@@ -76,6 +77,7 @@ import voldemort.store.readonly.swapper.DeleteAllFailedFetchStrategy;
 import voldemort.store.readonly.swapper.DisableStoreOnFailedNodeFailedFetchStrategy;
 import voldemort.store.readonly.swapper.FailedFetchStrategy;
 import voldemort.store.readonly.swapper.RecoverableFailedFetchException;
+import voldemort.utils.ExceptionUtils;
 import voldemort.utils.Props;
 import voldemort.utils.ReflectUtils;
 import voldemort.utils.Utils;
@@ -174,6 +176,7 @@ public class VoldemortBuildAndPushJob extends AbstractJob {
     // Executor to do store/schema verification in parallel
     private final int maxThreadNumForStoreVerification;
     private ExecutorService storeVerificationExecutorService;
+    private final HashMap<String, Exception> exceptions = Maps.newHashMap();
 
     // Mutable state
     private StoreDefinition storeDef;
@@ -212,10 +215,22 @@ public class VoldemortBuildAndPushJob extends AbstractJob {
                 if (clusterURLs.contains(url)) {
                     throw new VoldemortException("the URL: " + url + " is repeated in the "+ PUSH_CLUSTER + " property ");
                 }
-                this.clusterURLs.add(url);
-                AdminClient adminClient = createAdminClient(url, fetchAllStoresXml);
-                this.adminClientPerCluster.put(url, adminClient);
-                this.closeables.add(adminClient);
+                try {
+                    AdminClient adminClient = createAdminClient(url, fetchAllStoresXml);
+                    this.clusterURLs.add(url);
+                    this.adminClientPerCluster.put(url, adminClient);
+                    this.closeables.add(adminClient);
+                } catch (Exception e) {
+                    if (ExceptionUtils.recursiveClassEquals(e, BootstrapFailureException.class)) {
+                        this.log.error("Unable to reach cluster: " + url + " ... this cluster will be skipped.", e);
+
+                        // We add the exception in the exceptions map so that the job fails after pushing to the healthy clusters
+                        exceptions.put(url, new VoldemortException(
+                            "Unable to reach cluster: " + url + " ... that cluster was not pushed to.", e));
+                    } else {
+                        throw e;
+                    }
+                }
             }
         }
 
@@ -577,7 +592,6 @@ public class VoldemortBuildAndPushJob extends AbstractJob {
             }
 
             // Create a hashmap to capture exception per url
-            HashMap<String, Exception> exceptions = Maps.newHashMap();
             String buildOutputDir = null;
             Map<String, Future<Boolean>> tasks = Maps.newHashMap();
             for (int index = 0; index < clusterURLs.size(); index++) {
