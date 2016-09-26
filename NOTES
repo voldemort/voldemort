@@ -1,6 +1,6 @@
 Getting Started
 
-For the most up-to-date information see http://project-voldemort.com
+For the most up-to-date information see http://www.project-voldemort.com
 
 ## checkout and build
 jkreps@jkreps-md:/tmp > svn co svn+ssh://cm01.corp/lirepo/voldemort/trunk voldemort

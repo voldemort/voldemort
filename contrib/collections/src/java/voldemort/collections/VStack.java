@@ -22,7 +22,7 @@ import voldemort.versioning.Versioned;
  * "stable" : "boolean", "value" : <JSON serialization format of E>}
  * 
  * @param <K> the type of key used to identify this stack. Must conform to valid
- *        voldemort JSON formats: http://project-voldemort.com/design.php
+ *        voldemort JSON formats: http://www.project-voldemort.com/design.php
  * @param <E> the type of element being stored
  */
 public class VStack<K, E> implements Queue<E> {

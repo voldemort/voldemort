@@ -9,7 +9,7 @@ setup(name='voldemort',
       packages=['voldemort', 'voldemort.protocol', 'voldemort.serialization'],
       author='LinkedIn Corporation',
       license='Apache 2.0',
-      url='http://project-voldemort.com',
+      url='http://www.project-voldemort.com',
       install_requires=['protobuf>=2.3.0', 'simplejson>=2.1.1'],
       setup_requires=['nose>=0.11'],
 )
