@@ -27,16 +27,16 @@ import org.apache.avro.generic.GenericData;
 import org.apache.avro.mapred.AvroCollector;
 import org.apache.avro.mapred.AvroMapper;
 import org.apache.avro.mapred.Pair;
+import org.apache.hadoop.mapred.FileSplit;
 import org.apache.hadoop.mapred.JobConf;
 import org.apache.hadoop.mapred.JobConfigurable;
 import org.apache.hadoop.mapred.Reporter;
 
+import org.apache.log4j.Logger;
 import voldemort.VoldemortException;
-import voldemort.routing.ConsistentRoutingStrategy;
 import voldemort.serialization.DefaultSerializerFactory;
 import voldemort.serialization.Serializer;
 import voldemort.serialization.SerializerDefinition;
-import voldemort.serialization.SerializerFactory;
 import voldemort.serialization.avro.AvroGenericSerializer;
 import voldemort.serialization.avro.versioned.AvroVersionedGenericSerializer;
 import voldemort.store.StoreDefinition;
@@ -50,13 +50,14 @@ import voldemort.xml.StoreDefinitionsMapper;
 public class AvroStoreBuilderMapper extends
         AvroMapper<GenericData.Record, Pair<ByteBuffer, ByteBuffer>> implements JobConfigurable {
 
+    private static final Logger logger = Logger.getLogger(AvroStoreBuilderMapper.class);
+
     public static final String AVRO_KEY_SCHEMA = "avro.key.schema";
     public static final String AVRO_VALUE_SCHEMA = "avro.value.schema";
 
     protected BuildAndPushMapper mapper = new BuildAndPushMapper();
     private AvroCollectorWrapper collectorWrapper = new AvroCollectorWrapper();
 
-    protected ConsistentRoutingStrategy routingStrategy;
     protected Serializer keySerializer;
     protected Serializer valueSerializer;
 
@@ -68,6 +69,8 @@ public class AvroStoreBuilderMapper extends
 
     private SerializerDefinition keySerializerDefinition;
     private SerializerDefinition valueSerializerDefinition;
+
+    private int recordCounter = 0;
 
     class AvroCollectorWrapper
             extends AbstractCollectorWrapper<AvroCollector<Pair<ByteBuffer, ByteBuffer>>> {
@@ -112,11 +115,35 @@ public class AvroStoreBuilderMapper extends
                     AvroCollector<Pair<ByteBuffer, ByteBuffer>> collector,
                     Reporter reporter) throws IOException {
 
-        byte[] keyBytes = keySerializer.toBytes(record.get(keyField));
-        byte[] valBytes = valueSerializer.toBytes(record.get(valField));
+        byte[] keyBytes = null;
+        byte[] valBytes = null;
+        Object keyRecord = null;
+        Object valRecord = null;
+        try {
+            keyRecord = record.get(keyField);
+            valRecord = record.get(valField);
+            keyBytes = keySerializer.toBytes(keyRecord);
+            valBytes = valueSerializer.toBytes(valRecord);
 
-        this.collectorWrapper.setCollector(collector);
-        this.mapper.map(keyBytes, valBytes, this.collectorWrapper);
+            this.collectorWrapper.setCollector(collector);
+            this.mapper.map(keyBytes, valBytes, this.collectorWrapper);
+
+            recordCounter++;
+        } catch (OutOfMemoryError oom) {
+            logger.error(oomErrorMessage(reporter));
+            if (keyBytes == null) {
+                logger.error("keyRecord caused OOM!");
+            } else {
+                logger.error("keyRecord: " + keyRecord);
+                logger.error("valRecord: " + (valBytes == null ? "caused OOM" : valRecord));
+            }
+            throw new VoldemortException(oomErrorMessage(reporter), oom);
+        }
+    }
+
+    private String oomErrorMessage(Reporter reporter) {
+      return "Got OOM while mapping record #: " + recordCounter +
+          " from input: " + ((FileSplit) reporter.getInputSplit()).getPath().getName();
     }
 
     @Override
@@ -134,18 +161,7 @@ public class AvroStoreBuilderMapper extends
         valueSerializerDefinition = getStoreDef().getValueSerializer();
 
         try {
-            SerializerFactory factory = new DefaultSerializerFactory();
-
-            if(conf.get("serializer.factory") != null) {
-                factory = (SerializerFactory) Class.forName(conf.get("serializer.factory"))
-                                                   .newInstance();
-            }
-
-            keySerializer = factory.getSerializer(keySerializerDefinition);
-            valueSerializer = factory.getSerializer(valueSerializerDefinition);
-
             keyField = conf.get(VoldemortBuildAndPushJob.AVRO_KEY_FIELD);
-
             valField = conf.get(VoldemortBuildAndPushJob.AVRO_VALUE_FIELD);
 
             keySchema = conf.get(AVRO_KEY_SCHEMA);
