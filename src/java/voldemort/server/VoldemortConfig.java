@@ -25,6 +25,9 @@ import java.util.Timer;
 import java.util.TimerTask;
 import java.util.concurrent.TimeUnit;
 
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Lists;
+
 import voldemort.client.ClientConfig;
 import voldemort.client.DefaultStoreClient;
 import voldemort.client.TimeoutConfig;
@@ -52,6 +55,7 @@ import voldemort.store.logging.LoggingStore;
 import voldemort.store.memory.CacheStorageConfiguration;
 import voldemort.store.memory.InMemoryStorageConfiguration;
 import voldemort.store.mysql.MysqlStorageConfiguration;
+import voldemort.store.postgresql.PostgresqlStorageConfiguration;
 import voldemort.store.readonly.BinarySearchStrategy;
 import voldemort.store.readonly.InterpolationSearchStrategy;
 import voldemort.store.readonly.ReadOnlyStorageConfiguration;
@@ -63,9 +67,6 @@ import voldemort.utils.Props;
 import voldemort.utils.Time;
 import voldemort.utils.UndefinedPropertyException;
 import voldemort.utils.Utils;
-
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Lists;
 
 /**
  * Configuration parameters for the voldemort server.
@@ -155,6 +156,13 @@ public class VoldemortConfig implements Serializable {
     public static final String MYSQL_HOST = "mysql.host";
     public static final String MYSQL_PORT = "mysql.port";
     public static final String MYSQL_DATABASE = "mysql.database";
+
+    public static final String PG_USER = "pg.user";
+    public static final String PG_PASSWORD = "pg.password";
+    public static final String PG_HOST = "pg.host";
+    public static final String PG_PORT = "pg.port";
+    public static final String PG_DATABASE = "pg.database";
+
     public static final String TESTING_SLOW_QUEUEING_GET_MS = "testing.slow.queueing.get.ms";
     public static final String TESTING_SLOW_QUEUEING_GETALL_MS = "testing.slow.queueing.getall.ms";
     public static final String TESTING_SLOW_QUEUEING_GETVERSIONS_MS = "testing.slow.queueing.getversions.ms";
@@ -368,6 +376,12 @@ public class VoldemortConfig implements Serializable {
         defaultConfig.put(MYSQL_PORT, 3306);
         defaultConfig.put(MYSQL_DATABASE, "voldemort");
 
+        defaultConfig.put(PG_USER, "root");
+        defaultConfig.put(PG_PASSWORD, "");
+        defaultConfig.put(PG_HOST, "localhost");
+        defaultConfig.put(PG_PORT, 5432);
+        defaultConfig.put(PG_DATABASE, "voldemort");
+
         defaultConfig.put(TESTING_SLOW_QUEUEING_GET_MS, 0);
         defaultConfig.put(TESTING_SLOW_QUEUEING_GETALL_MS, 0);
         defaultConfig.put(TESTING_SLOW_QUEUEING_GETVERSIONS_MS,0);
@@ -451,6 +465,7 @@ public class VoldemortConfig implements Serializable {
 
         defaultConfig.put(STORAGE_CONFIGS, ImmutableList.of(BdbStorageConfiguration.class.getName(),
                                                             MysqlStorageConfiguration.class.getName(),
+                                           PostgresqlStorageConfiguration.class.getName(),
                                                             InMemoryStorageConfiguration.class.getName(),
                                                             CacheStorageConfiguration.class.getName(),
                                                             ReadOnlyStorageConfiguration.class.getName(),
@@ -505,6 +520,8 @@ public class VoldemortConfig implements Serializable {
 
         defaultConfig.put(RESTRICTED_CONFIGS, Lists.newArrayList(MYSQL_USER,
                                                                  MYSQL_PASSWORD,
+                                                                 PG_USER,
+                                                                 PG_PASSWORD,
                                                                  READONLY_KEYTAB_PATH,
                                                                  READONLY_KERBEROS_USER,
                                                                  READONLY_KERBEROS_KDC,
@@ -563,6 +580,12 @@ public class VoldemortConfig implements Serializable {
     private String mysqlDatabaseName;
     private String mysqlHost;
     private int mysqlPort;
+
+    private String pgUsername;
+    private String pgPassword;
+    private String pgDatabaseName;
+    private String pgHost;
+    private int pgPort;
 
     private String rocksdbDataDirectory;
     private boolean rocksdbPrefixKeysWithPartitionId;
@@ -900,6 +923,12 @@ public class VoldemortConfig implements Serializable {
         this.mysqlHost = this.allProps.getString(MYSQL_HOST);
         this.mysqlPort = this.allProps.getInt(MYSQL_PORT);
         this.mysqlDatabaseName = this.allProps.getString(MYSQL_DATABASE);
+
+        this.pgUsername = this.allProps.getString(PG_USER);
+        this.pgPassword = this.allProps.getString(PG_PASSWORD);
+        this.pgHost = this.allProps.getString(PG_HOST);
+        this.pgPort = this.allProps.getInt(PG_PORT);
+        this.pgDatabaseName = this.allProps.getString(PG_DATABASE);
 
         this.testingSlowQueueingDelays = new OpTimeMap(0);
         this.testingSlowQueueingDelays.setOpTime(VoldemortOpCode.GET_OP_CODE, this.allProps.getInt(TESTING_SLOW_QUEUEING_GET_MS));
@@ -2211,6 +2240,86 @@ public class VoldemortConfig implements Serializable {
      */
     public void setEnableJmx(boolean enableJmx) {
         this.enableJmx = enableJmx;
+    }
+
+    public String getPGUsername() {
+        return pgUsername;
+    }
+
+    /**
+     * user name to use with MySQL storage engine
+     * 
+     * <ul>
+     * <li>Property : "{@value #MYSQL_USER}"</li>
+     * <li>Default : "root"</li>
+     * </ul>
+     */
+    public void setPGUsername(String pgUsername) {
+        this.pgUsername = pgUsername;
+    }
+
+    public String getPgPassword() {
+        return pgPassword;
+    }
+
+    /**
+     * Password to use with MySQL storage engine
+     * 
+     * <ul>
+     * <li>Property : "{@value #MYSQL_PASSWORD}"</li>
+     * <li>Default :""</li>
+     * </ul>
+     */
+    public void setPgPassword(String pgPassword) {
+        this.pgPassword = pgPassword;
+    }
+
+    public String getPgDatabaseName() {
+        return pgDatabaseName;
+    }
+
+    /**
+     * MySQL database name to use
+     * 
+     * <ul>
+     * <li>Property :</li>
+     * <li>Default :</li>
+     * </ul>
+     */
+    public void setPgDatabaseName(String pgDatabaseName) {
+        this.pgDatabaseName = pgDatabaseName;
+    }
+
+    public String getPgHost() {
+        return pgHost;
+    }
+
+    /**
+     * Hostname of the database server for MySQL storage engine
+     * 
+     * <ul>
+     * <li>Property : "{@value #MYSQL_HOST}"</li>
+     * <li>Default :"localhost"</li>
+     * </ul>
+     */
+    public void setPgHost(String pgHost) {
+        this.pgHost = pgHost;
+    }
+
+    public int getPgPort() {
+        return pgPort;
+    }
+
+    /**
+     * Port number for the MySQL database server
+     * 
+     * <ul>
+     * <li>Property : "{@value #MYSQL_PORT}"</li>
+     * <li>Default :3306</li>
+     * </ul>
+     */
+    public void setPgPort(int pgPort) {
+        this.pgPort = pgPort;
     }
 
     public String getMysqlUsername() {
