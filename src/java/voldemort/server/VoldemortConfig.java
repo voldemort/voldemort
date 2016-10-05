@@ -25,7 +25,9 @@ import java.util.Timer;
 import java.util.TimerTask;
 import java.util.concurrent.TimeUnit;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
+
 import voldemort.client.ClientConfig;
 import voldemort.client.DefaultStoreClient;
 import voldemort.client.TimeoutConfig;
@@ -53,6 +55,7 @@ import voldemort.store.logging.LoggingStore;
 import voldemort.store.memory.CacheStorageConfiguration;
 import voldemort.store.memory.InMemoryStorageConfiguration;
 import voldemort.store.mysql.MysqlStorageConfiguration;
+import voldemort.store.postgresql.PostgresqlStorageConfiguration;
 import voldemort.store.readonly.BinarySearchStrategy;
 import voldemort.store.readonly.InterpolationSearchStrategy;
 import voldemort.store.readonly.ReadOnlyStorageConfiguration;
@@ -64,8 +67,6 @@ import voldemort.utils.Props;
 import voldemort.utils.Time;
 import voldemort.utils.UndefinedPropertyException;
 import voldemort.utils.Utils;
-
-import com.google.common.collect.ImmutableList;
 
 /**
  * Configuration parameters for the voldemort server.
@@ -141,6 +142,7 @@ public class VoldemortConfig implements Serializable {
     public static final String READONLY_COMPRESSION_CODEC = "readonly.compression.codec";
     public static final String READONLY_MODIFY_PROTOCOL = "readonly.modify.protocol";
     public static final String READONLY_MODIFY_PORT = "readonly.modify.port";
+    public static final String READONLY_OMIT_PORT = "readonly.omit.port";
     public static final String USE_BOUNCYCASTLE_FOR_SSL = "use.bouncycastle.for.ssl";
     public static final String READONLY_BUILD_PRIMARY_REPLICAS_ONLY = "readonly.build.primary.replicas.only";
     public static final String PUSH_HA_ENABLED = "push.ha.enabled";
@@ -154,6 +156,13 @@ public class VoldemortConfig implements Serializable {
     public static final String MYSQL_HOST = "mysql.host";
     public static final String MYSQL_PORT = "mysql.port";
     public static final String MYSQL_DATABASE = "mysql.database";
+
+    public static final String PG_USER = "pg.user";
+    public static final String PG_PASSWORD = "pg.password";
+    public static final String PG_HOST = "pg.host";
+    public static final String PG_PORT = "pg.port";
+    public static final String PG_DATABASE = "pg.database";
+
     public static final String TESTING_SLOW_QUEUEING_GET_MS = "testing.slow.queueing.get.ms";
     public static final String TESTING_SLOW_QUEUEING_GETALL_MS = "testing.slow.queueing.getall.ms";
     public static final String TESTING_SLOW_QUEUEING_GETVERSIONS_MS = "testing.slow.queueing.getversions.ms";
@@ -259,6 +268,8 @@ public class VoldemortConfig implements Serializable {
     public static final String REPAIRJOB_MAX_KEYS_SCANNED_PER_SEC = "repairjob.max.keys.scanned.per.sec";
     public static final String PRUNEJOB_MAX_KEYS_SCANNED_PER_SEC = "prunejob.max.keys.scanned.per.sec";
     public static final String SLOP_PURGEJOB_MAX_KEYS_SCANNED_PER_SEC = "slop.purgejob.max.keys.scanned.per.sec";
+    public static final String ENABLE_NODE_ID_DETECTION = "enable.node.id.detection";
+    public static final String VALIDATE_NODE_ID = "validate.node.id";
     // Options prefixed with "rocksdb.db.options." or "rocksdb.cf.options." can be used to tune RocksDB performance
     // and are passed directly to the RocksDB configuration code. See the RocksDB documentation for details:
     //   https://github.com/facebook/rocksdb/blob/master/include/rocksdb/options.h
@@ -348,6 +359,7 @@ public class VoldemortConfig implements Serializable {
         defaultConfig.put(READONLY_COMPRESSION_CODEC, "NO_CODEC");
         defaultConfig.put(READONLY_MODIFY_PROTOCOL, "");
         defaultConfig.put(READONLY_MODIFY_PORT, -1);
+        defaultConfig.put(READONLY_OMIT_PORT, false);
         defaultConfig.put(USE_BOUNCYCASTLE_FOR_SSL, false);
         defaultConfig.put(READONLY_BUILD_PRIMARY_REPLICAS_ONLY, true);
 
@@ -363,6 +375,12 @@ public class VoldemortConfig implements Serializable {
         defaultConfig.put(MYSQL_HOST, "localhost");
         defaultConfig.put(MYSQL_PORT, 3306);
         defaultConfig.put(MYSQL_DATABASE, "voldemort");
+
+        defaultConfig.put(PG_USER, "root");
+        defaultConfig.put(PG_PASSWORD, "");
+        defaultConfig.put(PG_HOST, "localhost");
+        defaultConfig.put(PG_PORT, 5432);
+        defaultConfig.put(PG_DATABASE, "voldemort");
 
         defaultConfig.put(TESTING_SLOW_QUEUEING_GET_MS, 0);
         defaultConfig.put(TESTING_SLOW_QUEUEING_GETALL_MS, 0);
@@ -447,6 +465,7 @@ public class VoldemortConfig implements Serializable {
 
         defaultConfig.put(STORAGE_CONFIGS, ImmutableList.of(BdbStorageConfiguration.class.getName(),
                                                             MysqlStorageConfiguration.class.getName(),
+                                           PostgresqlStorageConfiguration.class.getName(),
                                                             InMemoryStorageConfiguration.class.getName(),
                                                             CacheStorageConfiguration.class.getName(),
                                                             ReadOnlyStorageConfiguration.class.getName(),
@@ -501,12 +520,18 @@ public class VoldemortConfig implements Serializable {
 
         defaultConfig.put(RESTRICTED_CONFIGS, Lists.newArrayList(MYSQL_USER,
                                                                  MYSQL_PASSWORD,
+                                                                 PG_USER,
+                                                                 PG_PASSWORD,
                                                                  READONLY_KEYTAB_PATH,
                                                                  READONLY_KERBEROS_USER,
                                                                  READONLY_KERBEROS_KDC,
                                                                  READONLY_KERBEROS_REALM));
+
+        defaultConfig.put(ENABLE_NODE_ID_DETECTION, false);
+        defaultConfig.put(VALIDATE_NODE_ID, false);
     }
 
+    public static final int INVALID_NODE_ID = -1;
     private int nodeId;
     private String voldemortHome;
     private String dataDirectory;
@@ -556,9 +581,20 @@ public class VoldemortConfig implements Serializable {
     private String mysqlHost;
     private int mysqlPort;
 
+    private String pgUsername;
+    private String pgPassword;
+    private String pgDatabaseName;
+    private String pgHost;
+    private int pgPort;
+
     private String rocksdbDataDirectory;
     private boolean rocksdbPrefixKeysWithPartitionId;
     private boolean rocksdbEnableReadLocks;
+
+    private boolean enableNodeIdDetection;
+    private boolean validateNodeId;
+    private List<String> nodeIdHostTypes;
+    private HostMatcher nodeIdImplementation;
 
     private int numReadOnlyVersions;
     private String readOnlyStorageDir;
@@ -583,8 +619,9 @@ public class VoldemortConfig implements Serializable {
     private int readOnlyMaxValueBufferAllocationSize;
     private long readOnlyLoginIntervalMs;
     private long defaultStorageSpaceQuotaInKB;
-    private String modifiedProtocol;
-    private int modifiedPort;
+    private String readOnlyModifyProtocol;
+    private int readOnlyModifyPort;
+    private boolean readOnlyOmitPort;
     private boolean bouncyCastleEnabled;
     private boolean readOnlyBuildPrimaryReplicasOnly;
 
@@ -723,6 +760,23 @@ public class VoldemortConfig implements Serializable {
         this(new Props().with(NODE_ID, nodeId).with(VOLDEMORT_HOME, voldemortHome));
     }
 
+    private void initializeNodeId(Props combinedConfigs, Props dynamicDefaults) {
+        boolean nodeIdExists = combinedConfigs.containsKey(NODE_ID);
+        if(!nodeIdExists) {
+            try {
+                // If node Id is not present in the configs, look for the
+                // environment variable and save it in dynamic defaults.
+                int nodeId = getIntEnvVariable(VOLDEMORT_NODE_ID_VAR_NAME);
+                dynamicDefaults.put(NODE_ID, nodeId);
+            }catch(ConfigurationException ex) {
+                // missingNodeId is handled in the server startup.
+            }
+        } else {
+            // Make sure it is a valid integer
+            combinedConfigs.getInt(NODE_ID);
+        }
+    }
+
     /**
      * This function returns a set of default configs which cannot be defined statically,
      * because they (at least potentially) depend on the config values provided by the user.
@@ -735,12 +789,7 @@ public class VoldemortConfig implements Serializable {
         // Set of dynamic configs which depend on the combined configs in order to be determined.
         Props dynamicDefaults = new Props();
 
-        try {
-            combinedConfigs.getInt(NODE_ID);
-        } catch(UndefinedPropertyException e) {
-            // Pull node ID from an environment variable if it's not included in the config
-            dynamicDefaults.put(NODE_ID, getIntEnvVariable(VOLDEMORT_NODE_ID_VAR_NAME));
-        }
+        initializeNodeId(combinedConfigs, dynamicDefaults);
 
         // Define various paths
         String defaultDataDirectory = combinedConfigs.getString(VOLDEMORT_HOME) + File.separator + "data";
@@ -790,7 +839,7 @@ public class VoldemortConfig implements Serializable {
      * @throws UndefinedPropertyException if any required property has not been set.
      */
     private void initializeStateFromProps() throws UndefinedPropertyException {
-        this.nodeId = this.allProps.getInt(NODE_ID);
+        this.nodeId = this.allProps.getInt(NODE_ID, INVALID_NODE_ID);
         this.voldemortHome = this.allProps.getString(VOLDEMORT_HOME);
         this.dataDirectory = this.allProps.getString(DATA_DIRECTORY);
         this.metadataDirectory = this.allProps.getString(METADATA_DIRECTORY);
@@ -856,8 +905,9 @@ public class VoldemortConfig implements Serializable {
         this.readOnlyMaxVersionsStatsFile = this.allProps.getInt(READONLY_STATS_FILE_MAX_VERSIONS);
         this.readOnlyMaxValueBufferAllocationSize = this.allProps.getInt(READONLY_MAX_VALUE_BUFFER_ALLOCATION_SIZE);
         this.readOnlyCompressionCodec = this.allProps.getString(READONLY_COMPRESSION_CODEC);
-        this.modifiedProtocol = this.allProps.getString(READONLY_MODIFY_PROTOCOL);
-        this.modifiedPort = this.allProps.getInt(READONLY_MODIFY_PORT);
+        this.readOnlyModifyProtocol = this.allProps.getString(READONLY_MODIFY_PROTOCOL);
+        this.readOnlyModifyPort = this.allProps.getInt(READONLY_MODIFY_PORT);
+        this.readOnlyOmitPort = this.allProps.getBoolean(READONLY_OMIT_PORT);
         this.bouncyCastleEnabled = this.allProps.getBoolean(USE_BOUNCYCASTLE_FOR_SSL);
         this.readOnlyBuildPrimaryReplicasOnly = this.allProps.getBoolean(READONLY_BUILD_PRIMARY_REPLICAS_ONLY);
 
@@ -873,6 +923,12 @@ public class VoldemortConfig implements Serializable {
         this.mysqlHost = this.allProps.getString(MYSQL_HOST);
         this.mysqlPort = this.allProps.getInt(MYSQL_PORT);
         this.mysqlDatabaseName = this.allProps.getString(MYSQL_DATABASE);
+
+        this.pgUsername = this.allProps.getString(PG_USER);
+        this.pgPassword = this.allProps.getString(PG_PASSWORD);
+        this.pgHost = this.allProps.getString(PG_HOST);
+        this.pgPort = this.allProps.getInt(PG_PORT);
+        this.pgDatabaseName = this.allProps.getString(PG_DATABASE);
 
         this.testingSlowQueueingDelays = new OpTimeMap(0);
         this.testingSlowQueueingDelays.setOpTime(VoldemortOpCode.GET_OP_CODE, this.allProps.getInt(TESTING_SLOW_QUEUEING_GET_MS));
@@ -1013,6 +1069,11 @@ public class VoldemortConfig implements Serializable {
         this.rocksdbEnableReadLocks = this.allProps.getBoolean(ROCKSDB_ENABLE_READ_LOCKS);
 
         this.restrictedConfigs = this.allProps.getList(RESTRICTED_CONFIGS);
+        // Node Id auto detection configs
+        this.enableNodeIdDetection = this.allProps.getBoolean(ENABLE_NODE_ID_DETECTION, false);
+        // validation is defaulted based on node id detection.
+        this.validateNodeId = this.allProps.getBoolean(VALIDATE_NODE_ID);
+        this.nodeIdImplementation = new HostMatcher();
     }
 
     private void validateParams() {
@@ -2179,6 +2240,86 @@ public class VoldemortConfig implements Serializable {
      */
     public void setEnableJmx(boolean enableJmx) {
         this.enableJmx = enableJmx;
+    }
+
+    public String getPGUsername() {
+        return pgUsername;
+    }
+
+    /**
+     * user name to use with MySQL storage engine
+     * 
+     * <ul>
+     * <li>Property : "{@value #MYSQL_USER}"</li>
+     * <li>Default : "root"</li>
+     * </ul>
+     */
+    public void setPGUsername(String pgUsername) {
+        this.pgUsername = pgUsername;
+    }
+
+    public String getPgPassword() {
+        return pgPassword;
+    }
+
+    /**
+     * Password to use with MySQL storage engine
+     * 
+     * <ul>
+     * <li>Property : "{@value #MYSQL_PASSWORD}"</li>
+     * <li>Default :""</li>
+     * </ul>
+     */
+    public void setPgPassword(String pgPassword) {
+        this.pgPassword = pgPassword;
+    }
+
+    public String getPgDatabaseName() {
+        return pgDatabaseName;
+    }
+
+    /**
+     * MySQL database name to use
+     * 
+     * <ul>
+     * <li>Property :</li>
+     * <li>Default :</li>
+     * </ul>
+     */
+    public void setPgDatabaseName(String pgDatabaseName) {
+        this.pgDatabaseName = pgDatabaseName;
+    }
+
+    public String getPgHost() {
+        return pgHost;
+    }
+
+    /**
+     * Hostname of the database server for MySQL storage engine
+     * 
+     * <ul>
+     * <li>Property : "{@value #MYSQL_HOST}"</li>
+     * <li>Default :"localhost"</li>
+     * </ul>
+     */
+    public void setPgHost(String pgHost) {
+        this.pgHost = pgHost;
+    }
+
+    public int getPgPort() {
+        return pgPort;
+    }
+
+    /**
+     * Port number for the MySQL database server
+     * 
+     * <ul>
+     * <li>Property : "{@value #MYSQL_PORT}"</li>
+     * <li>Default :3306</li>
+     * </ul>
+     */
+    public void setPgPort(int pgPort) {
+        this.pgPort = pgPort;
     }
 
     public String getMysqlUsername() {
@@ -3408,8 +3549,8 @@ public class VoldemortConfig implements Serializable {
         this.readOnlySearchStrategy = readOnlySearchStrategy;
     }
 
-    public String getModifiedProtocol() {
-        return this.modifiedProtocol;
+    public String getReadOnlyModifyProtocol() {
+        return this.readOnlyModifyProtocol;
     }
 
     /**
@@ -3421,24 +3562,54 @@ public class VoldemortConfig implements Serializable {
      * <li>Default : ""</li>
      * </ul>
      */
-    public void setModifiedProtocol(String modifiedProtocol) {
-        this.modifiedProtocol = modifiedProtocol;
+    public void setReadOnlyModifyProtocol(String modifiedProtocol) {
+        this.readOnlyModifyProtocol = modifiedProtocol;
     }
 
-    public int getModifiedPort() {
-        return this.modifiedPort;
+    public Integer getReadOnlyModifyPort() {
+        return this.readOnlyModifyPort;
     }
 
     /**
      * Set modified port used to fetch file.
+     *
+     * If -1, the port will not be modified.
+     *
+     * N.B.: This setting is ignored if:
+     * 1. "{@value #READONLY_OMIT_PORT}" is set to true, or
+     * 2. "{@value #READONLY_MODIFY_PROTOCOL}" is empty or null.
      *
      * <ul>
      * <li>Property : "{@value #READONLY_MODIFY_PORT}"</li>
      * <li>Default : -1</li>
      * </ul>
      */
-    public void setModifiedPort(int modifiedPort) {
-        this.modifiedPort = modifiedPort;
+    public void setReadOnlyModifyPort(Integer readOnlyModifyPort) {
+        this.readOnlyModifyPort = readOnlyModifyPort;
+    }
+
+    public boolean getReadOnlyOmitPort() {
+      return this.readOnlyOmitPort;
+    }
+
+    /**
+     * If true, the port used to fetch file will be omitted completely. For example, a URL like this:
+     *
+     * scheme://host:port/path
+     *
+     * will be changed to this:
+     *
+     * scheme://host/path
+     *
+     * N.B.: This setting is ignored if "{@value #READONLY_MODIFY_PROTOCOL}" is empty or null.
+     *
+     * <ul>
+     * <li>Property : "{@value #READONLY_OMIT_PORT}"</li>
+     * <li>Default : false</li>
+     * </ul>
+     */
+    public void setReadOnlyOmitPort(boolean readOnlyOmitPort) {
+      this.readOnlyOmitPort = readOnlyOmitPort;
     }
 
     public boolean isReadOnlyBuildPrimaryReplicasOnly() {
@@ -4086,5 +4257,43 @@ public class VoldemortConfig implements Serializable {
 
     public boolean isNioConnectorKeepAlive() {
         return nioConnectorKeepAlive;
+    }
+
+    public boolean isEnableNodeIdDetection() {
+        return enableNodeIdDetection;
+    }
+
+    public void setEnableNodeIdDetection(boolean enableNodeIdDetection) {
+        this.enableNodeIdDetection = enableNodeIdDetection;
+    }
+
+    public boolean isValidateNodeId() {
+        return validateNodeId;
+    }
+
+    public void setValidateNodeId(boolean validateNodeId) {
+        this.validateNodeId = validateNodeId;
+    }
+
+    public List<String> getNodeIdHostTypes() {
+        return nodeIdHostTypes;
+    }
+
+    public void setNodeIdHostTypes(List<String> nodeIdHostTypes) {
+        this.nodeIdHostTypes = nodeIdHostTypes;
+    }
+
+    public HostMatcher getNodeIdImplementation() {
+        if(nodeIdImplementation == null) {
+            throw new ConfigurationException("Node Id implementation is incorrectly configured ");
+        }
+        return nodeIdImplementation;
+    }
+
+    public void setNodeIdImplementation(HostMatcher nodeIdImplementation) {
+        if(nodeIdImplementation == null) {
+            throw new ConfigurationException("Node Id implementation can't be null");
+        }
+        this.nodeIdImplementation = nodeIdImplementation;
     }
 }
