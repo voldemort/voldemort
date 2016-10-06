@@ -26,6 +26,7 @@ import joptsimple.OptionParser;
 import joptsimple.OptionSet;
 import voldemort.VoldemortException;
 import voldemort.client.protocol.admin.AdminClient;
+import voldemort.cluster.Node;
 import voldemort.store.StoreDefinition;
 import voldemort.tools.admin.AdminParserUtils;
 import voldemort.tools.admin.AdminToolUtils;
