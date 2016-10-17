@@ -42,6 +42,10 @@ public class OpTimeMap {
         timeMap.put(VoldemortOpCode.GET_VERSION_OP_CODE, getVersionsTime);
     }
 
+    public OpTimeMap(OpTimeMap source) {
+        timeMap = new HashMap<Byte, Long>(source.timeMap);
+    }
+
     public long getOpTime(Byte opCode) {
         assert timeMap.containsKey(opCode);
         return timeMap.get(opCode);
@@ -49,5 +53,30 @@ public class OpTimeMap {
 
     public void setOpTime(Byte opCode, long time) {
         timeMap.put(opCode, time);
+    }
+
+    @Override
+    public String toString() {
+        return getClass().getSimpleName() + '(' + timeMap + ')';
+    }
+
+    @Override
+    public boolean equals(Object obj) {
+        if(this == obj) {
+            return true;
+        }
+        if(obj == null) {
+            return false;
+        }
+        if(getClass() != obj.getClass()) {
+            return false;
+        }
+        OpTimeMap other = (OpTimeMap) obj;
+        return timeMap.equals(other.timeMap);
+    }
+
+    @Override
+    public int hashCode() {
+        return 31 + timeMap.hashCode();
     }
 }

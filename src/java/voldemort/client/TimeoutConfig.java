@@ -43,6 +43,11 @@ public class TimeoutConfig {
         setPartialGetAllAllowed(allowPartialGetAlls);
     }
 
+    public TimeoutConfig(TimeoutConfig source) {
+        timeoutMap = new OpTimeMap(source.timeoutMap);
+        setPartialGetAllAllowed(source.isPartialGetAllAllowed());
+    }
+
     public TimeoutConfig(long getTimeoutMs,
                          long putTimeoutMs,
                          long deleteTimeoutMs,
@@ -73,4 +78,39 @@ public class TimeoutConfig {
         this.partialGetAllAllowed = allowPartialGetAlls;
     }
 
+    @Override
+    public String toString() {
+        return getClass().getSimpleName() + " [timeoutMap=" + timeoutMap
+               + ", partialGetAllAllowed=" + partialGetAllAllowed + "]";
+    }
+
+    @Override
+    public boolean equals(Object obj) {
+        if(this == obj) {
+            return true;
+        }
+        if(obj == null) {
+            return false;
+        }
+        if(getClass() != obj.getClass()) {
+            return false;
+        }
+        TimeoutConfig other = (TimeoutConfig) obj;
+        if(partialGetAllAllowed != other.partialGetAllAllowed) {
+            return false;
+        }
+        if(!timeoutMap.equals(other.timeoutMap)) {
+            return false;
+        }
+        return true;
+    }
+
+    @Override
+    public int hashCode() {
+        final int prime = 31;
+        int result = 1;
+        result = prime * result + (partialGetAllAllowed ? 1231 : 1237);
+        result = prime * result + timeoutMap.hashCode();
+        return result;
+    }
 }
