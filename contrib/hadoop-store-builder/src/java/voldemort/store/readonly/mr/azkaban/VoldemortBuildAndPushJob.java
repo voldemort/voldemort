@@ -256,7 +256,7 @@ public class VoldemortBuildAndPushJob extends AbstractJob {
 
 
         this.hdfsFetcherProtocol = props.getString(VOLDEMORT_FETCHER_PROTOCOL, RECOMMENDED_FETCHER_PROTOCOL);
-        if (this.hdfsFetcherProtocol != RECOMMENDED_FETCHER_PROTOCOL) {
+        if (!this.hdfsFetcherProtocol.equals(RECOMMENDED_FETCHER_PROTOCOL)) {
             log.warn("It is recommended to use the " + RECOMMENDED_FETCHER_PROTOCOL + " protocol only.");
         }
 
