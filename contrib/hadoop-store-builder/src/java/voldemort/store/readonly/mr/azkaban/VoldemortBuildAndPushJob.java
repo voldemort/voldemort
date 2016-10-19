@@ -521,18 +521,21 @@ public class VoldemortBuildAndPushJob extends AbstractJob {
 
         // 3. Get "build.primary.replicas.only" setting
 
-        Map<String, String> expectedConfig = Maps.newHashMap();
-        expectedConfig.put(VoldemortConfig.READONLY_BUILD_PRIMARY_REPLICAS_ONLY, Boolean.toString(true));
-        this.buildPrimaryReplicasOnly = true;
-        for (String clusterUrl: clusterURLs) {
-            VAdminProto.GetHighAvailabilitySettingsResponse serverSettings = haSettingsPerCluster.get(clusterUrl);
-            int maxNodeFailuresForCluster = 0;
-            if (serverSettings != null) {
-                maxNodeFailuresForCluster = serverSettings.getMaxNodeFailure();
-            }
-            if (!adminClientPerCluster.get(clusterUrl).metadataMgmtOps.validateServerConfig(expectedConfig, maxNodeFailuresForCluster)) {
-                log.info("'" + BUILD_PRIMARY_REPLICAS_ONLY + "' is not supported on this destination cluster: " + clusterUrl);
-                this.buildPrimaryReplicasOnly = false;
+        this.buildPrimaryReplicasOnly = props.getBoolean(BUILD_PRIMARY_REPLICAS_ONLY, true);
+
+        if (buildPrimaryReplicasOnly) {
+            Map<String, String> expectedConfig = Maps.newHashMap();
+            expectedConfig.put(VoldemortConfig.READONLY_BUILD_PRIMARY_REPLICAS_ONLY, Boolean.toString(true));
+            for (String clusterUrl : clusterURLs) {
+                VAdminProto.GetHighAvailabilitySettingsResponse serverSettings = haSettingsPerCluster.get(clusterUrl);
+                int maxNodeFailuresForCluster = 0;
+                if (serverSettings != null) {
+                    maxNodeFailuresForCluster = serverSettings.getMaxNodeFailure();
+                }
+                if (!adminClientPerCluster.get(clusterUrl).metadataMgmtOps.validateServerConfig(expectedConfig, maxNodeFailuresForCluster)) {
+                    log.info("'" + BUILD_PRIMARY_REPLICAS_ONLY + "' is not supported on this destination cluster: " + clusterUrl);
+                    this.buildPrimaryReplicasOnly = false;
+                }
             }
         }
     }
