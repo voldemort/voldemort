@@ -29,8 +29,8 @@ package voldemort.versioning;
 public interface Version {
 
     /**
-     * Return whether or not the given version preceeded this one, succeeded it,
-     * or is concurrant with it
+     * Return whether or not the given version preceded this one, succeeded it,
+     * or is concurrent with it
      * 
      * @param v The other version
      */

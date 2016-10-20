@@ -125,8 +125,8 @@ public class SimpleCounterTest {
                          0.0);
             sleepForResetInterval(startTimeMs);
 
-            // Run for a long period spannning multiple intervals and see if we
-            // observe if we see consitent metrics
+            // Run for a long period spanning multiple intervals and see if we
+            // observe if we see consistent metrics
             final ConcurrentLinkedQueue<Double> observedEventRate = new ConcurrentLinkedQueue<Double>();
             final ConcurrentLinkedQueue<Double> observedEventValueAvg = new ConcurrentLinkedQueue<Double>();
             final int NUM_INTERVALS = 30;

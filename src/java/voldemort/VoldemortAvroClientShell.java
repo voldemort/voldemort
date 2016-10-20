@@ -117,7 +117,7 @@ public class VoldemortAvroClientShell {
                 }
             }
         } catch(Exception e) {
-            System.err.println("Error while getting lastest key schema " + e.getMessage());
+            System.err.println("Error while getting latest key schema " + e.getMessage());
         } finally {
             if(adminClient != null) {
                 adminClient.close();

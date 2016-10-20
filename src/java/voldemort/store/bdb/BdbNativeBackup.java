@@ -156,7 +156,7 @@ public class BdbNativeBackup {
                 if(dest.exists()) {
                     dest.delete();
                 }
-                throw new VoldemortException("Error occured while copying "
+                throw new VoldemortException("Error occurred while copying "
                                                      + name
                                                      + ". Deleting to ensure we don't have a corrupt backup.",
                                              e);

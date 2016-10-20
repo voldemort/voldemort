@@ -23,7 +23,7 @@ import voldemort.utils.ByteUtils;
 
 /**
  * Represents a session of interaction between the server and the client. This
- * begins with protocol negotiation and then a seriest of client requests
+ * begins with protocol negotiation and then a series of client requests
  * followed by server responses. The negotiation is handled by the session
  * object, which will choose an appropriate request handler to handle the actual
  * request/response.

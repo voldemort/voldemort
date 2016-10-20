@@ -41,7 +41,6 @@ import voldemort.store.DisabledStoreException;
 import voldemort.store.StoreCapabilityType;
 import voldemort.store.StoreUtils;
 import voldemort.store.readonly.chunk.ChunkedFileSet;
-import voldemort.store.readonly.swapper.FailedFetchLock;
 import voldemort.utils.ByteArray;
 import voldemort.utils.ByteUtils;
 import voldemort.utils.ClosableIterator;
@@ -74,7 +73,7 @@ public class ReadOnlyStorageEngine extends AbstractStorageEngine<ByteArray, byte
     private volatile ChunkedFileSet fileSet;
     private volatile boolean isOpen;
     private long lastSwapped;
-    private int lastFetchReqestId;
+    private int lastFetchRequestId;
 
     /**
      * Create an instance of the store
@@ -142,7 +141,7 @@ public class ReadOnlyStorageEngine extends AbstractStorageEngine<ByteArray, byte
         storeVersionManager = new StoreVersionManager(storeDir, config);
         open(null);
 
-        lastFetchReqestId = NO_FETCH_IN_PROGRESS;
+        lastFetchRequestId = NO_FETCH_IN_PROGRESS;
     }
 
     @Override
@@ -669,7 +668,7 @@ public class ReadOnlyStorageEngine extends AbstractStorageEngine<ByteArray, byte
         }
     }
 
-    public int getFetchingRequest() { return lastFetchReqestId; }
+    public int getFetchingRequest() { return lastFetchRequestId; }
 
-    public void setFetchingRequest(int requestId) { lastFetchReqestId = requestId; }
+    public void setFetchingRequest(int requestId) { lastFetchRequestId = requestId; }
 }

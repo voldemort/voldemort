@@ -39,10 +39,10 @@ import voldemort.store.UnreachableStoreException;
  * Beyond the expectations documented in KeyedResourcePool, the following is
  * expected of the user of this class:
  * <ul>
- * <li>A resource acquired via #checkout(K)) or via equestResource(K ,
+ * <li>A resource acquired via #checkout(K)) or via requestResource(K ,
  * ResourceRequest) requestResource is checked in exactly once.
  * <li>A resource that is checked in was previously checked out or requested.
- * <li>Also, reqeustResource is never called after close.
+ * <li>Also, requestResource is never called after close.
  * </ul>
  */
 public class QueuedKeyedResourcePool<K, V> extends KeyedResourcePool<K, V> {
@@ -70,7 +70,7 @@ public class QueuedKeyedResourcePool<K, V> extends KeyedResourcePool<K, V> {
     }
 
     /**
-     * Create a new queued pool using the defaults for key of tyep K, request of
+     * Create a new queued pool using the defaults for key of type K, request of
      * type R, and value of Type V.
      * 
      * @param factory The factory that creates objects

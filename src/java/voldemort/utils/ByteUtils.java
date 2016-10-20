@@ -71,7 +71,7 @@ public class ByteUtils {
     }
 
     /**
-     * Translate the given byte array into a hexidecimal string
+     * Translate the given byte array into a hexadecimal string
      * 
      * @param bytes The bytes to translate
      * @return The string
@@ -106,7 +106,7 @@ public class ByteUtils {
     }
 
     /**
-     * Concatenate the given arrays TODO: cut and paste for every primative type
+     * Concatenate the given arrays TODO: cut and paste for every primitive type
      * and Object (yay! java!)
      * 
      * @param arrays The arrays to concatenate

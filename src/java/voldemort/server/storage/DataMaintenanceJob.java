@@ -157,7 +157,7 @@ public abstract class DataMaintenanceJob implements Runnable {
     }
 
     /**
-     * Determines whether this job is already runnning.. Note that this only
+     * Determines whether this job is already running. Note that this only
      * protects against scheduling the same job twice by mistake from Admin tool
      * (most practical use case)
      * 

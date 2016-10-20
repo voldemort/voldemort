@@ -720,7 +720,7 @@ public class ClientRegistryTest {
                                                                                                     false);
             ArrayList<ClientInfo> infoList = getClientRegistryContent(it);
 
-            assertEquals("Incrrect # of entries created in client registry", 2, infoList.size());
+            assertEquals("Incorrect # of entries created in client registry", 2, infoList.size());
 
             assertNotNull("Client version is null", infoList.get(0).getReleaseVersion());
             assertNotNull("Client version is null", infoList.get(1).getReleaseVersion());

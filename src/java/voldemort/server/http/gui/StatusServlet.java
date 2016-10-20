@@ -35,7 +35,7 @@ import com.google.common.collect.Maps;
  * 
  * Currently mapped as /server-status, no parameters return HTML
  * 
- * /server-status?format=json returns JSON outupt
+ * /server-status?format=json returns JSON output
  * 
  * /server-status?action=reset&store=<storename> resets the stats for a given
  * store

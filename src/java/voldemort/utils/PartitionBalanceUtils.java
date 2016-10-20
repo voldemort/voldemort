@@ -38,7 +38,7 @@ import com.google.common.collect.Maps;
  * 
  * Most of these helper methods take one Cluster object, and possibly some other
  * minor, simple arguments. The Cluster object defines the partition layout
- * which is being interpreted/analzyed/printed.
+ * which is being interpreted/analyzed/printed.
  */
 public class PartitionBalanceUtils {
 

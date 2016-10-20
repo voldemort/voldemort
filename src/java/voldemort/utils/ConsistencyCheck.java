@@ -680,7 +680,7 @@ public class ConsistencyCheck {
 
     /**
      * Determine if a key version is invalid by comparing the version's
-     * existance and required writes configuration
+     * existence and required writes configuration
      *
      * @param keyVersionNodeSetMap A map that contains keys mapping to a map
      *        that maps versions to set of PrefixNodes
@@ -775,7 +775,7 @@ public class ConsistencyCheck {
         long totalGoodKeys = 0;
         long totalTotalKeys = 0;
         // each partition
-        statsString.append("TYPE,Store,ParitionId,KeysConsistent,KeysTotal,Consistency\n");
+        statsString.append("TYPE,Store,PartitionId,KeysConsistent,KeysTotal,Consistency\n");
         for (Map.Entry<Integer, Reporter> entry : partitionStatsMap.entrySet()) {
             Integer partitionId = entry.getKey();
             Reporter reporter = entry.getValue();

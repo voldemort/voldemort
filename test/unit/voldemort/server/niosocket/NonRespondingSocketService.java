@@ -9,7 +9,7 @@ public class NonRespondingSocketService {
 
     private final ServerSocket serverSocket;
     public NonRespondingSocketService(int port) throws IOException {
-        // server socket with single element backlog queue (1) and dynamicaly
+        // server socket with single element backlog queue (1) and dynamically
         // allocated port (0)
         serverSocket = new ServerSocket(port, 1);
         // just get the allocated port

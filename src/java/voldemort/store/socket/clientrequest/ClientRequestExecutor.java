@@ -74,7 +74,7 @@ public class ClientRequestExecutor extends SelectorManagerWorker implements Clos
 
         initializeStreams(socketBufferSize, new CommBufferSizeStats());
         if(this.inputStream == null || this.outputStream == null) {
-            throw new VoldemortApplicationException("InputStream or OuputStream is null after initialization");
+            throw new VoldemortApplicationException("InputStream or OutputStream is null after initialization");
         }
         this.socketDesination = socketDesination;
 

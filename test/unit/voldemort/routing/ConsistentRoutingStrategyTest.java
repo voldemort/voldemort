@@ -65,7 +65,7 @@ public class ConsistentRoutingStrategyTest extends TestCase {
         assertNodeOrder(getRouter(4, 1).routeRequest(key), 5);
     }
 
-    public void test3xReplcation() {
+    public void test3xReplication() {
         assertNodeOrder(getRouter(0, 3).routeRequest(key), 3, 1, 0);
         assertNodeOrder(getRouter(14, 3).routeRequest(key), 0, 4, 3);
         assertNodeOrder(getRouter(4, 3).routeRequest(key), 5, 2, 4);

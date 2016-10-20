@@ -48,12 +48,12 @@ public class StringSorter {
         Iterator<String> it = new LineIterator(new BufferedReader(new FileReader(input),
                                                                   10 * 1024 * 1024));
 
-        String seperator = Utils.NEWLINE;
+        String separator = Utils.NEWLINE;
         BufferedWriter writer = new BufferedWriter(new OutputStreamWriter(System.out),
                                                    10 * 1024 * 1024);
         for(String line: sorter.sorted(it)) {
             writer.write(line);
-            writer.write(seperator);
+            writer.write(separator);
         }
     }
 
