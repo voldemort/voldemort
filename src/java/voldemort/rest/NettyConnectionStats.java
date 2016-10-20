@@ -12,7 +12,7 @@ public class NettyConnectionStats {
         this.activeNumberOfConnections = new AtomicLong(0);
     }
 
-    @JmxGetter(name = "GetActiveConnections", description = "The total nunber of active channels open and connected")
+    @JmxGetter(name = "GetActiveConnections", description = "The total number of active channels open and connected")
     public AtomicLong getActiveNumberOfConnections() {
         return activeNumberOfConnections;
     }
@@ -21,7 +21,7 @@ public class NettyConnectionStats {
         this.activeNumberOfConnections.incrementAndGet();
     }
 
-    public void reportChannelDisconnet() {
+    public void reportChannelDisconnect() {
         this.activeNumberOfConnections.decrementAndGet();
     }
 

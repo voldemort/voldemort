@@ -103,7 +103,7 @@ public class NioStatsJmxTest {
         }
 
         // has to be 1, since we configure client with 1 connection and do
-        // atleast one operation
+        // at least one operation
         MBeanServer beanserver = ManagementFactory.getPlatformMBeanServer();
         ObjectName name = JmxUtils.createObjectName(JmxUtils.getPackageName(NioSocketService.class),
                                                     "nio-socket-server");

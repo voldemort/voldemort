@@ -80,7 +80,7 @@ public class ZoneCLipperTest {
         // nodes
         RebalanceUtils.validateClusterNodeCounts(initialCluster, interimCluster);
 
-        // Make sure that the intermediate cluster doesn't have any partitons in
+        // Make sure that the intermediate cluster doesn't have any partitions in
         // the dropped zone
         assertTrue("Zone being dropped has partitions. ZoneClipper didn't work properly",
                    interimCluster.getPartitionIdsInZone(dropZoneId).isEmpty());

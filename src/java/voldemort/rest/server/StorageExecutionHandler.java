@@ -50,7 +50,7 @@ public class StorageExecutionHandler extends ExecutionHandler {
     }
 
     @JmxGetter(name = "StorageThreadPoolQueueSize", description = "The number of storage requests queued to be executed")
-    public int getQueuSize() {
+    public int getQueueSize() {
         if(this.threadPoolExecutor != null) {
             return threadPoolExecutor.getQueue().size();
         } else {

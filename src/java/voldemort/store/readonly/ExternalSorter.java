@@ -187,8 +187,8 @@ public class ExternalSorter<V> {
                     logger.info("Segment " + segmentId + ": sorting buffer.");
                     long start = System.currentTimeMillis();
                     Arrays.sort(buffer, 0, segmentSize, comparator);
-                    long ellapsed = System.currentTimeMillis() - start;
-                    logger.info("Segment " + segmentId + ": sort completed in " + ellapsed
+                    long elapsed = System.currentTimeMillis() - start;
+                    logger.info("Segment " + segmentId + ": sort completed in " + elapsed
                                 + " ms, writing to temp file.");
 
                     // write out values to a temp file
@@ -207,9 +207,9 @@ public class ExternalSorter<V> {
                     } catch(IOException e) {
                         throw new VoldemortException(e);
                     }
-                    long segmentEllapsed = System.currentTimeMillis() - segmentStartMs;
+                    long segmentElapsed = System.currentTimeMillis() - segmentStartMs;
                     logger.info("Segment " + segmentId + ": completed processing of segment in "
-                                + segmentEllapsed + " ms.");
+                                + segmentElapsed + " ms.");
                 }
             });
         }

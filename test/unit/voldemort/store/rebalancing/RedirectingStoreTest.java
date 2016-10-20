@@ -223,7 +223,7 @@ public class RedirectingStoreTest {
                                                  .put(MetadataStore.REBALANCING_SOURCE_CLUSTER_XML,
                                                       currentCluster);
 
-            // update orginal storedefs
+            // update original storedefs
             servers[partitionPlan.getStealerId()].getMetadataStore()
                                                  .put(MetadataStore.REBALANCING_SOURCE_STORES_XML,
                                                       Lists.newArrayList(storeDef));

@@ -229,7 +229,7 @@ public class DataCleanupJobTest {
             Thread.sleep(2 * Time.MS_PER_SECOND);
             
             // Check the same value 1000 times as the deleted store should
-            // never acquire a lock. It should silently return befor acquiring the lock.
+            // never acquire a lock. It should silently return before acquiring the lock.
             // Intermittent failure, means problem with the code which needs to be fixed.
             for(int i = 0; i < 1000; i ++) {
                 assertEquals("Deleted store should never acquire a scan permit", 1, scanWrapper.availablePermits());

@@ -279,7 +279,7 @@ public abstract class RestRequestValidator {
         if(storeName != null) {
             result = true;
         } else {
-            logger.error("Error when validatig request. Missing store name.");
+            logger.error("Error when validating request. Missing store name.");
             RestErrorHandler.writeErrorResponse(this.messageEvent,
                                                 HttpResponseStatus.BAD_REQUEST,
                                                 "Missing store name. Critical error.");

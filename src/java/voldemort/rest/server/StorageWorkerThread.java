@@ -133,7 +133,7 @@ public class StorageWorkerThread implements Runnable {
                         try {
                             Map<ByteArray, List<Versioned<byte[]>>> keyValuesMap = store.getAll(requestObject.getIterableKeys(),
                                                                                                 null);
-                            // check if there is atleast one valid key
+                            // check if there is at least one valid key
                             // before sending response
                             boolean hasAtleastOneValidKey = false;
                             for(List<Versioned<byte[]>> values: keyValuesMap.values()) {
@@ -227,7 +227,7 @@ public class StorageWorkerThread implements Runnable {
                         }
                         break;
                     default:
-                        // Since we dont add any other operations than the 5
+                        // Since we don't add any other operations than the 5
                         // above, the code stops here.
                         return;
                 }

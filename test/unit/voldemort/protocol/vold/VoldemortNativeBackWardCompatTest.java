@@ -43,9 +43,9 @@ public abstract class VoldemortNativeBackWardCompatTest {
     @Test
     public void testBackWardCompatibility() throws Exception {
         byte[][][] inputOutputCombination = getInputOutputCombination();
-        for(byte[][] inputOuput: inputOutputCombination) {
-            byte[] input = inputOuput[0];
-            byte[] output = inputOuput[1];
+        for(byte[][] inputOutput: inputOutputCombination) {
+            byte[] input = inputOutput[0];
+            byte[] output = inputOutput[1];
             validateInputOutput(input, output);
         }
     }

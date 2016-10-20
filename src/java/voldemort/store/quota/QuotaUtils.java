@@ -57,9 +57,9 @@ public class QuotaUtils {
         return quotaTypes;
     }
 
-  private static FileBackedCachingStorageEngine getQuotaStore(StoreRepository repoistory) {
+  private static FileBackedCachingStorageEngine getQuotaStore(StoreRepository repository) {
     FileBackedCachingStorageEngine quotaStore =
-        (FileBackedCachingStorageEngine) repoistory.getStorageEngine(QUOTA_STORE);
+        (FileBackedCachingStorageEngine) repository.getStorageEngine(QUOTA_STORE);
 
     if (quotaStore == null) {
       throw new VoldemortApplicationException("Could not find the quota store for Store " + QUOTA_STORE);
@@ -76,8 +76,8 @@ public class QuotaUtils {
     }
   }
 
-  public static Long getQuota(String storeName, QuotaType type, StoreRepository repoistory) {
-    FileBackedCachingStorageEngine quotaStore = getQuotaStore(repoistory);
+  public static Long getQuota(String storeName, QuotaType type, StoreRepository repository) {
+    FileBackedCachingStorageEngine quotaStore = getQuotaStore(repository);
     String quotaKey = makeQuotaKey(storeName, QuotaType.STORAGE_SPACE);
     String diskQuotaSize = quotaStore.cacheGet(quotaKey);
     Long diskQuotaSizeInKB = (diskQuotaSize == null) ? null : Long.parseLong(diskQuotaSize);

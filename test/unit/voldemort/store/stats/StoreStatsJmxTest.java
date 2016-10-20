@@ -79,7 +79,7 @@ public class StoreStatsJmxTest {
         }
     }
 
-    // Verify that the logic for determing maximum value returned and average
+    // Verify that the logic for determining maximum value returned and average
     // value return has been wired up correctly.
     @Test
     public void maxAndAvgSizeOfValuesAreCalculatedCorrectly() {
@@ -115,7 +115,7 @@ public class StoreStatsJmxTest {
         }
     }
 
-    // Verify that the logic for determing maximum value returned and average
+    // Verify that the logic for determining maximum value returned and average
     // value return has been wired up correctly.
     @Test
     public void maxAndAvgSizeOfKeysAreCalculatedCorrectly() {

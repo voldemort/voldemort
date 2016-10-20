@@ -271,7 +271,7 @@ public class RocksdbStorageEngineAPITest {
         for(ByteArray key: found.keySet()) {
             Versioned<byte[]> value = found.get(key).get(0);
             if(ByteUtils.compare(value.getValue(), expected.get(key).getValue()) != 0) {
-                Assert.fail("The found value and expected value dont match!");
+                Assert.fail("The found value and expected value don't match!");
             }
         }
     }

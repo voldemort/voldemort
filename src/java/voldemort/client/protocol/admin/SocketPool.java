@@ -99,7 +99,7 @@ public class SocketPool {
         long wait = waitNs.getAndAdd(checkoutTimeNs);
         int count = checkouts.getAndIncrement();
 
-        // reset reporting inverval if we have used up the current interval
+        // reset reporting interval if we have used up the current interval
         int interval = this.monitoringInterval.get();
         if(count % interval == interval - 1) {
             // harmless race condition:

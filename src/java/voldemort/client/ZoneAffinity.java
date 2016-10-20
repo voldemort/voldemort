@@ -17,7 +17,7 @@
 package voldemort.client;
 
 /**
- * Encapsulates the zone affinity configuiration for various Voldemort
+ * Encapsulates the zone affinity configuration for various Voldemort
  * operations
  * 
  */

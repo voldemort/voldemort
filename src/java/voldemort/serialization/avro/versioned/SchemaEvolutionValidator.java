@@ -81,7 +81,7 @@ public class SchemaEvolutionValidator {
         System.out.println("\t" + args[0]);
         System.out.println("\t" + args[1]);
 
-        List<Message> messages = SchemaEvolutionValidator.checkBackwardCompatability(oldSchema,
+        List<Message> messages = SchemaEvolutionValidator.checkBackwardCompatibility(oldSchema,
                                                                                      newSchema,
                                                                                      oldSchema.getName());
         Level maxLevel = Level.ALL;
@@ -121,7 +121,7 @@ public class SchemaEvolutionValidator {
      * @param name the schema name
      * @return list of messages about the schema evolution
      */
-    public static List<Message> checkBackwardCompatability(Schema oldSchema,
+    public static List<Message> checkBackwardCompatibility(Schema oldSchema,
                                                            Schema newSchema,
                                                            String name) {
         SchemaEvolutionValidator validator = new SchemaEvolutionValidator();
@@ -867,7 +867,7 @@ public class SchemaEvolutionValidator {
             secondSchemaStr = (String) schemaPair.getValue();
             Schema oldSchema = Schema.parse(firstSchemaStr);
             Schema newSchema = Schema.parse(secondSchemaStr);
-            List<Message> messages = SchemaEvolutionValidator.checkBackwardCompatability(oldSchema,
+            List<Message> messages = SchemaEvolutionValidator.checkBackwardCompatibility(oldSchema,
                                                                                          newSchema,
                                                                                          oldSchema.getName());
             Level maxLevel = Level.ALL;

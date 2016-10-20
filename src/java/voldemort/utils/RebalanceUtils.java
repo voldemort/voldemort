@@ -309,9 +309,9 @@ public class RebalanceUtils {
                     finalNodeId = currentCluster.getNodeForPartitionId(adjacentPartitionId).getId();
                     finalZoneId = currentCluster.getZoneForPartitionId(adjacentPartitionId).getId();
                     if(adjacentPartitionId == partitionId) {
-                        logger.error("ParititionId " + partitionId + "stays unchanged \n");
+                        logger.error("PartitionId " + partitionId + "stays unchanged \n");
                     } else {
-                        logger.info("ParititionId " + partitionId
+                        logger.info("PartitionId " + partitionId
                                     + " goes together with partition " + adjacentPartitionId
                                     + " on node " + finalNodeId + " in zone " + finalZoneId);
                         returnCluster = UpdateClusterUtils.createUpdatedCluster(returnCluster,

@@ -74,7 +74,7 @@ public class ReadOnlyUtils {
 
     /**
      * Given a file name first checks whether it belongs to storage format v2
-     * and then retieves the tuple of <partition, replica type> out of it.
+     * and then retrieves the tuple of <partition, replica type> out of it.
      * 
      * @param fileName The name of the file
      * @return Pair of partition id to replica type

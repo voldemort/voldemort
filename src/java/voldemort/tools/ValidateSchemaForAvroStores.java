@@ -69,7 +69,7 @@ public class ValidateSchemaForAvroStores {
             try {
                 StoreDefinitionUtils.validateSchemaAsNeeded(storeDefinition);
             } catch(VoldemortException ex) {
-                logger.error("A VoldemortException occured");
+                logger.error("A VoldemortException occurred");
                 ex.printStackTrace();
                 // Continue with the loop so we catch all invalid schemas at
                 // once.
@@ -93,7 +93,7 @@ public class ValidateSchemaForAvroStores {
                 }
 
             } catch(Exception ex) {
-                logger.error("Either no read permission for the directory or an I/O error occured");
+                logger.error("Either no read permission for the directory or an I/O error occurred");
                 ex.printStackTrace();
             }
         } else {

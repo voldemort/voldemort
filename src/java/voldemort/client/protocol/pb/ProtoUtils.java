@@ -96,7 +96,7 @@ public class ProtoUtils {
      * Given a rebalance-task info, convert it into the protobuf equivalent
      * 
      * @param stealInfo Rebalance task info
-     * @return Protobuff equivalent of the same
+     * @return Protobuf equivalent of the same
      */
     public static RebalanceTaskInfoMap encodeRebalanceTaskInfoMap(RebalanceTaskInfo stealInfo) {
         return RebalanceTaskInfoMap.newBuilder()

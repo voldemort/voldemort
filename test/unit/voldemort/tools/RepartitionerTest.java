@@ -266,9 +266,9 @@ public class RepartitionerTest {
      * @param currentStores
      * @param swapZoneIds
      */
-    public void verifyRandomSwapsWithinZoneOnlyShufflesParitionsInThatZone(Cluster currentCluster,
-                                                          List<StoreDefinition> currentStores,
-                                                          List<Integer> swapZoneIds) {
+    public void verifyRandomSwapsWithinZoneOnlyShufflesPartitionsInThatZone(Cluster currentCluster,
+                                                                            List<StoreDefinition> currentStores,
+                                                                            List<Integer> swapZoneIds) {
 
         PartitionBalance currentPb = new PartitionBalance(currentCluster, currentStores);
         // Disable basic balancing among zones & nodes
@@ -458,7 +458,7 @@ public class RepartitionerTest {
         List<Integer> swapZoneIds = new ArrayList<Integer>();
         // Only shuffle within zone 1
         swapZoneIds.add(1);
-        verifyRandomSwapsWithinZoneOnlyShufflesParitionsInThatZone(currentCluster, storeDefs,
+        verifyRandomSwapsWithinZoneOnlyShufflesPartitionsInThatZone(currentCluster, storeDefs,
                 swapZoneIds);
        
         // Three zone cluster
@@ -467,19 +467,19 @@ public class RepartitionerTest {
         // Shuffle only within zone 2
         swapZoneIds.clear();
         swapZoneIds.add(2);
-        verifyRandomSwapsWithinZoneOnlyShufflesParitionsInThatZone(currentCluster, storeDefs,
+        verifyRandomSwapsWithinZoneOnlyShufflesPartitionsInThatZone(currentCluster, storeDefs,
                 swapZoneIds);
         // Shuffle only within zone 1, 2
         swapZoneIds.clear();
         swapZoneIds.add(1);
         swapZoneIds.add(2);
-        verifyRandomSwapsWithinZoneOnlyShufflesParitionsInThatZone(currentCluster, storeDefs,
+        verifyRandomSwapsWithinZoneOnlyShufflesPartitionsInThatZone(currentCluster, storeDefs,
                 swapZoneIds);
         // Shuffle only within zone 0, 2
         swapZoneIds.clear();
         swapZoneIds.add(0);
         swapZoneIds.add(2);
-        verifyRandomSwapsWithinZoneOnlyShufflesParitionsInThatZone(currentCluster, storeDefs,
+        verifyRandomSwapsWithinZoneOnlyShufflesPartitionsInThatZone(currentCluster, storeDefs,
                 swapZoneIds);
     }
 
@@ -633,7 +633,7 @@ public class RepartitionerTest {
         List<Integer> swapZoneIds = new ArrayList<Integer>();
         // Only shuffle within zone 1
         swapZoneIds.add(1);
-        verifyRandomSwapsWithinZoneOnlyShufflesParitionsInThatZone(currentCluster, storeDefs,
+        verifyRandomSwapsWithinZoneOnlyShufflesPartitionsInThatZone(currentCluster, storeDefs,
                 swapZoneIds);
        
         // Three zone cluster
@@ -642,20 +642,20 @@ public class RepartitionerTest {
         // Shuffle only within zone 3
         swapZoneIds.clear();
         swapZoneIds.add(3);
-        verifyRandomSwapsWithinZoneOnlyShufflesParitionsInThatZone(currentCluster, storeDefs,
+        verifyRandomSwapsWithinZoneOnlyShufflesPartitionsInThatZone(currentCluster, storeDefs,
                 swapZoneIds);
         // Shuffle only within zone 1, 3
         swapZoneIds.clear();
         swapZoneIds.add(1);
         swapZoneIds.add(3);
-        verifyRandomSwapsWithinZoneOnlyShufflesParitionsInThatZone(currentCluster, storeDefs,
+        verifyRandomSwapsWithinZoneOnlyShufflesPartitionsInThatZone(currentCluster, storeDefs,
                 swapZoneIds);
         // Shuffle only within zone 1, 3, 5 
         swapZoneIds.clear();
         swapZoneIds.add(1);
         swapZoneIds.add(3);
         swapZoneIds.add(5);
-        verifyRandomSwapsWithinZoneOnlyShufflesParitionsInThatZone(currentCluster, storeDefs,
+        verifyRandomSwapsWithinZoneOnlyShufflesPartitionsInThatZone(currentCluster, storeDefs,
                 swapZoneIds);
     }
     

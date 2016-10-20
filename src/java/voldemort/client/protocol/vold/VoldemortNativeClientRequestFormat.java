@@ -119,7 +119,7 @@ public class VoldemortNativeClientRequestFormat implements RequestFormat {
         try {
             DataInputStream inputStream = new DataInputStream(new ByteBufferBackedInputStream(buffer));
             checkException(inputStream);
-            if(!skipeResults(inputStream, buffer)) {
+            if(!skipResults(inputStream, buffer)) {
                 return false;
             }
         } catch(VoldemortException e) {
@@ -129,7 +129,7 @@ public class VoldemortNativeClientRequestFormat implements RequestFormat {
         return !buffer.hasRemaining();
     }
 
-    private boolean skipeResults(DataInputStream inputStream, ByteBuffer buffer) throws IOException {
+    private boolean skipResults(DataInputStream inputStream, ByteBuffer buffer) throws IOException {
         int resultSize = inputStream.readInt();
         for(int i = 0; i < resultSize; i++) {
             int valueSize = inputStream.readInt();
@@ -204,7 +204,7 @@ public class VoldemortNativeClientRequestFormat implements RequestFormat {
                 if(!ByteUtils.skipByteArray(buffer, keySize)) {
                     return false;
                 }
-                if(!skipeResults(inputStream, buffer)) {
+                if(!skipResults(inputStream, buffer)) {
                     return false;
                 }
             }

@@ -95,7 +95,7 @@ public class BaseStreamingClient {
 
     // In case a Recovery callback fails we got to stop it from getting any
     // worse
-    // so we mark the session as bad and dont take any more requests
+    // so we mark the session as bad and don't take any more requests
     protected static boolean MARKED_BAD = false;
 
     protected EventThrottler throttler;
@@ -602,7 +602,7 @@ public class BaseStreamingClient {
     /**
      * mark a node as blacklisted
      * 
-     * @param nodeId Integer node id of the node to be balcklisted
+     * @param nodeId Integer node id of the node to be blacklisted
      */
 
     @SuppressWarnings({ "rawtypes", "unchecked" })

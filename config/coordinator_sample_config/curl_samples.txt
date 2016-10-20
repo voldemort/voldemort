@@ -16,7 +16,7 @@ $ curl http://localhost:8080/test/a2V5MQ==
 value1
 
 *********************** Voldemort GET_ALL ************************************
-# retrive all keys
+# retrieve all keys
 $ curl http://localhost:8080/test/a2V5MQ==,a2V5Mg==,a2V5Mw==
 ------=_Part_0_1624485351.1370561996547
 Content-Location: /test/a2V5Mw==

@@ -204,7 +204,7 @@ public class RebalanceControllerCLI {
                                                         rebalancePlan.getFinalCluster()
                                                                      .getNodeIds());
 
-        // before reblance, remember and disable quota enforcement settings
+        // before rebalance, remember and disable quota enforcement settings
         if(resetQuota) {
             quotaResetter.rememberAndDisableQuota();
         }

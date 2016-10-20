@@ -156,7 +156,7 @@ public class RequestCounter {
         this.requestAllTimeCount = this.timeSensor.add(name + ".count", new Count());
         this.requestThroughput = this.timeSensor.add(name + ".throughput", new OccurrenceRate());
 
-        // Empty Reponse Keys Sensor
+        // Empty Response Keys Sensor
 
         String emptyResponseKeysSensorName = name + ".empty-response-keys";
         this.emptyResponseKeysSensor =

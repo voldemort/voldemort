@@ -160,7 +160,7 @@ public class VersionedPutPruningTest {
         VectorClock fetchedClock1 = TestUtils.getVersionedPutClock(now, 4, 4, 5, 0);
         VectorClock fetchedClock2 = TestUtils.getVersionedPutClock(now, 5, 4, 5, 0);
 
-        // to tighen the screws, assume the fetch delay was 0ms and two
+        // to tighten the screws, assume the fetch delay was 0ms and two
         // conflicting writes followed on the same ms
         VectorClock onlineClock1 = TestUtils.getVersionedPutClock(now, 0, 0, 2, 1);
         VectorClock onlineClock2 = TestUtils.getVersionedPutClock(now, 2, 0, 2, 1);

@@ -232,7 +232,7 @@ public class AdminCommandOther extends AbstractAdminCommand {
             AdminParserUtils.acceptsZone(parser);
             // optional options
             parser.accepts(OPT_PARALLEL,
-                           "parallism parameter for restore-from-replica, defaults to 5")
+                           "parallelism parameter for restore-from-replica, defaults to 5")
                   .withRequiredArg()
                   .describedAs("num")
                   .ofType(Integer.class);

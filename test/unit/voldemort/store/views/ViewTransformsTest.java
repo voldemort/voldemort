@@ -39,7 +39,7 @@ public class ViewTransformsTest extends TestCase {
         try {
             upperCaseClient.put("test", "test2", "concat");
         } catch(UnsupportedViewOperationException ve) {} catch(Exception e) {
-            fail("UnsuportedViewOperationException expected");
+            fail("UnsupportedViewOperationException expected");
         }
     }
 

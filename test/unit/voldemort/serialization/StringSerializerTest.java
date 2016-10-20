@@ -52,7 +52,7 @@ public class StringSerializerTest {
     }
 
     private void assertInverse(Serializer<Object> ser, Object s) {
-        Object retunValue = ser.toObject(ser.toBytes(s));
-        assertEquals("serialized and deserialized value is different", s, retunValue);
+        Object returnValue = ser.toObject(ser.toBytes(s));
+        assertEquals("serialized and deserialized value is different", s, returnValue);
     }
 }

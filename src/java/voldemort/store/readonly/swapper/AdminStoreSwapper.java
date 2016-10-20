@@ -191,7 +191,7 @@ public class AdminStoreSwapper {
 
         /*
          * We wait for all fetches to complete successfully or throw any
-         * Exception. We dont handle QuotaException in a special way here. The
+         * Exception. We don't handle QuotaException in a special way here. The
          * idea is to protect the disk. It is okay to let the Bnp job run to
          * completion. We still want to delete data of a failed fetch in all
          * nodes that successfully fetched the data. After deleting the

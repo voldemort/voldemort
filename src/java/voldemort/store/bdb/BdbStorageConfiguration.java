@@ -277,7 +277,7 @@ public class BdbStorageConfiguration implements StorageConfiguration {
     /**
      * When a reservation is made, we need to shrink the shared cache
      * accordingly to guarantee memory foot print of the new store. NOTE: This
-     * is not an instantaeneous operation. Changes will take effect only when
+     * is not an instantaneous operation. Changes will take effect only when
      * traffic is thrown and eviction happens.( Won't happen until Network ports
      * are opened anyway which is rightfully done after storage service).When
      * changing this dynamically, we might want to block until the shared cache

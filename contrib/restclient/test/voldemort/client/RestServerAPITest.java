@@ -35,7 +35,7 @@ public class RestServerAPITest {
     private static final Logger logger = Logger.getLogger(RestServerAPITest.class);
 
     /*
-     * TODO REST-Server temporaily hard coded the store name and port. This
+     * TODO REST-Server temporarily hard coded the store name and port. This
      * should be formally obtained from stores.xml and cluster.xml
      */
 
@@ -87,7 +87,7 @@ public class RestServerAPITest {
     @AfterClass
     public static void tearDown() {
         if(server != null && server.isStarted()) {
-        	// Not using ServerTestUtils.stopVoldmeortServer as test uses config
+        	// Not using ServerTestUtils.stopVoldemortServer as test uses config
         	// under git source control, which causes real files to be deleted.
         	server.stop();
         }
@@ -219,7 +219,7 @@ public class RestServerAPITest {
         } else {
             boolean result = store.delete(key, output.get(0).getVersion());
             if(!result) {
-                fail("Notthing to delete");
+                fail("Nothing to delete");
             } else {
                 output = store.get(key, null);
                 assertTrue(output.size() == 0);

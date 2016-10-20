@@ -54,7 +54,7 @@ public class ProtocolNegotiatorClientRequest extends AbstractClientRequest<Strin
 
         if(result.equals("no"))
             throw new VoldemortException(requestFormatType.getDisplayName()
-                                         + " is not an acceptable protcol for the server.");
+                                         + " is not an acceptable protocol for the server.");
         else
             throw new VoldemortException("Unknown server response: " + result);
     }

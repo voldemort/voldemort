@@ -60,7 +60,7 @@ public class AdminCommandCleanup extends AbstractAdminCommand {
         stream.println();
         stream.println("Voldemort Admin Tool Cleanup Commands");
         stream.println("-------------------------------------");
-        stream.println("orphaned-data   Remove orhpaned data on a single node after rebalancing is done.");
+        stream.println("orphaned-data   Remove orphaned data on a single node after rebalancing is done.");
         stream.println("vector-clocks   Prune data resulting from versioned puts during rebalancing.");
         stream.println("slops           Purge slops.");
         stream.println();
@@ -121,7 +121,7 @@ public class AdminCommandCleanup extends AbstractAdminCommand {
         public static void printHelp(PrintStream stream) throws IOException {
             stream.println();
             stream.println("NAME");
-            stream.println("  cleanup orphaned-data - Remove orhpaned data on a single node after");
+            stream.println("  cleanup orphaned-data - Remove orphaned data on a single node after");
             stream.println("                          rebalancing is done");
             stream.println();
             stream.println("SYNOPSIS");

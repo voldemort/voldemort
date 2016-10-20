@@ -90,7 +90,7 @@ public class AvroUtils {
                         if(!schema.equals(schemas.get(i)))
                             throw new IllegalArgumentException("The directory "
                                                                + path
-                                                               + " contains heterogenous schemas: found both '"
+                                                               + " contains heterogeneous schemas: found both '"
                                                                + schema + "' and '"
                                                                + schemas.get(i) + "'.");
 

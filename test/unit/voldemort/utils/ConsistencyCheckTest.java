@@ -278,7 +278,7 @@ public class ConsistencyCheckTest {
     }
 
     @Test
-    public void testCleanInlegibleKeys() {
+    public void testCleanIneligibleKeys() {
         // versions
         VectorClock vc1 = new VectorClock();
         vc1.incrementVersion(1, 100000001);
@@ -462,9 +462,9 @@ public class ConsistencyCheckTest {
 
         // find store
         Versioned<List<StoreDefinition>> storeDefinitions = adminClient.metadataMgmtOps.getRemoteStoreDefList(0);
-        List<StoreDefinition> StoreDefitions = storeDefinitions.getValue();
+        List<StoreDefinition> StoreDefinitions = storeDefinitions.getValue();
         StoreDefinition storeDefinition = null;
-        for(StoreDefinition def: StoreDefitions) {
+        for(StoreDefinition def: StoreDefinitions) {
             if(def.getName().equals(STORE_NAME)) {
                 storeDefinition = def;
                 break;
