@@ -599,7 +599,7 @@ public class HintedHandoffFailureTest {
                 fail("A put with required writes 2 should've failed for this setup");
             } catch(VoldemortException ve) {
                 // This is expected. Nothing to do.
-                logger.info("Error occured as expected : " + ve.getMessage());
+                logger.info("Error occurred as expected : " + ve.getMessage());
             } catch(Exception e) {
                 ex = e;
             } finally {

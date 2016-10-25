@@ -29,7 +29,7 @@ public abstract class RestResponseSender {
         sendResponse(null, false, INVALID_START_TIME_IN_MS);
     }
 
-    public abstract void sendResponse(StoreStats perfomanceStats,
+    public abstract void sendResponse(StoreStats performanceStats,
                                       boolean isFromLocalZone,
                                       long startTimeInMs) throws Exception;
 
@@ -45,7 +45,7 @@ public abstract class RestResponseSender {
                             Long responseTimeStampInMS,
                             int totalVectorClockEntries) {
         long durationInMs = responseTimeStampInMS - originTimeInMS;
-        logger.debug("Received a response from Fat Client for Operatoin Type: " + operationType
+        logger.debug("Received a response from Fat Client for Operation Type: " + operationType
                      + " For key(s): " + keyStr + " , Store: " + storeName
                      + " , Origin time of request(in ms): " + originTimeInMS
                      + " , Response received at time(in ms): " + responseTimeStampInMS

@@ -58,7 +58,7 @@ public class Repartitioner {
     public final static int DEFAULT_RANDOM_SWAP_ATTEMPTS = 100;
     /**
      * Default number of successful random swaps (i.e., the random swap improves
-     * balance) after which reparitioning stops, if random swaps are enabled.
+     * balance) after which repartitioning stops, if random swaps are enabled.
      */
     public final static int DEFAULT_RANDOM_SWAP_SUCCESSES = 100;
 

@@ -85,8 +85,8 @@ public class RebootstrappingStore extends DelegatingStore<ByteArray, byte[], byt
     }
 
     /**
-     * Check that all nodes in the new cluster have a corrosponding entry in
-     * storeRepositiry and innerStores. add a NodeStore if not present, is
+     * Check that all nodes in the new cluster have a corresponding entry in
+     * storeRepository and innerStores. add a NodeStore if not present, is
      * needed as with rebalancing we can add new nodes on the fly.
      * 
      */

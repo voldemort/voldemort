@@ -287,7 +287,7 @@ public class NonZonedRebalanceBatchPlanTest {
         assertFalse("Batch plan should not be empty.", batchPlan.isEmpty());
 
         // Cannot do other tests because with partition 7 already on node 3, its
-        // unclear which partitions will actual move when partitoin 6 also moves
+        // unclear which partitions will actual move when partition 6 also moves
         // to node 3.
     }
 

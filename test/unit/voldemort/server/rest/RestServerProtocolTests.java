@@ -64,7 +64,7 @@ public class RestServerProtocolTests {
     @AfterClass
     public static void oneTimeCleanUp() {
         if(server != null && server.isStarted()) {
-            // Not using ServerTestUtils.stopVoldmeortServer as test uses config
+            // Not using ServerTestUtils.stopVoldemortServer as test uses config
             // under git source control, which causes real files to be deleted.
             server.stop();
         }

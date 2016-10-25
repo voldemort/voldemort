@@ -71,7 +71,7 @@ public class BaseStoreRoutingPlan {
      * Determines master partition ID for the key.
      * 
      * @param key
-     * @return master parition id
+     * @return master partition id
      */
     public int getMasterPartitionId(final byte[] key) {
         return this.routingStrategy.getMasterPartition(key);

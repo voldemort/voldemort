@@ -158,8 +158,8 @@ public class VoldemortUtils {
         }
 
         try {
-            //Create handler to avoid unknow protocol error when parsing URL string. Actually this handler will do
-            //nothing.
+            // Create handler to avoid unknown protocol error when parsing URL string. Actually this handler will do
+            // nothing.
             URLStreamHandler handler = new URLStreamHandler() {
                 @Override
                 protected URLConnection openConnection(URL u)

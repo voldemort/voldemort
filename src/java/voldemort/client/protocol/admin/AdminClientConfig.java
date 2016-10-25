@@ -65,7 +65,7 @@ public class AdminClientConfig {
             this.setMaxBackoffDelayMs(props.getInt(MAX_BACKOFF_DELAY_MS));
     }
 
-    /* Propery names for propery-based configuration */
+    /* Property names for property-based configuration */
 
     public int getMaxBackoffDelayMs() {
         return maxBackoffDelayMs;

@@ -218,15 +218,15 @@ public class RocksDbStorageEngine extends AbstractStorageEngine<ByteArray, byte[
                 Iterator<Versioned<byte[]>> iter = currentValues.iterator();
                 while(iter.hasNext()) {
                     Versioned<byte[]> curr = iter.next();
-                    Occurred occured = value.getVersion().compare(curr.getVersion());
-                    if(occured == Occurred.BEFORE) {
+                    Occurred occurred = value.getVersion().compare(curr.getVersion());
+                    if(occurred == Occurred.BEFORE) {
                         throw new ObsoleteVersionException("Key "
                                                            + new String(hexCodec.encode(key.get()))
                                                            + " "
                                                            + value.getVersion().toString()
                                                            + " is obsolete, it is no greater than the current version of "
                                                            + curr.getVersion().toString() + ".");
-                    } else if(occured == Occurred.AFTER) {
+                    } else if(occurred == Occurred.AFTER) {
                         iter.remove();
                     }
                 }

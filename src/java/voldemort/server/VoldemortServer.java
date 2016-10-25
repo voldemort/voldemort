@@ -143,7 +143,7 @@ public class VoldemortServer extends AbstractService {
         if(!config.isEnableNodeIdDetection()) {
             // Node Id is missing and auto detection is disabled, error out.
             throw new VoldemortException(VoldemortConfig.NODE_ID
-                                         + " is a required proeprty of the Voldemort Server");
+                                         + " is a required property of the Voldemort Server");
         }
         return computeNodeId(config, cluster);
     }

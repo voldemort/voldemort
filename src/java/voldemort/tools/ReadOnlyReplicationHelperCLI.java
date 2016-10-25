@@ -83,7 +83,7 @@ public class ReadOnlyReplicationHelperCLI {
         help.append("\n");
         help.append("SYNOPSIS\n");
         help.append("   --" + OPT_URL + " <bootstrap-url> --" + OPT_NODE + " <node-id> [--"
-                    + OPT_OUTPUT + " <optput-file-path>]\n");
+                    + OPT_OUTPUT + " <output-file-path>]\n");
         help.append("\n");
         System.out.print(help.toString());
         try {

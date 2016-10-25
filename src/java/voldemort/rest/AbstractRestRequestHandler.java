@@ -72,7 +72,7 @@ public abstract class AbstractRestRequestHandler extends SimpleChannelUpstreamHa
                     requestValidator = new RestGetRequestValidator(request, messageEvent);
                 } else if(httpMethod.equals(HttpMethod.POST)) {
                     if(logger.isDebugEnabled()) {
-                        logger.debug("Recieved a Http POST request at "
+                        logger.debug("Received a Http POST request at "
                                      + System.currentTimeMillis()+ " ms");
                     }
                     requestValidator = new RestPutRequestValidator(request,

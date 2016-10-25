@@ -120,6 +120,6 @@ public class GenerateScriptCLI {
             br.close();
         }
         writer.close();
-        System.out.println("Ouput script generated at " + outputScriptPath);
+        System.out.println("Output script generated at " + outputScriptPath);
     }
 }

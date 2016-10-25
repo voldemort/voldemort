@@ -1,5 +1,5 @@
 Release 1.10.22 9/20/16
-* Fixes BnP resiliance to colo failures
+* Fixes BnP resilience to colo failures
 * Fixes indentation issue with python client
 * Adds 'readonly.omit.port' server configuration
 * Fixes data cleanup job
@@ -7,7 +7,7 @@ Release 1.10.22 9/20/16
 
 Release 1.10.21 8/10/16
 * Fix admin request timeout issue because HDFSFailedlock takes long time.
-* Provide chunk size suggetion for BnP jobs.
+* Provide chunk size suggestion for BnP jobs.
 
 Release 1.10.20 7/28/2016
 * Reduce the server log level on missing stores
@@ -1273,7 +1273,7 @@ The following changes were made since 0.55:
 * Fixed race condition in AbstractSocketPoolTest
 * Added improved monitoring for bdb stats
 * Added backoff and retry logic in bootstrap code
-* Not logging obosleteVersionException(s) or counting it in JMX exception count
+* Not logging obsoleteVersionException(s) or counting it in JMX exception count
 * Fixed issue 159
 * C++ client building on OS X
 * Rely only on the number of versions returned to decide whether to retrieve

@@ -118,7 +118,7 @@ public class ThriftSerializerTest extends TestCase {
         assertEquals(message, message2);
     }
 
-    public void testEmptyObjSeserialization() {
+    public void testEmptyObjSerialization() {
         MockMessage message = new MockMessage();
         ThriftSerializer<MockMessage> serializer = new ThriftSerializer<MockMessage>("java=voldemort.serialization.thrift.MockMessage, protocol=binary ");
         byte[] b = serializer.toBytes(message);

@@ -247,7 +247,7 @@ public class HdfsCopyStats {
 
     public void reportFileError(File file,int attempts, long startTimeMS, Throwable t) {
         long nowMS = System.currentTimeMillis();
-        String message = " Error occured during file download " + file.getName()
+        String message = " Error occurred during file download " + file.getName()
                          + " after attempts " + attempts + " time elapsed " + (nowMS - startTimeMS)
                          + " MS.";
         reportError(message, t);

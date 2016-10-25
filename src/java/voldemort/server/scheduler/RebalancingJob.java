@@ -71,13 +71,13 @@ public class RebalancingJob implements Runnable {
                 }
             }
             totalRebalanced += rebalanced;
-            long ellapsedSeconds = (System.currentTimeMillis() - currStart) / Time.MS_PER_SECOND;
+            long elapsedSeconds = (System.currentTimeMillis() - currStart) / Time.MS_PER_SECOND;
             logger.info("Rebalancing of store " + engine.getName() + " completed in "
-                        + ellapsedSeconds + " seconds.");
+                        + elapsedSeconds + " seconds.");
             logger.info(rebalanced + " keys rebalanced.");
         }
-        long ellapsedSeconds = (System.currentTimeMillis() - start) / Time.MS_PER_SECOND;
-        logger.info("Rebalancing complete for all stores in " + ellapsedSeconds + " seconds.");
+        long elapsedSeconds = (System.currentTimeMillis() - start) / Time.MS_PER_SECOND;
+        logger.info("Rebalancing complete for all stores in " + elapsedSeconds + " seconds.");
         logger.info(totalRebalanced + " keys rebalanced in total.");
     }
 

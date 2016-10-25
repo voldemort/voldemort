@@ -85,7 +85,7 @@ public class VectorClockTest {
     }
 
     /**
-     * See gihub issue #25: Incorrect coersion of version to short before
+     * See github issue #25: Incorrect coercion of version to short before
      * passing to ClockEntry constructor
      */
     @Test

@@ -129,7 +129,7 @@ public class AsyncMetadataVersionManager implements Runnable {
             }
         }
 
-        // Swallow all exceptions here (we dont want to fail the client).
+        // Swallow all exceptions here (we don't want to fail the client).
         catch(Exception e) {
             logger.debug("Could not retrieve Metadata Version. Exception : " + e);
         }

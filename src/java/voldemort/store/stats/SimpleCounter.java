@@ -92,7 +92,7 @@ public class SimpleCounter {
                 // the synchronization is for any monitoring thread to read a
                 // consistent state for reporting
                 synchronized(this) {
-                    // reseting this counters here might be problematic since
+                    // resetting this counters here might be problematic since
                     // another application thread can go ahead and update the
                     // counters and we will miss those data points. instead we
                     // simply update the delta from the current interval. This

@@ -45,7 +45,7 @@ public final class ByteArray implements Serializable {
     }
 
     /**
-     * Translate the each ByteArray in an iterable into a hexidecimal string
+     * Translate the each ByteArray in an iterable into a hexadecimal string
      * 
      * @param arrays The array of bytes to translate
      * @return An iterable of converted strings

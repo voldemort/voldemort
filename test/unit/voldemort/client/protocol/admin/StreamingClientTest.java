@@ -89,7 +89,7 @@ public class StreamingClientTest {
 
     @Parameterized.Parameters
     public static Collection<Object[]> configs() {
-        StoreDefinition storeDefConsistestStrategy = new StoreDefinitionBuilder().setName(TEST_STORE_NAME)
+        StoreDefinition storeDefConsistentStrategy = new StoreDefinitionBuilder().setName(TEST_STORE_NAME)
                                                                                  .setType(BdbStorageConfiguration.TYPE_NAME)
                                                                                  .setKeySerializer(new SerializerDefinition("string"))
                                                                                  .setValueSerializer(new SerializerDefinition("string"))
@@ -128,7 +128,7 @@ public class StreamingClientTest {
                   ServerTestUtils.getLocalCluster(2, new int[][] { { 0, 1, 2, 3 },
                                                   { 4, 5, 6, 7 } }),
                   0,
-                  storeDefConsistestStrategy
+                  storeDefConsistentStrategy
                 },
                 {
                   2,
@@ -136,7 +136,7 @@ public class StreamingClientTest {
                                                                           new int[][] {
                                                                                   { 0, 1, 2, 3 },
                                                                                   { 4, 5, 6, 7 } }),
-                  1, storeDefConsistestStrategy
+                  1, storeDefConsistentStrategy
                 },
                 { 6,
                   ClusterTestUtils.getZ1Z3ClusterWithNonContiguousNodeIds(),

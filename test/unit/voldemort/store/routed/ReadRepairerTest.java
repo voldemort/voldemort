@@ -223,7 +223,7 @@ public class ReadRepairerTest {
     }
 
     @Test
-    public void testOneAcestorToTwoSuccessors() throws Exception {
+    public void testOneAncestorToTwoSuccessors() throws Exception {
         int[] expected = new int[] { 1, 1, 2, 2 };
         assertVariationsEqual(asList(getValue(2, 1, expected), getValue(3, 1, expected)),
                               asList(getValue(1, 1, expected),

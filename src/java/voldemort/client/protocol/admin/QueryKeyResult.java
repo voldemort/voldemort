@@ -58,7 +58,7 @@ public class QueryKeyResult {
     }
 
     /**
-     * @return true iff exception occured during queryKeys.
+     * @return true iff exception occurred during queryKeys.
      */
     public boolean hasException() {
         return (exception != null);

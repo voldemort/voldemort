@@ -53,7 +53,7 @@ public class RestServerRequestHandler extends AbstractRestRequestHandler {
 
     /**
      * Gets the store for the store name and routing type. At this point we
-     * already know that the routing type is valid . So we dont throw Voldemort
+     * already know that the routing type is valid. So we don't throw Voldemort
      * Exception for unknown routing type.
      * 
      * @param name - store name

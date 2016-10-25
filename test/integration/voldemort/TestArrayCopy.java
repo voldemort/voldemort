@@ -35,16 +35,16 @@ public class TestArrayCopy {
         long start = System.nanoTime();
         for(int i = 0; i < iterations; i++)
             System.arraycopy(source, 0, dest, 0, size);
-        long ellapsed = System.nanoTime() - start;
-        System.out.println("System.arraycopy(): " + (ellapsed / (double) iterations));
+        long elapsed = System.nanoTime() - start;
+        System.out.println("System.arraycopy(): " + (elapsed / (double) iterations));
 
         // test for loop
         start = System.nanoTime();
         for(int i = 0; i < iterations; i++)
             for(int j = 0; j < size; j++)
                 dest[j] = source[j];
-        ellapsed = System.nanoTime() - start;
-        System.out.println("for loop: " + (ellapsed / (double) iterations));
+        elapsed = System.nanoTime() - start;
+        System.out.println("for loop: " + (elapsed / (double) iterations));
 
     }
 

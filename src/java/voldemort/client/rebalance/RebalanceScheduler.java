@@ -131,9 +131,9 @@ public class RebalanceScheduler {
         try {
             doneSignal.await();
         } catch(InterruptedException e) {
-            logger.error("RebalancController scheduler interrupted while waiting for rebalance "
+            logger.error("RebalanceController scheduler interrupted while waiting for rebalance "
                          + "tasks to be scheduled.", e);
-            throw new VoldemortRebalancingException("RebalancController scheduler interrupted "
+            throw new VoldemortRebalancingException("RebalanceController scheduler interrupted "
                                                     + "while waiting for rebalance tasks to be "
                                                     + "scheduled.");
         }

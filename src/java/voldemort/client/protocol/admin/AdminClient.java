@@ -150,7 +150,7 @@ import com.google.protobuf.UninitializedMessageException;
  * <li>Used extensively by rebalancing (dynamic node addition/deletion) feature
  * (presently in development).</li>
  * </ul>
- * 
+ *
  */
 public class AdminClient implements Closeable {
 
@@ -1753,9 +1753,9 @@ public class AdminClient implements Closeable {
          * Note that, store may present on some nodes and not on other
          * nodes, due to node failures or other reasons. In those cases
          * results will be inconsistent based on the node it choose to query.
-         * 
+         *
          * @param storeName name of the store
-         * @return null if it does not exist, StoreDefinition if it exists. 
+         * @return null if it does not exist, StoreDefinition if it exists.
          */
         public StoreDefinition getStoreDefinition(String storeName) {
             Integer nodeId = currentCluster.getNodeIds().iterator().next();
@@ -2071,7 +2071,7 @@ public class AdminClient implements Closeable {
         /**
          * validate the newStoreDefinition is compatible with existing
          * storeDefinition. If they are incompatible, it throws an error.
-         * 
+         *
          * @param remoteStoreDef Store retrieved from the remote node
          * @param newStoreDef Store that needs to be created
          */
@@ -2244,7 +2244,7 @@ public class AdminClient implements Closeable {
             List<Integer> nodesMissingNewStore =
                     getNodesMissingNewStore(newStoreDef, localProcessName, executor, unreachableNodes);
 
-            long verifyCompletionTime = System.currentTimeMillis(); 
+            long verifyCompletionTime = System.currentTimeMillis();
             long elapsedTime = verifyCompletionTime - startTime;
             String timingInfo = "verifyOrAddStore() " + AdminClient.this.debugInfo + " Store: "
                                 + newStoreDef.getName() + " Verification Time: " + elapsedTime
@@ -2321,7 +2321,7 @@ public class AdminClient implements Closeable {
 
         /**
          * Delete a store from a particular node
-         * 
+         *
          * @param storeName name of the store to delete
          * @param nodeId Node on which we want to delete a store
          * @throws VoldemortException if it fails to delete
@@ -3370,16 +3370,16 @@ public class AdminClient implements Closeable {
          * waiting for a response from the server.</li>
          * <li>After iteration is complete, send an end of stream message, force
          * a flush of the buffer, check the response on the server to check if a
-         * {@link VoldemortException} has occured.</li>
+         * {@link VoldemortException} has occurred.</li>
          * </ol>
-         * 
+         *
          * @param nodeId Id of the remote node (where we wish to update the
          *        entries)
          * @param storeName Store name for the entries
          * @param entryIterator Iterator of key-value pairs for the entries
          * @param filter Custom filter implementation to filter out entries
          *        which should not be updated.
-         * 
+         *
          * @throws VoldemortException
          */
         public void updateEntries(int nodeId,
@@ -3425,9 +3425,9 @@ public class AdminClient implements Closeable {
          * waiting for a response from the server.</li>
          * <li>After iteration is complete, send an end of stream message, force
          * a flush of the buffer, check the response on the server to check if a
-         * {@link VoldemortException} has occured.</li>
+         * {@link VoldemortException} has occurred.</li>
          * </ol>
-         * 
+         *
          * @param nodeId Id of the remote node (where we wish to update the
          *        entries)
          * @param storeName Store name for the entries
@@ -3997,14 +3997,14 @@ public class AdminClient implements Closeable {
          *
          * @param cluster The cluster metadata
          * @param nodeId Do not check this node, we don't trust it right now.
-	 *		May be -1 to check every node.
+         *               May be -1 to check every node.
          * @return List of store definitions
          */
         public List<StoreDefinition> getCurrentStoreDefinitionsExcept(Cluster cluster, int nodeId) {
             List<StoreDefinition> storeDefs = null;
             for(Node node: cluster.getNodes()) {
-		if (node.getId() == nodeId)
-		    continue;
+                if (node.getId() == nodeId)
+                    continue;
                 List<StoreDefinition> storeDefList = metadataMgmtOps.getRemoteStoreDefList(node.getId())
                                                                     .getValue();
                 if(storeDefs == null) {
@@ -4035,8 +4035,8 @@ public class AdminClient implements Closeable {
          * @return List of store definitions
          */
         public List<StoreDefinition> getCurrentStoreDefinitions(Cluster cluster) {
-	    return getCurrentStoreDefinitionsExcept(cluster, -1);
-	}
+            return getCurrentStoreDefinitionsExcept(cluster, -1);
+        }
 
         /**
          * Given a list of store definitions, cluster and admin client returns a
@@ -4084,7 +4084,7 @@ public class AdminClient implements Closeable {
 
     /**
      * Encapsulates all operations to restore data in the cluster
-     * 
+     *
      */
     public class RestoreOperations {
 
@@ -5052,15 +5052,15 @@ public class AdminClient implements Closeable {
     }
 
     public class QuotaManagementOperations {
-      
+
         private VectorClock makeDenseClock() {
           // FIXME This is a temporary workaround for System store client not
           // being able to do a second insert. We simply generate a super
           // clock that will trump what is on storage
           // But this will not work, if the nodes are ever removed or re-assigned.
-          // To complicate the issue further, SystemStore uses one clock for all 
+          // To complicate the issue further, SystemStore uses one clock for all
           // keys in a file. When you remove nodes, go delete, all version files from the disk
-          // otherwise 
+          // otherwise
           return VectorClockUtils.makeClockWithCurrentTime(currentCluster.getNodeIds());
         }
 

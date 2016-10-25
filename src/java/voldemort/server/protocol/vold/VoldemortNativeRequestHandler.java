@@ -41,7 +41,7 @@ public class VoldemortNativeRequestHandler extends AbstractRequestHandler implem
         this.protocolVersion = protocolVersion;
     }
 
-    private ClientRequestHandler getClientRequestHanlder(byte opCode,
+    private ClientRequestHandler getClientRequestHandler(byte opCode,
                                                          Store<ByteArray, byte[], byte[]> store)
             throws IOException {
         switch(opCode) {
@@ -100,7 +100,7 @@ public class VoldemortNativeRequestHandler extends AbstractRequestHandler implem
             return null;
         }
 
-        ClientRequestHandler requestHandler = getClientRequestHanlder(opCode, store);
+        ClientRequestHandler requestHandler = getClientRequestHandler(opCode, store);
 
         try {
             requestHandler.parseRequest(inputStream);

@@ -609,7 +609,7 @@ public class RedirectingStore extends DelegatingStore<ByteArray, byte[], byte[]>
      * the value from client.
      * <p>
      * Stealer node should ignore {@link ObsoleteVersionException} while
-     * commiting proxyValue to local storage.
+     * committing proxyValue to local storage.
      * 
      * @param key Key
      * @param proxyId proxy node id
