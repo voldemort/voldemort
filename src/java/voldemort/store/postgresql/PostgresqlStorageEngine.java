@@ -37,11 +37,12 @@ public class PostgresqlStorageEngine extends AbstractStorageEngine<ByteArray, by
         super(name);
         this.datasource = datasource;
 
-        this.createIfNotExists();
+        // create does a create if not exists.
+        this.create();
 
     }
 
-    private void createIfNotExists() {
+    public void create() {
         execute("create table if not exists " + getName()
                 + " (key_ bytea not null, version_ bytea not null, "
                 + " value_ bytea, primary key(key_, version_))");
