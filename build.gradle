@@ -68,6 +68,11 @@ allprojects {
             // For BDB-Je dependencies
             url "http://download.oracle.com/maven/"
         }
+        maven{
+            // For Postgresql
+            url "https://mvnrepository.com/artifact/org.postgresql/postgresql"
+            
+        }
     }
 
     // http://blog.joda.org/2014/02/turning-off-doclint-in-jdk-8-javadoc.html
@@ -479,6 +484,11 @@ dependencies {
 
     // Used all over the place for collections
     compile depGuava
+    
+    // https://mvnrepository.com/artifact/org.postgresql/postgresql
+    compile group: 'org.postgresql', name: 'postgresql', version: '9.4-1201-jdbc41'
+
+
 
     // used for readonly store hdfs fetcher.
     compile 'org.apache.hadoop:hadoop-auth:2.3.0-cdh5.1.5'
