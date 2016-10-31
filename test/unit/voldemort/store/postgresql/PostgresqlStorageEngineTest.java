@@ -3,15 +3,21 @@ package voldemort.store.postgresql;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
+import java.util.HashMap;
+import java.util.Map;
 
 import javax.sql.DataSource;
 
 import org.apache.commons.dbcp.BasicDataSource;
+import org.junit.Test;
 
 import voldemort.TestUtils;
 import voldemort.store.AbstractStorageEngineTest;
 import voldemort.store.StorageEngine;
 import voldemort.utils.ByteArray;
+import voldemort.utils.ClosableIterator;
+import voldemort.utils.Pair;
+import voldemort.versioning.Versioned;
 
 public class PostgresqlStorageEngineTest extends AbstractStorageEngineTest {
 
@@ -27,7 +33,7 @@ public class PostgresqlStorageEngineTest extends AbstractStorageEngineTest {
 
     @Override
     public StorageEngine<ByteArray, byte[], byte[]> getStorageEngine() {
-        return new PostgresqlStorageEngine("test_store", getDataSource());
+        return new PostgresqlStorageEngine("test_store", getDataSource(), 10000, 10000);
     }
 
     @Override
@@ -53,10 +59,42 @@ public class PostgresqlStorageEngineTest extends AbstractStorageEngineTest {
     public void testOpenNonExistantStoreCreatesTable() throws SQLException {
         String newStore = TestUtils.randomLetters(15);
         /* Create the engine for side-effect */
-        new PostgresqlStorageEngine(newStore, getDataSource());
+        new PostgresqlStorageEngine(newStore, getDataSource(), 10000, 100000);
         DataSource ds = getDataSource();
         executeQuery(ds, "select 1 from " + newStore + " limit 1");
         executeQuery(ds, "drop table " + newStore);
+    }
+
+    @Test
+    public void testPutBatch() {
+        final int numPut = 10000;
+        final StorageEngine<ByteArray, byte[], byte[]> store = getStorageEngine();
+        Map<ByteArray, Versioned<byte[]>> input = new HashMap<ByteArray, Versioned<byte[]>>();
+        for(int i = 0; i < numPut; i++) {
+            String key = "key-" + i;
+            String value = "Value for " + key;
+            input.put(new ByteArray(key.getBytes()), new Versioned<byte[]>(value.getBytes()));
+        }
+        store.putAll(input, null);
+        int numGet = 0;
+        ClosableIterator<Pair<ByteArray, Versioned<byte[]>>> it = null;
+
+        try {
+            it = store.entries();
+            while(it.hasNext()) {
+                it.next();
+                numGet++;
+            }
+            long endIter = System.currentTimeMillis();
+
+        } finally {
+            if(it != null) {
+                it.close();
+            }
+        }
+        assertEquals("Iterator returned by the call to entries() did not contain the expected number of values",
+                     numPut,
+                     numGet);
     }
 
 }

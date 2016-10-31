@@ -162,6 +162,7 @@ public class VoldemortConfig implements Serializable {
     public static final String PG_HOST = "pg.host";
     public static final String PG_PORT = "pg.port";
     public static final String PG_DATABASE = "pg.database";
+    public static final String PG_BATCH_SIZE = "pg.batchSize";
 
     public static final String TESTING_SLOW_QUEUEING_GET_MS = "testing.slow.queueing.get.ms";
     public static final String TESTING_SLOW_QUEUEING_GETALL_MS = "testing.slow.queueing.getall.ms";
@@ -381,6 +382,7 @@ public class VoldemortConfig implements Serializable {
         defaultConfig.put(PG_HOST, "localhost");
         defaultConfig.put(PG_PORT, 5432);
         defaultConfig.put(PG_DATABASE, "voldemort");
+        defaultConfig.put(PG_BATCH_SIZE, 10000);
 
         defaultConfig.put(TESTING_SLOW_QUEUEING_GET_MS, 0);
         defaultConfig.put(TESTING_SLOW_QUEUEING_GETALL_MS, 0);
@@ -586,6 +588,7 @@ public class VoldemortConfig implements Serializable {
     private String pgDatabaseName;
     private String pgHost;
     private int pgPort;
+    private int pgBatchSize;
 
     private String rocksdbDataDirectory;
     private boolean rocksdbPrefixKeysWithPartitionId;
@@ -929,6 +932,7 @@ public class VoldemortConfig implements Serializable {
         this.pgHost = this.allProps.getString(PG_HOST);
         this.pgPort = this.allProps.getInt(PG_PORT);
         this.pgDatabaseName = this.allProps.getString(PG_DATABASE);
+        this.pgBatchSize = this.allProps.getInt(PG_BATCH_SIZE);
 
         this.testingSlowQueueingDelays = new OpTimeMap(0);
         this.testingSlowQueueingDelays.setOpTime(VoldemortOpCode.GET_OP_CODE, this.allProps.getInt(TESTING_SLOW_QUEUEING_GET_MS));
@@ -2242,84 +2246,100 @@ public class VoldemortConfig implements Serializable {
         this.enableJmx = enableJmx;
     }
 
-    public String getPGUsername() {
+    public String getPostgresUsername() {
         return pgUsername;
     }
 
     /**
-     * user name to use with MySQL storage engine
+     * user name to use with Postgresql storage engine
      * 
      * <ul>
-     * <li>Property : "{@value #MYSQL_USER}"</li>
+     * <li>Property : "{@value #Postgresql}"</li>
      * <li>Default : "root"</li>
      * </ul>
      */
-    public void setPGUsername(String pgUsername) {
+    public void setPostgresUsername(String pgUsername) {
         this.pgUsername = pgUsername;
     }
 
-    public String getPgPassword() {
+    public String getPostgresPassword() {
         return pgPassword;
     }
 
     /**
-     * Password to use with MySQL storage engine
+     * Password to use with Postgresql storage engine
      * 
      * <ul>
-     * <li>Property : "{@value #MYSQL_PASSWORD}"</li>
+     * <li>Property : "{@value #Postgresql}"</li>
      * <li>Default :""</li>
      * </ul>
      */
-    public void setPgPassword(String pgPassword) {
+    public void setPostgresPassword(String pgPassword) {
         this.pgPassword = pgPassword;
     }
 
-    public String getPgDatabaseName() {
+    public String getPostgresDatabaseName() {
         return pgDatabaseName;
     }
 
     /**
-     * MySQL database name to use
+     * Postgresql database name to use
      * 
      * <ul>
      * <li>Property :</li>
      * <li>Default :</li>
      * </ul>
      */
-    public void setPgDatabaseName(String pgDatabaseName) {
+    public void setPostgresDatabaseName(String pgDatabaseName) {
         this.pgDatabaseName = pgDatabaseName;
     }
 
-    public String getPgHost() {
+    public String getPostgresHost() {
         return pgHost;
     }
 
     /**
-     * Hostname of the database server for MySQL storage engine
+     * Hostname of the database server for Postgresql storage engine
      * 
      * <ul>
-     * <li>Property : "{@value #MYSQL_HOST}"</li>
+     * <li>Property : "{@value #PG_HOST}"</li>
      * <li>Default :"localhost"</li>
      * </ul>
      */
-    public void setPgHost(String pgHost) {
+    public void setPostgresHost(String pgHost) {
         this.pgHost = pgHost;
     }
 
-    public int getPgPort() {
+    public int getPostgresPort() {
         return pgPort;
     }
 
     /**
-     * Port number for the MySQL database server
+     * Port number for the Postgresql database server
      * 
      * <ul>
-     * <li>Property : "{@value #MYSQL_PORT}"</li>
-     * <li>Default :3306</li>
+     * <li>Property : "{@value #PG_PORT}"</li>
+     * <li>Default :5432</li>
      * </ul>
      */
-    public void setPgPort(int pgPort) {
+    public void setPostgresPort(int pgPort) {
         this.pgPort = pgPort;
+    }
+
+    /**
+     * batchSize of the database server for Postgresql storage engine
+     * 
+     * <ul>
+     * <li>Property : "{@value #PG_BATCH_SIZE}"</li>
+     * <li>Default :"localhost"</li>
+     * </ul>
+     */
+    public void setPostgresBatchSize(int pgBatchSize) {
+        this.pgBatchSize = pgBatchSize;
+    }
+
+    public int getPostgresbatchSize() {
+        return this.pgBatchSize;
     }
 
     public String getMysqlUsername() {

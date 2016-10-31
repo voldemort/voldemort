@@ -4,8 +4,12 @@ import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
+import java.util.Set;
+import java.util.function.Consumer;
 
 import javax.sql.DataSource;
 
@@ -30,12 +34,21 @@ public class PostgresqlStorageEngine extends AbstractStorageEngine<ByteArray, by
 
     private static final Logger logger = Logger.getLogger(PostgresqlStorageEngine.class);
     private static int PG_ERR_DUP_KEY = 23505;
+    private final int BATCH_HARD_LIMIT;
+    private final int BATCH_SIZE;
 
     private final DataSource datasource;
 
-    public PostgresqlStorageEngine(final String name, final DataSource datasource) {
+    public PostgresqlStorageEngine(final String name,
+                                   final DataSource datasource,
+                                   final int batchSize,
+                                   final int batchHardLimit) {
         super(name);
         this.datasource = datasource;
+
+        this.BATCH_SIZE = batchSize;
+
+        this.BATCH_HARD_LIMIT = batchHardLimit;
 
         // create does a create if not exists.
         this.create();
@@ -173,7 +186,6 @@ public class PostgresqlStorageEngine extends AbstractStorageEngine<ByteArray, by
             conn = datasource.getConnection();
             conn.setAutoCommit(false);
 
-            // check for superior versions
             select = conn.prepareStatement(selectSql);
             select.setBytes(1, key.get());
             results = select.executeQuery();
@@ -206,9 +218,13 @@ public class PostgresqlStorageEngine extends AbstractStorageEngine<ByteArray, by
         } finally {
             if(conn != null) {
                 try {
-                    if(doCommit)
+                    if(doCommit) {
+                        long currentTimeMillis4 = System.currentTimeMillis();
                         conn.commit();
-                    else
+                        long currentTimeMillis5 = System.currentTimeMillis();
+                        // System.out.println("commit Time taken : " +
+                        // (currentTimeMillis5 - currentTimeMillis4));
+                    } else
                         conn.rollback();
                 } catch(SQLException e) {}
             }
@@ -217,6 +233,93 @@ public class PostgresqlStorageEngine extends AbstractStorageEngine<ByteArray, by
             tryClose(select);
             tryClose(conn);
         }
+    }
+
+    @Override
+    public void putAll(Map<ByteArray, Versioned<byte[]>> entries, byte[] transforms) {
+        putBatch(entries, transforms, this.BATCH_SIZE);
+    }
+
+    private void putBatch(Map<ByteArray, Versioned<byte[]>> entries,
+                         byte[] transforms,
+                         int batchSize) {
+
+        Connection conn = null;
+        PreparedStatement insert = null;
+        PreparedStatement select = null;
+        boolean doCommit = false;
+
+        String insertSql = "insert into " + getName()
+                           + " (key_, version_, value_) values (?, ?, ?)";
+        String selectSql = "select version_ from " + getName() + " where key_ = ?";
+        try {
+            conn = datasource.getConnection();
+            conn.setAutoCommit(doCommit);
+            select = conn.prepareStatement(selectSql);
+            insert = conn.prepareStatement(insertSql);
+
+            // all entries
+            if(batchSize == -1) {
+                if(entries.size() > BATCH_HARD_LIMIT) {
+                    throw new UnsupportedOperationException("Resultant batchSize is greater than "
+                                                            + BATCH_HARD_LIMIT);
+                } else {
+                    entries.entrySet().forEach(new PutConsumer(conn, insert, select));
+                    doCommit = true;
+                }
+            } else if(batchSize > BATCH_HARD_LIMIT) {
+                throw new UnsupportedOperationException("Resultant batchSize is greater than "
+                                                        + BATCH_HARD_LIMIT);
+            } else {
+                if(batchSize > entries.size()) {
+                    entries.entrySet().forEach(new PutConsumer(conn, insert, select));
+                    doCommit = true;
+                } else {
+                    Set<Entry<ByteArray, Versioned<byte[]>>> batchedEntries = new HashSet<Entry<ByteArray, Versioned<byte[]>>>();
+                    int k = 0;
+                    int i = 0;
+                    for(Entry<ByteArray, Versioned<byte[]>> entry: entries.entrySet()) {
+                        if(k < entries.size() && i < batchSize) {
+                            batchedEntries.add(entry);
+                            k++;
+                            i++;
+                        }
+                        if(k == entries.size()) {
+                            batchedEntries.forEach(new PutConsumer(conn, insert, select));
+                            break;
+                        }
+                        if(k < entries.size() && i == batchSize) {
+                            batchedEntries.forEach(new PutConsumer(conn, insert, select));
+                            i = 0;
+                            batchedEntries.clear();
+                        }
+                    }
+                    doCommit = true;
+                }
+            }
+        } catch(SQLException se) {
+            if(se.getErrorCode() == PG_ERR_DUP_KEY) {
+                throw new ObsoleteVersionException("Key or value already used.");
+            } else {
+                throw new PersistenceFailureException("Failed to connect store !", se);
+            }
+        } finally {
+            if(conn != null) {
+                try {
+                    if(doCommit)
+                        conn.commit();
+                    else
+                        conn.rollback();
+                } catch(SQLException e) {
+                    e.printStackTrace();
+                }
+            }
+
+            tryClose(insert);
+            tryClose(select);
+            tryClose(conn);
+        }
+
     }
 
     @Override
@@ -232,6 +335,54 @@ public class PostgresqlStorageEngine extends AbstractStorageEngine<ByteArray, by
     @Override
     public void close() throws PersistenceFailureException {
         // don't close datasource cause others could be using it
+    }
+
+    private class PutConsumer implements Consumer<Entry<ByteArray, Versioned<byte[]>>> {
+
+        private final Connection conn;
+        private final PreparedStatement insert;
+        private final PreparedStatement select;
+        private ResultSet results = null;
+
+        public PutConsumer(Connection conn, PreparedStatement insert, PreparedStatement select) {
+            this.conn = conn;
+            this.insert = insert;
+            this.select = select;
+        }
+
+        @Override
+        public void accept(Entry<ByteArray, Versioned<byte[]>> t) {
+            try {
+                select.setBytes(1, t.getKey().get());
+                results = select.executeQuery();
+                while(results.next()) {
+                    VectorClock version = new VectorClock(results.getBytes("version_"));
+                    Occurred occurred = t.getValue().getVersion().compare(version);
+                    if(occurred == Occurred.BEFORE)
+                        throw new ObsoleteVersionException("Attempt to put version "
+                                                           + t.getValue().getVersion()
+                                                           + " which is superceeded by " + version
+                                                           + ".");
+                    else if(occurred == Occurred.AFTER)
+                        delete(conn, t.getKey().get(), version.toBytes());
+                }
+                insert.setBytes(1, t.getKey().get());
+                VectorClock clock = (VectorClock) t.getValue().getVersion();
+                insert.setBytes(2, clock.toBytes());
+                insert.setBytes(3, t.getValue().getValue());
+                insert.executeUpdate();
+            } catch(SQLException e) {
+                if(e.getErrorCode() == PG_ERR_DUP_KEY) {
+                    throw new ObsoleteVersionException("Key or value already used.");
+                } else {
+                    throw new PersistenceFailureException("Fix me!", e);
+                }
+            } finally {
+                tryClose(results);
+            }
+
+        }
+
     }
 
     private class PGClosableIterator

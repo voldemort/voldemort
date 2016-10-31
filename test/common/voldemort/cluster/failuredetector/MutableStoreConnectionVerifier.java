@@ -129,6 +129,11 @@ public class MutableStoreConnectionVerifier extends
                     throws VoldemortException {
                 return false;
             }
+
+            @Override
+            public void putAll(Map<ByteArray, Versioned<byte[]>> entries, byte[] transforms)
+                    throws VoldemortException {}
+
         };
     }
 

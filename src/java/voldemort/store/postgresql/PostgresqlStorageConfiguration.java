@@ -15,23 +15,30 @@ import voldemort.utils.ByteArray;
 public class PostgresqlStorageConfiguration implements StorageConfiguration {
 
     public static final String TYPE_NAME = "postgresql";
+    public static final int BATCH_HARD_LIMIT = 1000000;
+    private final int batchSize;
 
     private BasicDataSource dataSource;
 
     public PostgresqlStorageConfiguration(final VoldemortConfig config) {
         BasicDataSource ds = new BasicDataSource();
-        ds.setUrl("jdbc:postgresql://" + config.getPgHost() + ":" + config.getPgPort() + "/"
-                  + config.getPgDatabaseName());
-        ds.setUsername(config.getPGUsername());
-        ds.setPassword(config.getPgPassword());
+        ds.setUrl("jdbc:postgresql://" + config.getPostgresHost() + ":" + config.getPostgresPort()
+                  + "/" + config.getPostgresDatabaseName());
+        ds.setUsername(config.getPostgresUsername());
+        ds.setPassword(config.getPostgresPassword());
         ds.setDriverClassName("org.postgresql.Driver");
+        batchSize = config.getPostgresbatchSize();
+
         this.dataSource = ds;
     }
 
     @Override
     public StorageEngine<ByteArray, byte[], byte[]> getStore(StoreDefinition storeDef,
                                                              RoutingStrategy strategy) {
-        return new PostgresqlStorageEngine(storeDef.getName(), dataSource);
+        return new PostgresqlStorageEngine(storeDef.getName(),
+                                           dataSource,
+                                           batchSize,
+                                           BATCH_HARD_LIMIT);
     }
 
     @Override
