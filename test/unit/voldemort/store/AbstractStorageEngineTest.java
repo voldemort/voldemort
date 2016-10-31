@@ -245,7 +245,7 @@ public abstract class AbstractStorageEngineTest extends AbstractByteArrayStoreTe
 
     @Test
     public void testEntryIteration() {
-        final int numPut = 100000;
+        final int numPut = 10000;
         final StorageEngine<ByteArray, byte[], byte[]> store = getStorageEngine();
         
         long startTime = System.currentTimeMillis();

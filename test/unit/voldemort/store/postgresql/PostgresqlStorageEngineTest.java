@@ -66,9 +66,12 @@ public class PostgresqlStorageEngineTest extends AbstractStorageEngineTest {
     }
 
     @Test
-    public void testPutBatch() {
+    public void testPutBatchSameBatchSizeAndHardLimit() {
         final int numPut = 10000;
-        final StorageEngine<ByteArray, byte[], byte[]> store = getStorageEngine();
+        final StorageEngine<ByteArray, byte[], byte[]> store = new PostgresqlStorageEngine("test_store",
+                                                                                           getDataSource(),
+                                                                                           10000,
+                                                                                           10000);
         Map<ByteArray, Versioned<byte[]>> input = new HashMap<ByteArray, Versioned<byte[]>>();
         for(int i = 0; i < numPut; i++) {
             String key = "key-" + i;
@@ -95,6 +98,61 @@ public class PostgresqlStorageEngineTest extends AbstractStorageEngineTest {
         assertEquals("Iterator returned by the call to entries() did not contain the expected number of values",
                      numPut,
                      numGet);
+    }
+
+    @Test
+    public void testPutBatchSameBatchSizeLessThanHardLimit() {
+        final int numPut = 10000;
+        final StorageEngine<ByteArray, byte[], byte[]> store = new PostgresqlStorageEngine("test_store",
+                                                                                           getDataSource(),
+                                                                                           1000,
+                                                                                           10000);
+        Map<ByteArray, Versioned<byte[]>> input = new HashMap<ByteArray, Versioned<byte[]>>();
+        for(int i = 0; i < numPut; i++) {
+            String key = "key-" + i;
+            String value = "Value for " + key;
+            input.put(new ByteArray(key.getBytes()), new Versioned<byte[]>(value.getBytes()));
+        }
+        store.putAll(input, null);
+        int numGet = 0;
+        ClosableIterator<Pair<ByteArray, Versioned<byte[]>>> it = null;
+
+        try {
+            it = store.entries();
+            while(it.hasNext()) {
+                it.next();
+                numGet++;
+            }
+            long endIter = System.currentTimeMillis();
+
+        } finally {
+            if(it != null) {
+                it.close();
+            }
+        }
+        assertEquals("Iterator returned by the call to entries() did not contain the expected number of values",
+                     numPut,
+                     numGet);
+    }
+
+    @Test
+    public void testPutBatchSameBatchSizeGrtThanHardLimit() {
+        final int numPut = 10000;
+        final StorageEngine<ByteArray, byte[], byte[]> store = new PostgresqlStorageEngine("test_store",
+                                                                                           getDataSource(),
+                                                                                           10000,
+                                                                                           1000);
+        Map<ByteArray, Versioned<byte[]>> input = new HashMap<ByteArray, Versioned<byte[]>>();
+        for(int i = 0; i < numPut; i++) {
+            String key = "key-" + i;
+            String value = "Value for " + key;
+            input.put(new ByteArray(key.getBytes()), new Versioned<byte[]>(value.getBytes()));
+        }
+        try {
+        store.putAll(input, null);
+        } catch(Exception ex) {
+            assertEquals(UnsupportedOperationException.class, ex.getClass());
+        }
     }
 
 }
