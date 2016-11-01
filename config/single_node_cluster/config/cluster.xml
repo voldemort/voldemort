@@ -3,8 +3,8 @@
         <server>
                 <id>0</id>
                 <host>localhost</host>
-                <http-port>9091</http-port>
-                <socket-port>6666</socket-port>
+                <http-port>8081</http-port>
+                <socket-port>8888</socket-port>
                 <partitions>0, 1</partitions>
         </server>
 </cluster>
