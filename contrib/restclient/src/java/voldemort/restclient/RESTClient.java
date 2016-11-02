@@ -175,7 +175,7 @@ public class RESTClient<K, V> implements StoreClient<K, V> {
     }
 
     @Override
-    public boolean delete(K key) {
+    public boolean delete(K key) {                
         Versioned<V> versioned = get(key);
         if(versioned == null)
             return false;
@@ -198,5 +198,15 @@ public class RESTClient<K, V> implements StoreClient<K, V> {
 
     public String getName() {
         return this.storeName;
+    }
+    
+    @Override
+    public List<Version> putAll(Map<K, V> entries, Object transforms){
+        throw new UnsupportedOperationException("putAll operation is not supported in RestClient ");
+    }
+    
+    @Override
+    public List<Version> putAll(Map<K, V> entries) {
+        throw new UnsupportedOperationException("putAll operation is not supported in RestClient ");
     }
 }
