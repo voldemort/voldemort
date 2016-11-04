@@ -145,6 +145,8 @@ public class VoldemortBuildAndPushJob extends AbstractJob {
     public final static String REDUCER_OUTPUT_COMPRESS_CODEC = "reducer.output.compress.codec";
     public final static String REDUCER_OUTPUT_COMPRESS = "reducer.output.compress";
     public final static String STORE_VERIFICATION_MAX_THREAD_NUM = "store.verification.max.thread.num";
+    public final static String ADMIN_CLIENT_CONNECTION_TIMEOUT_SEC = "admin.client.connection.timeout.sec";
+    public final static String ADMIN_CLIENT_SOCKET_TIMEOUT_SEC = "admin.client.socket.timeout.sec";
     // default
     private final static String RECOMMENDED_FETCHER_PROTOCOL = "webhdfs";
     private final int DEFAULT_THREAD_NUM_FOR_STORE_VERIFICATION = 20;
@@ -187,12 +189,12 @@ public class VoldemortBuildAndPushJob extends AbstractJob {
     private Map<String, VAdminProto.GetHighAvailabilitySettingsResponse> haSettingsPerCluster;
     private boolean buildPrimaryReplicasOnly;
 
-    private AdminClient createAdminClient(String url, boolean fetchAllStoresXml) {
+    private AdminClient createAdminClient(String url, boolean fetchAllStoresXml, int connectionTimeoutSec, int socketTimeoutSec) {
         ClientConfig config = new ClientConfig().setBootstrapUrls(url)
-                .setConnectionTimeout(15,TimeUnit.SECONDS)
+                .setConnectionTimeout(connectionTimeoutSec ,TimeUnit.SECONDS)
                 .setFetchAllStoresXmlInBootstrap(fetchAllStoresXml);
 
-        AdminClientConfig adminConfig = new AdminClientConfig().setAdminSocketTimeoutSec(60);
+        AdminClientConfig adminConfig = new AdminClientConfig().setAdminSocketTimeoutSec(socketTimeoutSec);
         return new AdminClient(adminConfig, config);
     }
 
@@ -204,6 +206,8 @@ public class VoldemortBuildAndPushJob extends AbstractJob {
         log.info("Job props:\n" + this.props.toString(true));
 
         this.storeName = props.getString(PUSH_STORE_NAME).trim();
+        final int connectionTimeoutSec = props.getInt(ADMIN_CLIENT_CONNECTION_TIMEOUT_SEC, 15);
+        final int socketTimeoutSec = props.getInt(ADMIN_CLIENT_SOCKET_TIMEOUT_SEC, 180);
         this.clusterURLs = new ArrayList<String>();
         this.dataDirs = new ArrayList<String>();
         this.adminClientPerCluster = Maps.newHashMap();
@@ -216,7 +220,7 @@ public class VoldemortBuildAndPushJob extends AbstractJob {
                     throw new VoldemortException("the URL: " + url + " is repeated in the "+ PUSH_CLUSTER + " property ");
                 }
                 try {
-                    AdminClient adminClient = createAdminClient(url, fetchAllStoresXml);
+                    AdminClient adminClient = createAdminClient(url, fetchAllStoresXml, connectionTimeoutSec, socketTimeoutSec);
                     this.clusterURLs.add(url);
                     this.adminClientPerCluster.put(url, adminClient);
                     this.closeables.add(adminClient);
