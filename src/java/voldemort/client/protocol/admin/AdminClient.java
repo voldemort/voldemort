@@ -4414,7 +4414,19 @@ public class AdminClient implements Closeable {
             }
 
             int asyncId = response.getRequestId();
-            return rpcOps.waitForCompletion(nodeId, asyncId, timeoutMs, TimeUnit.MILLISECONDS);
+            try {
+                return rpcOps.waitForCompletion(nodeId, asyncId, timeoutMs, TimeUnit.MILLISECONDS);
+            } catch (VoldemortException ve) {
+                logger.error("Got an exception from rpcOps.waitForCompletion for nodeId " + nodeId + ", asyncId " +
+                    asyncId + ". Will attempt to kill the job and rethrow the original exception afterwards.");
+                try {
+                    rpcOps.stopAsyncRequest(nodeId, asyncId);
+                    logger.info("Successfully killed aync job " + asyncId);
+                } catch (Exception e) {
+                    logger.error("Failed to kill async job " + asyncId, e);
+                }
+                throw ve;
+            }
         }
 
         /**
