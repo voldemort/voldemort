@@ -1,5 +1,9 @@
 package voldemort.utils;
 
+import voldemort.server.protocol.admin.ReadOnlyFetchDisabledException;
+import voldemort.store.UnreachableStoreException;
+
+import java.io.IOException;
 import java.io.PrintWriter;
 import java.io.StringWriter;
 
@@ -29,6 +33,18 @@ public class ExceptionUtils {
         Throwable cause = throwableToInspect.getCause();
         return cause != null && recursiveClassEquals(cause, throwableClassesToLookFor);
     }
+
+    /**
+     * These errors are considered "soft errors" because they should not prevent a BnP
+     * job from succeeding if they happen on "replication factor - 1" nodes, at most.
+     *
+     * They are provided here because there are various places in the code where we
+     * want to treat these kinds of errors in a special way. Always look at the usages
+     * and evaluate the impact carefully before altering this list.
+     */
+    public static final Class[] BNP_SOFT_ERRORS = {UnreachableStoreException.class,
+                                                   IOException.class,
+                                                   ReadOnlyFetchDisabledException.class};
 
     /**
      * @return a String representation of the provided throwable's stacktrace.

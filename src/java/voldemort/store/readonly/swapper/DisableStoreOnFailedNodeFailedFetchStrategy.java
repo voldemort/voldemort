@@ -1,6 +1,5 @@
 package voldemort.store.readonly.swapper;
 
-import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -8,8 +7,6 @@ import java.util.Map;
 
 import voldemort.client.protocol.admin.AdminClient;
 import voldemort.cluster.Node;
-import voldemort.server.protocol.admin.ReadOnlyFetchDisabledException;
-import voldemort.store.UnreachableStoreException;
 import voldemort.store.readonly.swapper.AdminStoreSwapper.Response;
 import voldemort.utils.ExceptionUtils;
 
@@ -38,14 +35,7 @@ public class DisableStoreOnFailedNodeFailedFetchStrategy extends FailedFetchStra
             Response response = entry.getValue();
             if(!response.isSuccessful()) {
                 Exception ex = response.getException();
-                Class[] softErrors = {UnreachableStoreException.class , IOException.class , ReadOnlyFetchDisabledException.class };
-                boolean isSoftError = false;
-                for(Class softError : softErrors) {
-                    if(ExceptionUtils.recursiveClassEquals(ex, softError)) {
-                        isSoftError = true;
-                        break;
-                    }
-                }
+                boolean isSoftError = ExceptionUtils.recursiveClassEquals(ex, ExceptionUtils.BNP_SOFT_ERRORS);
 
                 Node node = entry.getKey();
                 if(isSoftError) {

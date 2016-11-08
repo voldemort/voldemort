@@ -1300,8 +1300,7 @@ public abstract class AbstractNonZonedRebalanceTest extends AbstractRebalanceTes
                                                                  false);
             storeBuilder.build(ReadOnlyStorageFormat.READONLY_V2);
 
-            AdminStoreSwapper swapper = new AdminStoreSwapper(cluster,
-                                                              Executors.newFixedThreadPool(cluster.getNumberOfNodes()),
+            AdminStoreSwapper swapper = new AdminStoreSwapper(Executors.newFixedThreadPool(cluster.getNumberOfNodes()),
                                                               adminClient,
                                                               100000);
             swapper.fetchAndSwapStoreData(testStoreNameRO, outputDir.getAbsolutePath(), 1L);

@@ -150,7 +150,7 @@ public class StoreSwapperTest {
 
         try {
             // Use the admin store swapper
-            AdminStoreSwapper swapper = new AdminStoreSwapper(cluster,
+            AdminStoreSwapper swapper = new AdminStoreSwapper(
                     executor,
                     adminClient,
                     1000000,
@@ -168,7 +168,7 @@ public class StoreSwapperTest {
 
         try {
             // Use the admin store swapper
-            AdminStoreSwapper swapper = new AdminStoreSwapper(cluster,
+            AdminStoreSwapper swapper = new AdminStoreSwapper(
                     executor,
                     adminClient,
                     1000000,
@@ -188,7 +188,7 @@ public class StoreSwapperTest {
 
         try {
             // Use the admin store swapper
-            AdminStoreSwapper swapper = new AdminStoreSwapper(cluster,
+            AdminStoreSwapper swapper = new AdminStoreSwapper(
                     executor,
                     adminClient,
                     1000000,
@@ -242,8 +242,7 @@ public class StoreSwapperTest {
 
         @Override
         public RuntimeException call(){
-            AdminStoreSwapper swapper = new AdminStoreSwapper(cluster,
-                    executor,adminClient, 1000000, false, false);
+            AdminStoreSwapper swapper = new AdminStoreSwapper(executor, adminClient, 1000000, false, false);
 
             long currentVersion = adminClient.readonlyOps.getROCurrentVersion(0,
                     Lists.newArrayList(STORE_NAME))

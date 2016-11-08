@@ -291,6 +291,16 @@ public class AdminClient implements Closeable {
         this(adminClientConfig, clientConfig, cluster);
     }
 
+    /**
+     * This function can be useful to rebootstrap a new {@link AdminClient} when
+     * {@link #isClusterModified()} returns true.
+     *
+     * @return a freshly re-bootstrapped {@link AdminClient} based on the same configs.
+     */
+    public AdminClient getFreshClient() {
+        return new AdminClient(adminClientConfig, clientConfig);
+    }
+
     @Override
     public String toString() {
         return "AdminClient with " + debugInfo;
@@ -980,9 +990,9 @@ public class AdminClient implements Closeable {
                     }
                 }
             }
-            throw new VoldemortException("Failed to finish task requestId: " + requestId
-                                         + " in maxWait " + maxWait + " " + timeUnit.toString()
-                                         + " on " + nodeName);
+            throw new AsyncOperationTimeoutException("Failed to finish task requestId: " + requestId
+                                                     + " in maxWait " + maxWait + " " + timeUnit.toString()
+                                                     + " on " + nodeName);
         }
 
         /**
@@ -4438,15 +4448,20 @@ public class AdminClient implements Closeable {
             int asyncId = response.getRequestId();
             try {
                 return rpcOps.waitForCompletion(nodeId, asyncId, timeoutMs, TimeUnit.MILLISECONDS);
-            } catch (VoldemortException ve) {
-                logger.error("Got an exception from rpcOps.waitForCompletion for nodeId " + nodeId + ", asyncId " +
-                    asyncId + ". Will attempt to kill the job and rethrow the original exception afterwards.");
+            } catch (AsyncOperationTimeoutException aote) {
+                logger.error("Got an AsyncOperationTimeoutException for nodeId " + nodeId + " while waiting for"
+                             + " completion of Async Operation ID " + asyncId + ". Will attempt to kill the job"
+                             + " and rethrow the original exception afterwards.");
                 try {
                     rpcOps.stopAsyncRequest(nodeId, asyncId);
-                    logger.info("Successfully killed aync job " + asyncId);
+                    logger.info("Successfully killed Async Operation ID " + asyncId);
                 } catch (Exception e) {
-                    logger.error("Failed to kill async job " + asyncId, e);
+                    logger.error("Failed to kill Async Operation ID " + asyncId, e);
                 }
+                throw aote;
+            } catch (VoldemortException ve) {
+                logger.error("Got a " + ve.getClass().getSimpleName() + " for nodeId " + nodeId + " while waiting for"
+                             + " completion of Async Operation ID " + asyncId + ". Bubbling up.");
                 throw ve;
             }
         }
