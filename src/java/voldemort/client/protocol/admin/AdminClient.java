@@ -171,9 +171,10 @@ public class AdminClient implements Closeable {
     private final AdminStoreClient adminStoreClient;
     private final NetworkClassLoader networkClassLoader;
     private final AdminClientConfig adminClientConfig;
-    private final long clusterVersion;
+    private final ClientConfig clientConfig;
     private final boolean fetchSingleStore;
     private final String debugInfo;
+    private Long clusterVersion;
     private Cluster currentCluster;
     private SystemStoreClient<String, String> metadataVersionSysStoreClient = null;
     private SystemStoreClientFactory<String, String> systemStoreFactory = null;
@@ -231,14 +232,18 @@ public class AdminClient implements Closeable {
                                                                .getContextClassLoader());
 
         this.adminClientConfig = adminClientConfig;
+        this.clientConfig = clientConfig;
         this.socketPool = helperOps.createSocketPool(adminClientConfig);
         this.adminStoreClient = new AdminStoreClient(clientConfig);
         this.fetchSingleStore = !clientConfig.isFetchAllStoresXmlInBootstrap();
 
-        this.clusterVersion = System.currentTimeMillis();
         if(cluster != null) {
+            // We don't know at which time the Cluster's state was generated, so we can't know the cluster version.
+            this.clusterVersion = null;
             this.currentCluster = cluster;
         } else {
+            // Important: this time must be recorded before we bootstrap from the remote state
+            this.clusterVersion = System.currentTimeMillis();
             this.currentCluster = getClusterFromBootstrapURL(clientConfig);
         }
 
@@ -315,11 +320,28 @@ public class AdminClient implements Closeable {
      */
     public boolean isClusterModified() {
         try {
-            Properties props = MetadataVersionStoreUtils.getProperties(metadataVersionSysStoreClient);
-            long retrievedVersion = MetadataVersionStoreUtils.getVersion(props,
-                                                                         SystemStoreConstants.CLUSTER_VERSION_KEY);
+            if (null == clusterVersion) {
+                // Then we have no choice to do a full cluster.xml equality check in order to know if the cluster is the same.
 
-            return retrievedVersion > this.clusterVersion;
+                // Important: this time must be recorded before we bootstrap from the remote state
+                long currentTime = System.currentTimeMillis();
+
+                Cluster remoteCluster = getClusterFromBootstrapURL(clientConfig);
+
+                boolean remoteClusterConsistentWithLocalOne = currentCluster.equals(remoteCluster);
+                if (remoteClusterConsistentWithLocalOne) {
+                    // Then we can record the time we had prior to bootstrapping, as an optimization
+                    clusterVersion = currentTime;
+                }
+
+                return !remoteClusterConsistentWithLocalOne;
+            } else {
+                // Then we can rely on the timestamp we recorded before the bootstrap phase.
+                Properties props = MetadataVersionStoreUtils.getProperties(metadataVersionSysStoreClient);
+                long retrievedVersion = MetadataVersionStoreUtils.getVersion(props, SystemStoreConstants.CLUSTER_VERSION_KEY);
+
+                return retrievedVersion > this.clusterVersion;
+            }
         } catch(Exception e) {
             logger.info("Error retrieving cluster metadata version");
             return true;
