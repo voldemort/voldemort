@@ -14,6 +14,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 
+import com.google.common.collect.Sets;
 import joptsimple.OptionParser;
 import joptsimple.OptionSet;
 
@@ -25,6 +26,10 @@ import voldemort.client.protocol.admin.AdminClient;
 import voldemort.client.protocol.admin.AsyncOperationTimeoutException;
 import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
+import voldemort.server.VoldemortConfig;
+import voldemort.server.protocol.admin.AsyncOperationNotFoundException;
+import voldemort.store.readonly.ReadOnlyStorageConfiguration;
+import voldemort.store.readonly.ReadOnlyStorageEngine;
 import voldemort.store.readonly.ReadOnlyUtils;
 import voldemort.store.readonly.UnauthorizedStoreException;
 import voldemort.utils.CmdUtils;
@@ -146,6 +151,10 @@ public class AdminStoreSwapper {
     public Map<Node, Response> invokeFetch(final String storeName,
                                            final String basePath,
                                            final long pushVersion) {
+        // This should result in 5 minutes max of wait time, for failure scenarios which are potentially recoverable.
+        final int MAX_FETCH_ATTEMPT = 10;
+        final long WAIT_TIME_BETWEEN_ATTEMPTS = 30000;
+
         // do fetch
         final Map<Integer, Future<String>> fetchDirs = new HashMap<Integer, Future<String>>();
         for(final Node node: cluster.getNodes()) {
@@ -198,8 +207,6 @@ public class AdminStoreSwapper {
                                 throw ve;
                             }
 
-                            // TODO: Catch specific exception if async task status is not found, and retry in that case.
-
                             if (ExceptionUtils.recursiveClassEquals(ve, ExceptionUtils.BNP_SOFT_ERRORS)) {
                                 String logMessage = "Got a " + ve.getClass().getSimpleName() + " from " + node.briefToString()
                                                     + " while trying to fetch store '" + storeName + "'"
@@ -213,11 +220,40 @@ public class AdminStoreSwapper {
                                     logMessage += " The cluster.xml is up to date. We will retry with the same AdminClient.";
                                 }
                                 logger.info(logMessage);
-                                attempt++;
+                          } else if (ExceptionUtils.isAsyncOpNotFound(ve) || ExceptionUtils.isStoreVersionAlreadyExists(ve)) {
+                              logger.info("We received an exception which indicates that the server was restarted."
+                                          + " We will thus attempt to clean up the old fetch and restart it from scratch.", ve);
+
+                              // We need to be a little clever to determine the path to delete... In the future, this could
+                              // be done better on the server-side (for example, by resuming partially downloaded stores),
+                              // but this quick and dirty approach has the advantage of working against non-upgraded servers.
+                              Set<String> configsWeWant = Sets.newHashSet(VoldemortConfig.READONLY_DATA_DIRECTORY);
+                              Map<String, String> serverConfigs;
+                              try {
+                                  serverConfigs = currentAdminClient.metadataMgmtOps.getServerConfig(node.getId(), configsWeWant);
+                              } catch (Exception e) {
+                                  logger.error("Got an exception when trying to getServerConfig() against "
+                                               + node.briefToString() + ". The server may be running an old version.", e);
+                                  throw ve; // We cannot proceed without this.
+                              }
+                              String roDataDir = serverConfigs.get(VoldemortConfig.READONLY_DATA_DIRECTORY);
+                              String storeDir = ReadOnlyStorageConfiguration.getStoreDirectory(roDataDir, storeName).getAbsolutePath();
+                              String pathToDelete = ReadOnlyStorageEngine.getVersionDirName(storeDir, pushVersion);
+
+                              // Issue the delete command!
+                              try {
+                                  currentAdminClient.readonlyOps.failedFetchStore(node.getId(), storeName, pathToDelete);
+                              } catch (Exception e) {
+                                  // It could be conceivable that we got here in a way where there is nothing to delete yet.
+                                  // So we'll just log and carry on.
+                                  logger.error("Got an exception while trying to delete data from " + node.briefToString());
+                              }
                             } else {
                                 throw ve;
                             }
                         }
+
+                        attempt++;
                     }
 
                     // Defensive coding
