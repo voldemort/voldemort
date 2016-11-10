@@ -1,3 +1,11 @@
+Release 1.10.23 10/11/16
+* Added some extra logging when OOM occurs in BnP.
+* Made admin connection/socket timeout configurable in BnP.
+* Changed the DeleteAllFailedFetchStrategy so that it affects all nodes.
+* BnP now kills an async job that it is waiting on if that job times out.
+* Tweaked the AdminClient's currentVersion so that it is not stale.
+* BnP now retries fetches when cluster.xml is stale.
+
 Release 1.10.22 9/20/16
 * Fixes BnP resilience to colo failures
 * Fixes indentation issue with python client
