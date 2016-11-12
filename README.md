@@ -5,15 +5,18 @@ Using this Fork one can leverage the postgresql storage engine.
 To configure Voldemort to use postgresql, the following steps need to be performed
 * In the server.properties under $VOLDEMORT_HOME/config/single_node_cluster/config add the following properties
 * Update the postgres settings corresponding to your properties
-  # Postgresql
-   pg.host=localhost
-   pg.port=5432
-   pg.user=postgres
-   pg.password=postgres
-   pg.database=postgres
-   pg.batchSize=10000
+
+     pg.host=localhost
+     pg.port=5432
+     pg.user=postgres
+     pg.password=postgres
+     pg.database=postgres
+     pg.batchSize=10000
+     
 * Also update the storage.configs to include postgres storage engines configuration
-   storage.configs=voldemort.store.bdb.BdbStorageConfiguration, voldemort.store.postgresql.PostgresqlStorageConfiguration
+      
+      storage.configs=voldemort.store.bdb.BdbStorageConfiguration, voldemort.store.postgresql.PostgresqlStorageConfiguration
+      
 * In the STORES folder under $VOLDEMORT_HOME/config/single_node_cluster/config create a new file test-postgres and add the following properties to it
 
     <store>
