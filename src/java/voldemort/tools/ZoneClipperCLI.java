@@ -131,7 +131,7 @@ public class ZoneClipperCLI {
             originalPartitions.addAll(initialCluster.getPartitionIdsInZone(zoneId));
         }
 
-        // Get an intermediate cluster where parititions that belong to the zone
+        // Get an intermediate cluster where partitions that belong to the zone
         // that is being dropped have been moved to the existing zones
         Cluster intermediateCluster = RebalanceUtils.vacateZone(initialCluster, dropZoneId);
         Cluster finalCluster = RebalanceUtils.dropZone(intermediateCluster, dropZoneId);

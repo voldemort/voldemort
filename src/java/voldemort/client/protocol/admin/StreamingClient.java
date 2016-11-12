@@ -159,7 +159,7 @@ public class StreamingClient extends BaseStreamingClient {
         HandoffToAnyStrategy slopRoutingStrategy = new HandoffToAnyStrategy(adminClient.getAdminClientCluster(),
                                                                             true,
                                                                             failedNode.getZoneId());
-        // node Id which will recieve the slop
+        // node Id which will receive the slop
         int slopDestination = slopRoutingStrategy.routeHint(failedNode).get(0).getId();
 
         VAdminProto.PartitionEntry partitionEntry = VAdminProto.PartitionEntry.newBuilder()

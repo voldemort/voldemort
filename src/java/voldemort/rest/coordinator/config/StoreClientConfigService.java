@@ -36,7 +36,7 @@ public abstract class StoreClientConfigService {
     public static final String INVALID_PARAM_KEY_ERROR = "is not a valid config key";
     public static final String PARAM_VALUE_MUST_BE_INTEGER_ERROR = "must be an integer";
     public static final String PARAM_VALUE_MUST_BE_POSITIVE_ERROR = "must be positive";
-    public static final String BOOTSTRAP_OPERATION_FAILED_ERROR = "Failed to bootsrap. Check if Voldemort serves this store.";
+    public static final String BOOTSTRAP_OPERATION_FAILED_ERROR = "Failed to bootstrap. Check if Voldemort serves this store.";
 
     protected static final Properties STORE_NOT_DELETED_PROPS = new Properties();
     protected static final Properties STORE_NOT_UPDATED_PROPS = new Properties();

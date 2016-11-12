@@ -43,7 +43,7 @@ import com.google.common.collect.Lists;
 
 
 /**
- * Unit test for  VodemortServer.
+ * Unit test for VoldemortServer.
  */
 public class VoldemortServerTest {
 

@@ -32,7 +32,7 @@ public class NettyConnectionStatsHandler extends SimpleChannelHandler {
     @Override
     public void channelDisconnected(ChannelHandlerContext ctx, ChannelStateEvent e)
             throws Exception {
-        connectionStats.reportChannelDisconnet();
+        connectionStats.reportChannelDisconnect();
         ctx.sendUpstream(e);
     }
 

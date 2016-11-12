@@ -71,7 +71,7 @@ public class RebalancePlanTest {
     }
     
     @BeforeClass
-    public static void setupNonContigous() {
+    public static void setupNonContiguous() {
         z1z3Current = ClusterTestUtils.getZ1Z3ClusterWithNonContiguousNodeIds();
         z1z3z5Current = ClusterTestUtils.getZ1Z3Z5ClusterWithNonContiguousNodeIds();
         

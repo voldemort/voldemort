@@ -81,7 +81,6 @@ public class VoldemortRollbackJob extends AbstractJob {
                 adminClient = new AdminClient(adminConfig, config);
                 Cluster cluster = adminClient.getAdminClientCluster();
                 AdminStoreSwapper swapper = new AdminStoreSwapper(
-                        cluster,
                         service,
                         adminClient,
                         1000 * props.getInt("timeout.seconds", 24 * 60 * 60),

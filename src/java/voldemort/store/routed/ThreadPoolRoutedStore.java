@@ -782,9 +782,9 @@ public class ThreadPoolRoutedStore extends RoutedStore {
                                int successesRequired) {
         for(int i = startingIndex; i < blockCount; i++) {
             try {
-                long ellapsedNs = System.nanoTime() - startNs;
+                long elapsedNs = System.nanoTime() - startNs;
                 long remainingNs = (timeoutConfig.getOperationTimeout(VoldemortOpCode.PUT_OP_CODE) * Time.NS_PER_MS)
-                                   - ellapsedNs;
+                                   - elapsedNs;
                 boolean acquiredPermit = semaphore.tryAcquire(Math.max(remainingNs, 0),
                                                               TimeUnit.NANOSECONDS);
                 if(!acquiredPermit) {

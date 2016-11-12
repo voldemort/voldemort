@@ -84,7 +84,7 @@ public class RestService extends AbstractService {
     @Override
     protected void stopInner() {
         /*
-         * TODO REST-Server Need to handle infligh operations. What happens to
+         * TODO REST-Server Need to handle inflight operations. What happens to
          * the existing async operations when a channel.close() is issued in
          * Netty?
          */

@@ -22,7 +22,7 @@ import voldemort.versioning.Versioned;
  * getRawStore will return the stores in succession. After that all calls will
  * return the Nth store.
  * 
- * This is intended to help simultate things like MetadataExceptions which may
+ * This is intended to help simulate things like MetadataExceptions which may
  * require having an out-of-date Store.
  * 
  * 

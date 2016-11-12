@@ -158,9 +158,9 @@ public class ReadOnlyStorageEngineTestInstance {
             Utils.move(new File(outputDir, "node-" + Integer.toString(i)), new File(currNode,
                                                                                     "version-0"));
 
-            CompressionStrategyFactory comppressionStrategyFactory = new CompressionStrategyFactory();
-            CompressionStrategy keyCompressionStrat = comppressionStrategyFactory.get(keySerDef.getCompression());
-            CompressionStrategy valueCompressionStrat = comppressionStrategyFactory.get(valueSerDef.getCompression());
+            CompressionStrategyFactory compressionStrategyFactory = new CompressionStrategyFactory();
+            CompressionStrategy keyCompressionStrat = compressionStrategyFactory.get(keySerDef.getCompression());
+            CompressionStrategy valueCompressionStrat = compressionStrategyFactory.get(valueSerDef.getCompression());
             ReadOnlyStorageEngine readOnlyStorageEngine = new ReadOnlyStorageEngine("test",
                                                                                     strategy,
                                                                                     router,

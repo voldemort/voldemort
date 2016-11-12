@@ -225,7 +225,7 @@ public class RebalanceTaskInfo {
     /**
      * Pretty prints a task list of rebalancing tasks.
      * 
-     * @param infos list of rebalancing tasks (RebalancePartitiosnInfo)
+     * @param infos list of rebalancing tasks (RebalancePartitionsInfo)
      * @return pretty-printed string
      */
     public static String taskListToString(List<RebalanceTaskInfo> infos) {

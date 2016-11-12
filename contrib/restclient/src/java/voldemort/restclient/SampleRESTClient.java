@@ -72,7 +72,7 @@ public class SampleRESTClient {
                 storeClient.put("a", obsoleteVersionedValue);
                 System.err.println(" **************** Should not reach this point **************** ");
             } catch(Exception e) {
-                System.out.println("Exception occured as expected: " + e.getMessage());
+                System.out.println("Exception occurred as expected: " + e.getMessage());
             }
 
             // Do a get again on the last versioned put operation:

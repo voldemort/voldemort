@@ -114,7 +114,7 @@ public class SocketResourceFactory implements ResourceFactory<SocketDestination,
             return;
         else if(response.equals("no"))
             throw new VoldemortException(type.getDisplayName()
-                                         + " is not an acceptable protcol for the server.");
+                                         + " is not an acceptable protocol for the server.");
         else
             throw new VoldemortException("Unknown server response: " + response);
     }

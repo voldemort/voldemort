@@ -48,7 +48,7 @@ import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 
 /**
- * A servlet that supports both manual or programatic operations on read only
+ * A servlet that supports both manual or programmatic operations on read only
  * stores. The operations are
  * <ol>
  * <li>FETCH. Fetch the given files to the local node. Parameters:

@@ -221,7 +221,7 @@ public class PerformParallelRequests<V, PD extends BasicPipelineData<V>> extends
                 } else {
                     if (logger.isDebugEnabled()) {
                         logger.debug("Operation " + pipeline.getOperation().getSimpleName()
-                                     + "failed due to insufficent zone responses, required "
+                                     + "failed due to insufficient zone responses, required "
                                      + pipelineData.getZonesRequired() + " obtained "
                                      + zonesSatisfied + " " + pipelineData.getZoneResponses()
                                      + " for key " + key);

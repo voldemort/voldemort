@@ -28,7 +28,7 @@ import com.google.common.collect.Lists;
 /**
  * 
  * This test checks if we can interleave write to cluster and store metadata we
- * spwan a writer and a reader to see if we see an inconsistent state of the
+ * spawn a writer and a reader to see if we see an inconsistent state of the
  * system at any point
  * 
  */

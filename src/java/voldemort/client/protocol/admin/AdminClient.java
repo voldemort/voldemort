@@ -150,7 +150,7 @@ import com.google.protobuf.UninitializedMessageException;
  * <li>Used extensively by rebalancing (dynamic node addition/deletion) feature
  * (presently in development).</li>
  * </ul>
- * 
+ *
  */
 public class AdminClient implements Closeable {
 
@@ -171,9 +171,10 @@ public class AdminClient implements Closeable {
     private final AdminStoreClient adminStoreClient;
     private final NetworkClassLoader networkClassLoader;
     private final AdminClientConfig adminClientConfig;
-    private final long clusterVersion;
+    private final ClientConfig clientConfig;
     private final boolean fetchSingleStore;
     private final String debugInfo;
+    private Long clusterVersion;
     private Cluster currentCluster;
     private SystemStoreClient<String, String> metadataVersionSysStoreClient = null;
     private SystemStoreClientFactory<String, String> systemStoreFactory = null;
@@ -231,14 +232,18 @@ public class AdminClient implements Closeable {
                                                                .getContextClassLoader());
 
         this.adminClientConfig = adminClientConfig;
+        this.clientConfig = clientConfig;
         this.socketPool = helperOps.createSocketPool(adminClientConfig);
         this.adminStoreClient = new AdminStoreClient(clientConfig);
         this.fetchSingleStore = !clientConfig.isFetchAllStoresXmlInBootstrap();
 
-        this.clusterVersion = System.currentTimeMillis();
         if(cluster != null) {
+            // We don't know at which time the Cluster's state was generated, so we can't know the cluster version.
+            this.clusterVersion = null;
             this.currentCluster = cluster;
         } else {
+            // Important: this time must be recorded before we bootstrap from the remote state
+            this.clusterVersion = System.currentTimeMillis();
             this.currentCluster = getClusterFromBootstrapURL(clientConfig);
         }
 
@@ -286,6 +291,16 @@ public class AdminClient implements Closeable {
         this(adminClientConfig, clientConfig, cluster);
     }
 
+    /**
+     * This function can be useful to rebootstrap a new {@link AdminClient} when
+     * {@link #isClusterModified()} returns true.
+     *
+     * @return a freshly re-bootstrapped {@link AdminClient} based on the same configs.
+     */
+    public AdminClient getFreshClient() {
+        return new AdminClient(adminClientConfig, clientConfig);
+    }
+
     @Override
     public String toString() {
         return "AdminClient with " + debugInfo;
@@ -315,11 +330,28 @@ public class AdminClient implements Closeable {
      */
     public boolean isClusterModified() {
         try {
-            Properties props = MetadataVersionStoreUtils.getProperties(metadataVersionSysStoreClient);
-            long retrievedVersion = MetadataVersionStoreUtils.getVersion(props,
-                                                                         SystemStoreConstants.CLUSTER_VERSION_KEY);
+            if (null == clusterVersion) {
+                // Then we have no choice to do a full cluster.xml equality check in order to know if the cluster is the same.
 
-            return retrievedVersion > this.clusterVersion;
+                // Important: this time must be recorded before we bootstrap from the remote state
+                long currentTime = System.currentTimeMillis();
+
+                Cluster remoteCluster = getClusterFromBootstrapURL(clientConfig);
+
+                boolean remoteClusterConsistentWithLocalOne = currentCluster.equals(remoteCluster);
+                if (remoteClusterConsistentWithLocalOne) {
+                    // Then we can record the time we had prior to bootstrapping, as an optimization
+                    clusterVersion = currentTime;
+                }
+
+                return !remoteClusterConsistentWithLocalOne;
+            } else {
+                // Then we can rely on the timestamp we recorded before the bootstrap phase.
+                Properties props = MetadataVersionStoreUtils.getProperties(metadataVersionSysStoreClient);
+                long retrievedVersion = MetadataVersionStoreUtils.getVersion(props, SystemStoreConstants.CLUSTER_VERSION_KEY);
+
+                return retrievedVersion > this.clusterVersion;
+            }
         } catch(Exception e) {
             logger.info("Error retrieving cluster metadata version");
             return true;
@@ -958,9 +990,9 @@ public class AdminClient implements Closeable {
                     }
                 }
             }
-            throw new VoldemortException("Failed to finish task requestId: " + requestId
-                                         + " in maxWait " + maxWait + " " + timeUnit.toString()
-                                         + " on " + nodeName);
+            throw new AsyncOperationTimeoutException("Failed to finish task requestId: " + requestId
+                                                     + " in maxWait " + maxWait + " " + timeUnit.toString()
+                                                     + " on " + nodeName);
         }
 
         /**
@@ -1753,9 +1785,9 @@ public class AdminClient implements Closeable {
          * Note that, store may present on some nodes and not on other
          * nodes, due to node failures or other reasons. In those cases
          * results will be inconsistent based on the node it choose to query.
-         * 
+         *
          * @param storeName name of the store
-         * @return null if it does not exist, StoreDefinition if it exists. 
+         * @return null if it does not exist, StoreDefinition if it exists.
          */
         public StoreDefinition getStoreDefinition(String storeName) {
             Integer nodeId = currentCluster.getNodeIds().iterator().next();
@@ -2071,7 +2103,7 @@ public class AdminClient implements Closeable {
         /**
          * validate the newStoreDefinition is compatible with existing
          * storeDefinition. If they are incompatible, it throws an error.
-         * 
+         *
          * @param remoteStoreDef Store retrieved from the remote node
          * @param newStoreDef Store that needs to be created
          */
@@ -2244,7 +2276,7 @@ public class AdminClient implements Closeable {
             List<Integer> nodesMissingNewStore =
                     getNodesMissingNewStore(newStoreDef, localProcessName, executor, unreachableNodes);
 
-            long verifyCompletionTime = System.currentTimeMillis(); 
+            long verifyCompletionTime = System.currentTimeMillis();
             long elapsedTime = verifyCompletionTime - startTime;
             String timingInfo = "verifyOrAddStore() " + AdminClient.this.debugInfo + " Store: "
                                 + newStoreDef.getName() + " Verification Time: " + elapsedTime
@@ -2321,7 +2353,7 @@ public class AdminClient implements Closeable {
 
         /**
          * Delete a store from a particular node
-         * 
+         *
          * @param storeName name of the store to delete
          * @param nodeId Node on which we want to delete a store
          * @throws VoldemortException if it fails to delete
@@ -3370,16 +3402,16 @@ public class AdminClient implements Closeable {
          * waiting for a response from the server.</li>
          * <li>After iteration is complete, send an end of stream message, force
          * a flush of the buffer, check the response on the server to check if a
-         * {@link VoldemortException} has occured.</li>
+         * {@link VoldemortException} has occurred.</li>
          * </ol>
-         * 
+         *
          * @param nodeId Id of the remote node (where we wish to update the
          *        entries)
          * @param storeName Store name for the entries
          * @param entryIterator Iterator of key-value pairs for the entries
          * @param filter Custom filter implementation to filter out entries
          *        which should not be updated.
-         * 
+         *
          * @throws VoldemortException
          */
         public void updateEntries(int nodeId,
@@ -3425,9 +3457,9 @@ public class AdminClient implements Closeable {
          * waiting for a response from the server.</li>
          * <li>After iteration is complete, send an end of stream message, force
          * a flush of the buffer, check the response on the server to check if a
-         * {@link VoldemortException} has occured.</li>
+         * {@link VoldemortException} has occurred.</li>
          * </ol>
-         * 
+         *
          * @param nodeId Id of the remote node (where we wish to update the
          *        entries)
          * @param storeName Store name for the entries
@@ -3997,14 +4029,14 @@ public class AdminClient implements Closeable {
          *
          * @param cluster The cluster metadata
          * @param nodeId Do not check this node, we don't trust it right now.
-	 *		May be -1 to check every node.
+         *               May be -1 to check every node.
          * @return List of store definitions
          */
         public List<StoreDefinition> getCurrentStoreDefinitionsExcept(Cluster cluster, int nodeId) {
             List<StoreDefinition> storeDefs = null;
             for(Node node: cluster.getNodes()) {
-		if (node.getId() == nodeId)
-		    continue;
+                if (node.getId() == nodeId)
+                    continue;
                 List<StoreDefinition> storeDefList = metadataMgmtOps.getRemoteStoreDefList(node.getId())
                                                                     .getValue();
                 if(storeDefs == null) {
@@ -4035,8 +4067,8 @@ public class AdminClient implements Closeable {
          * @return List of store definitions
          */
         public List<StoreDefinition> getCurrentStoreDefinitions(Cluster cluster) {
-	    return getCurrentStoreDefinitionsExcept(cluster, -1);
-	}
+            return getCurrentStoreDefinitionsExcept(cluster, -1);
+        }
 
         /**
          * Given a list of store definitions, cluster and admin client returns a
@@ -4084,7 +4116,7 @@ public class AdminClient implements Closeable {
 
     /**
      * Encapsulates all operations to restore data in the cluster
-     * 
+     *
      */
     public class RestoreOperations {
 
@@ -4414,7 +4446,24 @@ public class AdminClient implements Closeable {
             }
 
             int asyncId = response.getRequestId();
-            return rpcOps.waitForCompletion(nodeId, asyncId, timeoutMs, TimeUnit.MILLISECONDS);
+            try {
+                return rpcOps.waitForCompletion(nodeId, asyncId, timeoutMs, TimeUnit.MILLISECONDS);
+            } catch (AsyncOperationTimeoutException aote) {
+                logger.error("Got an AsyncOperationTimeoutException for nodeId " + nodeId + " while waiting for"
+                             + " completion of Async Operation ID " + asyncId + ". Will attempt to kill the job"
+                             + " and rethrow the original exception afterwards.");
+                try {
+                    rpcOps.stopAsyncRequest(nodeId, asyncId);
+                    logger.info("Successfully killed Async Operation ID " + asyncId);
+                } catch (Exception e) {
+                    logger.error("Failed to kill Async Operation ID " + asyncId, e);
+                }
+                throw aote;
+            } catch (VoldemortException ve) {
+                logger.error("Got a " + ve.getClass().getSimpleName() + " for nodeId " + nodeId + " while waiting for"
+                             + " completion of Async Operation ID " + asyncId + ". Bubbling up.");
+                throw ve;
+            }
         }
 
         /**
@@ -5052,15 +5101,15 @@ public class AdminClient implements Closeable {
     }
 
     public class QuotaManagementOperations {
-      
+
         private VectorClock makeDenseClock() {
           // FIXME This is a temporary workaround for System store client not
           // being able to do a second insert. We simply generate a super
           // clock that will trump what is on storage
           // But this will not work, if the nodes are ever removed or re-assigned.
-          // To complicate the issue further, SystemStore uses one clock for all 
+          // To complicate the issue further, SystemStore uses one clock for all
           // keys in a file. When you remove nodes, go delete, all version files from the disk
-          // otherwise 
+          // otherwise
           return VectorClockUtils.makeClockWithCurrentTime(currentCluster.getNodeIds());
         }
 

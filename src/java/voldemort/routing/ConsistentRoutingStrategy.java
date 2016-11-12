@@ -79,7 +79,7 @@ public class ConsistentRoutingStrategy implements RoutingStrategy {
     public ConsistentRoutingStrategy(HashFunction hash, Collection<Node> nodes, int numReplicas) {
         this.numReplicas = numReplicas;
         this.hash = hash;
-        // sanity check that we dont assign the same partition to multiple nodes
+        // sanity check that we don't assign the same partition to multiple nodes
         SortedMap<Integer, Node> m = new TreeMap<Integer, Node>();
         for(Node n: nodes) {
             for(Integer partition: n.getPartitionIds()) {

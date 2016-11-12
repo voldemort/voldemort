@@ -230,7 +230,7 @@ public abstract class AbstractStoreClientFactory implements StoreClientFactory {
                                                   MAX_METADATA_REFRESH_ATTEMPTS);
         } else {
 
-            // Lazily intialize the resources needed for ZenStore clients.
+            // Lazily initialize the resources needed for ZenStore clients.
             if(!isZenStoreResourcesInited.get()) {
                 initZenStoreResourcesIfNeeded();
             }

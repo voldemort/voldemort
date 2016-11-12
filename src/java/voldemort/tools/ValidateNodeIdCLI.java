@@ -41,7 +41,7 @@ public class ValidateNodeIdCLI {
         help.append("Options:\n");
         help.append("  Required:\n");
         help.append("    --id <expected nodeId>\n");
-        help.append("    --path <comma seperated list of file paths>\n");
+        help.append("    --path <comma separated list of file paths>\n");
         System.out.print(help.toString());
     }
 
@@ -110,7 +110,7 @@ public class ValidateNodeIdCLI {
 
                 int actualNodeId = VoldemortServer.getNodeId(config, cluster);
                 if(actualNodeId != expectedNodeId) {
-                    throw new VoldemortApplicationException(" Mismatch deteced. Computed Node Id "
+                    throw new VoldemortApplicationException("Mismatch detected. Computed Node Id "
                                                             + actualNodeId + " Expected "
                                                             + expectedNodeId);
                 } else {

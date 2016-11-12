@@ -94,7 +94,7 @@ public class BdbCachePartitioningTest {
     /**
      * Tests that, given no data completely fits in memory (realistic prod
      * conditions), stores will stay within their limits, no matter how much
-     * disproportinate traffic you throw at it
+     * disproportionate traffic you throw at it
      */
     @Test
     public void testStaticPrivateCaches() {

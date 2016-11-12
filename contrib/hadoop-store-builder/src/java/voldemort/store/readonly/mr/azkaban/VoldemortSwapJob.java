@@ -119,17 +119,21 @@ public class VoldemortSwapJob extends AbstractJob {
                     dataDir, e);
         }
 
-        // While processing an admin request, HDFSFailedLock could take long time because of multiple HDFS operations,
-        // especially when the name node is in a different data center. So extend timeout to 5 minutes.
+        // It should not be necessary to set the max conn / node so high, but it should not be a big deal either. New
+        // connections will be created as needed, not upfront, so there should be no extra cost associated with the
+        // higher setting. There shouldn't be many parallel requests happening in this use case, but we're going to
+        // leave it as is for now, just to minimize the potential for unforeseen regressions.
         AdminClientConfig adminConfig = new AdminClientConfig().setMaxConnectionsPerNode(cluster.getNumberOfNodes())
                                                                .setMaxBackoffDelayMs(maxBackoffDelayMs)
+        // While processing an admin request, HDFSFailedLock could take long time because of multiple HDFS operations,
+        // especially when the name node is in a different data center. So extend timeout to 5 minutes.
                                                                .setAdminSocketTimeoutSec(60 * 5);
 
         ClientConfig clientConfig = new ClientConfig().setBootstrapUrls(cluster.getBootStrapUrls())
                                                       .setConnectionTimeout(httpTimeoutMs,
                                                                             TimeUnit.MILLISECONDS);
         // Create admin client
-        AdminClient client = new AdminClient(cluster, adminConfig, clientConfig);
+        AdminClient client = new AdminClient(adminConfig, clientConfig);
 
         if (pushVersion == -1L) {
             // Need to retrieve max version
@@ -148,7 +152,6 @@ public class VoldemortSwapJob extends AbstractJob {
         // do the fetch, and if it succeeds, the swap
         info("Initiating fetch of " + storeName + " with dataDir: " + dataDir);
         AdminStoreSwapper swapper = new AdminStoreSwapper(
-                cluster,
                 executor,
                 client,
                 httpTimeoutMs,

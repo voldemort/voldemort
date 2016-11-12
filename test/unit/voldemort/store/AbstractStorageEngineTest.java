@@ -191,7 +191,7 @@ public abstract class AbstractStorageEngineTest extends AbstractByteArrayStoreTe
                          2,
                          store.get(key, null).size());
             vals.remove(0);
-            assertTrue("Should have 2 versiones stored,  with 1:2 superceding 1:1",
+            assertTrue("Should have 2 versions stored,  with 1:2 superceding 1:1",
                        TestUtils.areVersionedListsEqual(vals, store.get(key, null)));
 
             // Update of concurrent versions, on top of concurrent versions

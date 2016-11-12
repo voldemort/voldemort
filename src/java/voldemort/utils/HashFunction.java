@@ -17,7 +17,7 @@
 package voldemort.utils;
 
 /**
- * A hash function for bytes, determinisitically maps bytes into ints
+ * A hash function for bytes, deterministically maps bytes into ints
  * 
  * 
  */

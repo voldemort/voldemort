@@ -93,7 +93,7 @@ public class ClusterTest extends TestCase {
     public void testBasics() {
         assertEquals(nodes.size(), cluster.getNumberOfNodes());
         assertEquals(new HashSet<Node>(nodes), new HashSet<Node>(cluster.getNodes()));
-        assertEquals("Initialied nodes should be equivalent to the shuffled nodes",
+        assertEquals("Initialized nodes should be equivalent to the shuffled nodes",
                      new HashSet<Node>(nodes),
                      new HashSet<Node>(cluster.getNodesShuffled()));
         assertEquals("Nodes should be equivalent to the shuffled nodes",

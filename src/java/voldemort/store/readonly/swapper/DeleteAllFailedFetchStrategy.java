@@ -17,16 +17,16 @@ public class DeleteAllFailedFetchStrategy extends FailedFetchStrategy {
     protected boolean dealWithIt(String storeName,
                                  long pushVersion,
                                  Map<Node, AdminStoreSwapper.Response> fetchResponseMap) {
-        // Delete data from successful nodes
-        for(Node node: fetchResponseMap.keySet()) {
+        // We attempt to delete data from all nodes, even the ones that failed their fetch.
+        for (Node node: fetchResponseMap.keySet()) {
             AdminStoreSwapper.Response response = fetchResponseMap.get(node);
-            if (response.isSuccessful()) {
-                try {
-                    logger.info("Deleting fetched data from node " + node);
-                    adminClient.readonlyOps.failedFetchStore(node.getId(), storeName, response.getResponse());
-                } catch(Exception e) {
-                    logger.error("Exception thrown during delete operation on node " + node + " : ", e);
-                }
+            String nodeDescription = node.briefToString() + " (which " +
+                (response.isSuccessful() ? "succeeded" : "failed") + " on its fetch).";
+            try {
+                adminClient.readonlyOps.failedFetchStore(node.getId(), storeName, response.getResponse());
+                logger.info("Deleted fetched data from " + nodeDescription);
+            } catch(Exception e) {
+                logger.error("Exception thrown during delete operation on " + nodeDescription, e);
             }
         }
         return false;

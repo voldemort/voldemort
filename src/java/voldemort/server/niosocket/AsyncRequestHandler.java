@@ -79,7 +79,7 @@ public class AsyncRequestHandler extends SelectorManagerWorker implements Closea
 
         initializeStreams(socketBufferSize, nioStats.getServerCommBufferStats());
         if(this.inputStream == null || this.outputStream == null) {
-            throw new VoldemortApplicationException("InputStream or OuputStream is null after initialization");
+            throw new VoldemortApplicationException("InputStream or OutputStream is null after initialization");
         }
     }
 

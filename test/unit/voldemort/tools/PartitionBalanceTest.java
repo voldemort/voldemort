@@ -121,13 +121,13 @@ public class PartitionBalanceTest {
                                                    ClusterTestUtils.getZ1Z3StoreDefsInMemory());
         // Print out results so there is a test case that demonstrates toString
         // method output for 2 non contiguous zones
-        logger.info("Partiton balance for 2 zones" + pb);
+        logger.info("Partition balance for 2 zones" + pb);
 
         pb = new PartitionBalance(ClusterTestUtils.getZ1Z3Z5ClusterWithNonContiguousNodeIds(),
                                   ClusterTestUtils.getZ1Z3Z5StoreDefsInMemory());
         // Print out results so there is a test case that demonstrates toString
         // method output for 3 contiguous zones
-        logger.info("Partiton balance for 3 zones" + pb);
+        logger.info("Partition balance for 3 zones" + pb);
     }
     
 

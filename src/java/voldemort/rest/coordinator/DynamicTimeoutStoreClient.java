@@ -156,7 +156,7 @@ public class DynamicTimeoutStoreClient<K, V> extends DefaultStoreClient<K, V> {
 
         // We use the full timeout for doing the Get. In this, we're being
         // optimistic that the subsequent put might be faster such that all the
-        // steps might finish within the alloted time
+        // steps might finish within the allotted time
         requestWrapper.setResolveConflicts(true);
         versionedValues = getWithCustomTimeout(requestWrapper);
         Versioned<V> versioned = getItemOrThrow(requestWrapper.getKey(), null, versionedValues);
@@ -180,7 +180,7 @@ public class DynamicTimeoutStoreClient<K, V> extends DefaultStoreClient<K, V> {
         Version result = putVersionedWithCustomTimeout(putVersionedRequestObject);
         long endTimeInMs = System.currentTimeMillis();
         if(logger.isDebugEnabled()) {
-            logger.debug("PUT response recieved for key: " + keyHexString + " , for store: "
+            logger.debug("PUT response received for key: " + keyHexString + " , for store: "
                          + this.storeName + " at time(in ms): " + endTimeInMs);
         }
         return result;
@@ -306,7 +306,7 @@ public class DynamicTimeoutStoreClient<K, V> extends DefaultStoreClient<K, V> {
             }
             // We use the full timeout for doing the Get. In this, we're being
             // optimistic that the subsequent delete might be faster all the
-            // steps might finish within the alloted time
+            // steps might finish within the allotted time
             deleteRequestObject.setResolveConflicts(true);
             versionedValues = getWithCustomTimeout(deleteRequestObject);
             Versioned<V> versioned = getItemOrThrow(deleteRequestObject.getKey(),
@@ -350,7 +350,7 @@ public class DynamicTimeoutStoreClient<K, V> extends DefaultStoreClient<K, V> {
                         0);
         }
         if(!hasVersion && logger.isDebugEnabled()) {
-            logger.debug("DELETE without version response recieved for key: " + keyHexString
+            logger.debug("DELETE without version response received for key: " + keyHexString
                          + ", for store: " + this.storeName + " at time(in ms): "
                          + System.currentTimeMillis());
         }

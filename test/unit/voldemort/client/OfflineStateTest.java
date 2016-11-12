@@ -301,7 +301,7 @@ public class OfflineStateTest {
      */
 
     @Test
-    public void testStartingOfflineServeres() throws Exception {
+    public void testStartingOfflineServers() throws Exception {
         VoldemortServer server = getVoldemortServer(0);
         server.goOffline();
         server.stop();

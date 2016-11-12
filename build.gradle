@@ -681,7 +681,7 @@ allprojects {
                         .findAll { it.value.size() > 1 } // only where there is more that a single entry
 
                     duplicateLibs.each { k, v ->
-                        // pick one from the list of dupes ..prefering the one without a sourcelib path
+                        // pick one from the list of dupes ..preferring the one without a sourcelib path
                         // else just take the first
                         def toRemove = v.find { !it.sourcePath } ?: v.first()
                         classpath.entries.remove toRemove

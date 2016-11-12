@@ -54,7 +54,7 @@ public class CoordinatorConfig {
     private volatile int adminServiceMaxThreads = 20;
     private volatile int adminServiceQueuedRequests = 100;
 
-    /* Propery names for propery-based configuration */
+    /* Property names for property-based configuration */
     public static final String BOOTSTRAP_URLS_PROPERTY = "bootstrap_urls";
     public static final String FAT_CLIENTS_CONFIG_SOURCE = "fat_clients_config_source";
     public static final String FAT_CLIENTS_CONFIG_FILE_PATH_PROPERTY = "fat_clients_config_file_path";

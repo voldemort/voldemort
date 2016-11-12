@@ -366,7 +366,7 @@ public class PartitionBalance {
         }
 
         /**
-         * Determins utility metric to be minimized.
+         * Determines utility metric to be minimized.
          * 
          * @return utility metric that ought to be minimized.
          */

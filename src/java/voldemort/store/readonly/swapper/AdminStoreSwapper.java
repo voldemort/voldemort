@@ -22,11 +22,13 @@ import org.apache.log4j.Logger;
 
 import voldemort.VoldemortException;
 import voldemort.client.protocol.admin.AdminClient;
+import voldemort.client.protocol.admin.AsyncOperationTimeoutException;
 import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
 import voldemort.store.readonly.ReadOnlyUtils;
 import voldemort.store.readonly.UnauthorizedStoreException;
 import voldemort.utils.CmdUtils;
+import voldemort.utils.ExceptionUtils;
 import voldemort.utils.Time;
 import voldemort.utils.logging.PrefixedLogger;
 import voldemort.xml.ClusterMapper;
@@ -36,6 +38,10 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
 
 public class AdminStoreSwapper {
+
+    // This should result in 5 minutes max of wait time, for failure scenarios which are potentially recoverable.
+    private static final int MAX_FETCH_ATTEMPTS = 10;
+    private final static long WAIT_TIME_BETWEEN_FETCH_ATTEMPTS = 30000;
 
     private final Logger logger;
 
@@ -49,8 +55,6 @@ public class AdminStoreSwapper {
     protected final ExecutorService executor;
 
     /**
-     *
-     * @param cluster The cluster metadata
      * @param executor Executor to use for running parallel fetch / swaps
      * @param adminClient The admin client to use for querying
      * @param timeoutMs Time out in ms
@@ -59,15 +63,14 @@ public class AdminStoreSwapper {
      * @param clusterName String added as a prefix to all logs. If null, there is no prefix on the logs.
      * @param buildPrimaryReplicasOnly if true, fetch is per partition, if false (old behavior) then fetch is per node
      */
-    public AdminStoreSwapper(Cluster cluster,
-                             ExecutorService executor,
+    public AdminStoreSwapper(ExecutorService executor,
                              AdminClient adminClient,
                              long timeoutMs,
                              boolean rollbackFailedSwap,
                              List<FailedFetchStrategy> failedFetchStrategyList,
                              String clusterName,
                              boolean buildPrimaryReplicasOnly) {
-        this.cluster = cluster;
+        this.cluster = adminClient.getAdminClientCluster();
         this.executor = executor;
         this.adminClient = adminClient;
         this.timeoutMs = timeoutMs;
@@ -83,40 +86,33 @@ public class AdminStoreSwapper {
 
 
     /**
-     *
-     * @param cluster The cluster metadata
      * @param executor Executor to use for running parallel fetch / swaps
      * @param adminClient The admin client to use for querying
      * @param timeoutMs Time out in ms
      * @param deleteFailedFetch Boolean to indicate we want to delete data on
      *                          successful nodes after a fetch fails somewhere.
      * @param rollbackFailedSwap Boolean to indicate we want to rollback the
-     *                           data on failed swaps.
      */
-    public AdminStoreSwapper(Cluster cluster,
-                             ExecutorService executor,
+    public AdminStoreSwapper(ExecutorService executor,
                              AdminClient adminClient,
                              long timeoutMs,
                              boolean deleteFailedFetch,
                              boolean rollbackFailedSwap) {
-        this(cluster, executor, adminClient, timeoutMs, rollbackFailedSwap, new ArrayList<FailedFetchStrategy>(), null, false);
+        this(executor, adminClient, timeoutMs, rollbackFailedSwap, new ArrayList<FailedFetchStrategy>(), null, false);
         if (deleteFailedFetch) {
             failedFetchStrategyList.add(new DeleteAllFailedFetchStrategy(adminClient));
         }
     }
 
     /**
-     *
-     * @param cluster The cluster metadata
      * @param executor Executor to use for running parallel fetch / swaps
      * @param adminClient The admin client to use for querying
      * @param timeoutMs Time out in ms
      */
-    public AdminStoreSwapper(Cluster cluster,
-                             ExecutorService executor,
+    public AdminStoreSwapper(ExecutorService executor,
                              AdminClient adminClient,
                              long timeoutMs) {
-        this(cluster, executor, adminClient, timeoutMs, false, new ArrayList<FailedFetchStrategy>(), null, false);
+        this(executor, adminClient, timeoutMs, false, new ArrayList<FailedFetchStrategy>(), null, false);
     }
 
     public void fetchAndSwapStoreData(String storeName, String basePath, long pushVersion) {
@@ -133,14 +129,12 @@ public class AdminStoreSwapper {
         Exception exception = null;
         for(Node node: cluster.getNodes()) {
             try {
-                logger.info("Attempting rollback for " + node.briefToString() + ", storeName = "
-                            + storeName);
+                logger.info("Attempting rollback for " + node.briefToString() + ", storeName = " + storeName);
                 adminClient.readonlyOps.rollbackStore(node.getId(), storeName, pushVersion);
                 logger.info("Rollback succeeded for " + node.briefToString());
             } catch(Exception e) {
                 exception = e;
-                logger.error("Exception thrown during rollback operation on " + node.briefToString()
-                             + ": ", e);
+                logger.error("Exception thrown during rollback operation on " + node.briefToString(), e);
             }
         }
 
@@ -174,14 +168,60 @@ public class AdminStoreSwapper {
                     return response.trim();
                 }
 
-                private String fetch(String storeDir) {
-                    // TODO: Catch specific exception if async task status is not found, and retry in that case.
-                    logger.info("Invoking fetch for " + node.briefToString() + " for " + storeDir);
-                    return adminClient.readonlyOps.fetchStore(node.getId(),
-                            storeName,
-                            storeDir,
-                            pushVersion,
-                            timeoutMs);
+                private String fetch(String hadoopStoreDirToFetch) {
+                    // We need to keep the AdminClient instance separate in each Callable, so that a refresh of
+                    // the client in one callable does not refresh the AdminClient used by another callable.
+                    AdminClient currentAdminClient = AdminStoreSwapper.this.adminClient;
+                    int attempt = 1;
+                    while (attempt <= MAX_FETCH_ATTEMPTS) {
+                        if (attempt > 1) {
+                            logger.info("Fetch attempt " + attempt + "/" + MAX_FETCH_ATTEMPTS + " for " + node.briefToString()
+                                        + ". Will wait " + WAIT_TIME_BETWEEN_FETCH_ATTEMPTS + " ms before going ahead.");
+                            try {
+                                Thread.sleep(WAIT_TIME_BETWEEN_FETCH_ATTEMPTS );
+                            } catch (InterruptedException e) {
+                                throw new VoldemortException(e);
+                            }
+                        }
+
+                        logger.info("Invoking fetch for " + node.briefToString() + " for " + hadoopStoreDirToFetch);
+                        try {
+                            return currentAdminClient.readonlyOps.fetchStore(node.getId(),
+                                                                             storeName,
+                                                                             hadoopStoreDirToFetch,
+                                                                             pushVersion,
+                                                                             timeoutMs);
+                        } catch (AsyncOperationTimeoutException e) {
+                            throw e;
+                        } catch (VoldemortException ve) {
+                            if (attempt >= MAX_FETCH_ATTEMPTS) {
+                                throw ve;
+                            }
+
+                            // TODO: Catch specific exception if async task status is not found, and retry in that case.
+
+                            if (ExceptionUtils.recursiveClassEquals(ve, ExceptionUtils.BNP_SOFT_ERRORS)) {
+                                String logMessage = "Got a " + ve.getClass().getSimpleName() + " from " + node.briefToString()
+                                                    + " while trying to fetch store '" + storeName + "'"
+                                                    + " (attempt " + attempt + "/" + MAX_FETCH_ATTEMPTS + ").";
+                                if (currentAdminClient.isClusterModified()) {
+                                    logMessage += " It seems like the cluster.xml state has changed since this"
+                                                + " AdminClient was constructed. Therefore, we will attempt constructing"
+                                                + " a fresh AdminClient and retrying the fetch operation.";
+                                    currentAdminClient = currentAdminClient.getFreshClient();
+                                } else {
+                                    logMessage += " The cluster.xml is up to date. We will retry with the same AdminClient.";
+                                }
+                                logger.info(logMessage);
+                                attempt++;
+                            } else {
+                                throw ve;
+                            }
+                        }
+                    }
+
+                    // Defensive coding
+                    throw new IllegalStateException("Code should never reach here!");
                 }
             }));
         }
@@ -191,7 +231,7 @@ public class AdminStoreSwapper {
 
         /*
          * We wait for all fetches to complete successfully or throw any
-         * Exception. We dont handle QuotaException in a special way here. The
+         * Exception. We don't handle QuotaException in a special way here. The
          * idea is to protect the disk. It is okay to let the Bnp job run to
          * completion. We still want to delete data of a failed fetch in all
          * nodes that successfully fetched the data. After deleting the
@@ -369,7 +409,7 @@ public class AdminStoreSwapper {
         Cluster cluster = new ClusterMapper().readCluster(new StringReader(clusterStr));
         ExecutorService executor = Executors.newFixedThreadPool(cluster.getNumberOfNodes());
         AdminClient adminClient = new AdminClient(cluster);
-        AdminStoreSwapper swapper = new AdminStoreSwapper(cluster, executor, adminClient, timeoutMs);
+        AdminStoreSwapper swapper = new AdminStoreSwapper(executor, adminClient, timeoutMs);
 
         try {
             long start = System.currentTimeMillis();
