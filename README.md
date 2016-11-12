@@ -5,20 +5,20 @@ Using this Fork one can leverage the postgresql storage engine.
 To configure Voldemort to use postgresql, the following steps need to be performed
 * In the server.properties under $VOLDEMORT_HOME/config/single_node_cluster/config add the following properties
 * Update the postgres settings corresponding to your properties
-
-     pg.host=localhost
-     pg.port=5432
-     pg.user=postgres
-     pg.password=postgres
-     pg.database=postgres
-     pg.batchSize=10000
-     
+```
+    pg.host=localhost
+    pg.port=5432
+    pg.user=postgres
+    pg.password=postgres
+    pg.database=postgres
+    pg.batchSize=10000
+```     
 * Also update the storage.configs to include postgres storage engines configuration
-      
-      storage.configs=voldemort.store.bdb.BdbStorageConfiguration, voldemort.store.postgresql.PostgresqlStorageConfiguration
-      
+```      
+    storage.configs=voldemort.store.bdb.BdbStorageConfiguration, voldemort.store.postgresql.PostgresqlStorageConfiguration
+```      
 * In the STORES folder under $VOLDEMORT_HOME/config/single_node_cluster/config create a new file test-postgres and add the following properties to it
-
+```
     <store>
       <name>testPostgresql</name>
       <persistence>postgresql</persistence>
@@ -37,7 +37,8 @@ To configure Voldemort to use postgresql, the following steps need to be perform
         <type>string</type>
       </value-serializer>
     </store>
-    
+```
+
 # Enhanced API
 The existing put operation in the storage engines does a commit on the underlyting postgres database. When the user needs to insert a large number of entries the commit gets called many times slowing down the process. To reduce the number of times commit gets called, new API for doing batched put or putAll has been added to the existing API. A batch_hard_limit has been set in the code to 100000 refer to PostgresqlStorageConfiguration.java. User can update this property pg.batchSize to regulate the number of entries per batch. At any time the batch size cannot exceed the batch hardLimit.
     
