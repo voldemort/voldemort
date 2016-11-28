@@ -50,7 +50,7 @@ dir="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 vold_home="$(dirname "$dir")"
 
 # Parse options
-while getopts “hc:s:o:” OPTION
+while getopts "hc:s:o:" OPTION
 do
   case $OPTION in
   h)
@@ -113,7 +113,7 @@ $vold_home/bin/run-class.sh voldemort.tools.RepartitionerCLI \
                             --output-dir $output_dir/step1/
 
 if [ ! -e $output_dir/step1/final-cluster.xml ]; then
-    usage_and_exit "File '$final-cluster.xml' does not exist."
+    usage_and_exit "File '$output_dir/step1/final-cluster.xml' does not exist."
 fi
 
 # Step 2
@@ -127,7 +127,7 @@ $vold_home/bin/run-class.sh voldemort.tools.RepartitionerCLI \
                             --random-swap-successes $step2_swap_successes
 
 if [ ! -e $output_dir/step2/final-cluster.xml ]; then
-    usage_and_exit "File '$final-cluster.xml' does not exist."
+    usage_and_exit "File '$output_dir/step2/final-cluster.xml' does not exist."
 fi
 
 mkdir -p $output_dir/step3/

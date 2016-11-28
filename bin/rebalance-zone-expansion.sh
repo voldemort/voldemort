@@ -54,7 +54,7 @@ dir="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 vold_home="$(dirname "$dir")"
 
 # Parse options
-while getopts “hc:s:i:f:o:” OPTION
+while getopts "hc:s:i:f:o:" OPTION
 do
   case $OPTION in
   h)
@@ -121,7 +121,7 @@ fi
 # Step 2: In step 2, the cluster.xml from step 1 is fed to the repartitioner along with random swap 
 #         attempts. The repartitioner randomly swaps the partitions only in zone 2 
 #         and tries to balance the ring.
-# Step 3: Finally, a plan is generated on how to reach from the orignal cluster topology to
+# Step 3: Finally, a plan is generated on how to reach from the original cluster topology to
 #         the one that is generated in step 2. 
 #
 
