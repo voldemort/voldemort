@@ -198,7 +198,7 @@ public class VoldemortBuildAndPushJob extends AbstractJob {
         return new AdminClient(adminConfig, config);
     }
 
-    public VoldemortBuildAndPushJob(String name, azkaban.utils.Props azkabanProps) {
+    public VoldemortBuildAndPushJob(String name, azkaban.utils.Props azkabanProps) throws Exception {
         super(name, Logger.getLogger(name));
         this.log = getLog();
 
