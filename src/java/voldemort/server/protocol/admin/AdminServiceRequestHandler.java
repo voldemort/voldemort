@@ -2027,12 +2027,15 @@ public class AdminServiceRequestHandler implements RequestHandler {
         int replicaFactor = storeDef.getReplicationFactor();
 
         int maxNodeFailure = voldemortConfig.getHighAvailabilityPushMaxNodeFailures();
+        // Considering replicaFactor could be smaller than maxNodeFailure configured in cluster level,
+        // we need to compare the node failure number with the smaller number of (RF - 1, maxNodeFailure)
+        // to make sure there is at least one replica running.
+        maxNodeFailure = Math.min(maxNodeFailure, replicaFactor - 1);
         Set<Integer> nodesFailedInThisFetch = Sets.newHashSet(handleFetchFailure.getFailedNodesList());
         int failureCount = nodesFailedInThisFetch.size();
         boolean swapIsPossible = false;
         String responseMessage = "";
-        if ((failureCount > maxNodeFailure) ||
-            (failureCount > 0 && 1 == replicaFactor)) { // Could not survive when build.replica.factor is 1
+        if (failureCount > maxNodeFailure) {
             // Too many nodes failed to tolerate this strategy... let's bail out.
             responseMessage = "We cannot use pushHighAvailability because there is more than " + maxNodeFailure +
                     " nodes that failed their fetches and build.replica.factor is " + replicaFactor + "...";
@@ -2051,8 +2054,7 @@ public class AdminServiceRequestHandler implements RequestHandler {
                 allNodesToBeDisabled.addAll(nodesFailedInThisFetch);
                 int disabledNodeSize = allNodesToBeDisabled.size();
 
-                if ((disabledNodeSize > maxNodeFailure) ||
-                    (disabledNodeSize > 0 && 1 == replicaFactor)) {
+                if (disabledNodeSize > maxNodeFailure) {
                     // Too many exceptions to tolerate this strategy... let's bail out.
                     StringBuilder stringBuilder = new StringBuilder();
                     stringBuilder.append("We cannot use pushHighAvailability because it would bring the total ");
@@ -2079,7 +2081,7 @@ public class AdminServiceRequestHandler implements RequestHandler {
                         stringBuilder.append(nodeId);
                     }
                     stringBuilder.append("]");
-                    stringBuilder.append(", build.replica.factor is ")
+                    stringBuilder.append(", and build.replica.factor is ")
                         .append(replicaFactor);
                     responseMessage = stringBuilder.toString();
                     logger.error(responseMessage);
