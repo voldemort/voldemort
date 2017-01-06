@@ -1401,7 +1401,7 @@ public class AdminServiceRequestHandler implements RequestHandler {
                 metadataStore.put(keyBytes,
                                   versionedValue,
                                   null);
-                
+
                 if(MetadataStore.CLUSTER_KEY.equals(keyString)) {
                     server.handleClusterUpdate();
                 } else if(MetadataStore.NODE_ID_KEY.endsWith(keyString)) {
@@ -1507,7 +1507,7 @@ public class AdminServiceRequestHandler implements RequestHandler {
         } catch(VoldemortException e) {
             response.setError(ProtoUtils.encodeError(errorCodeMapper, e));
             String errorMessage = "handleGetMetadata failed for request(" + request.toString() + ")";
-            
+
             if(e instanceof StoreNotFoundException) {
                 logger.info(errorMessage + " with " + StoreNotFoundException.class.getSimpleName());
             } else {
@@ -1655,12 +1655,12 @@ public class AdminServiceRequestHandler implements RequestHandler {
                     // effect of updating the stores.xml file)
                     try {
                         metadataStore.addStoreDefinition(def);
-                        
+
                         long defaultQuota = voldemortConfig.getDefaultStorageSpaceQuotaInKB();
 
-                        QuotaUtils.setQuota(def.getName(), 
-                                            QuotaType.STORAGE_SPACE, 
-                                            storeRepository, 
+                        QuotaUtils.setQuota(def.getName(),
+                                            QuotaType.STORAGE_SPACE,
+                                            storeRepository,
                                             metadataStore.getCluster().getNodeIds(),
                                             defaultQuota);
                     } catch(Exception e) {
@@ -2019,16 +2019,23 @@ public class AdminServiceRequestHandler implements RequestHandler {
         AdminClient adminClient = AdminClient.createTempAdminClient(voldemortConfig,
                                                                     metadataStore.getCluster(),
                                                                     1);
+        // Get replica.factor for current store
+        StoreDefinition storeDef = adminClient.metadataMgmtOps.getStoreDefinition(storeName);
+        if (null == storeDef) {
+            throw new StoreNotFoundException(storeName);
+        }
+        int replicaFactor = storeDef.getReplicationFactor();
 
         int maxNodeFailure = voldemortConfig.getHighAvailabilityPushMaxNodeFailures();
         Set<Integer> nodesFailedInThisFetch = Sets.newHashSet(handleFetchFailure.getFailedNodesList());
         int failureCount = nodesFailedInThisFetch.size();
         boolean swapIsPossible = false;
         String responseMessage = "";
-        if (failureCount > maxNodeFailure) {
+        if ((failureCount > maxNodeFailure) ||
+            (failureCount > 0 && 1 == replicaFactor)) { // Could not survive when build.replica.factor is 1
             // Too many nodes failed to tolerate this strategy... let's bail out.
             responseMessage = "We cannot use pushHighAvailability because there is more than " + maxNodeFailure +
-                    " nodes that failed their fetches...";
+                    " nodes that failed their fetches and build.replica.factor is " + replicaFactor + "...";
             logger.error(responseMessage);
         } else {
             FailedFetchLock distributedLock = null;
@@ -2042,8 +2049,10 @@ public class AdminServiceRequestHandler implements RequestHandler {
                 Set<Integer> allNodesToBeDisabled = Sets.newHashSet();
                 allNodesToBeDisabled.addAll(alreadyDisabledNodes);
                 allNodesToBeDisabled.addAll(nodesFailedInThisFetch);
+                int disabledNodeSize = allNodesToBeDisabled.size();
 
-                if (allNodesToBeDisabled.size() > maxNodeFailure) {
+                if ((disabledNodeSize > maxNodeFailure) ||
+                    (disabledNodeSize > 0 && 1 == replicaFactor)) {
                     // Too many exceptions to tolerate this strategy... let's bail out.
                     StringBuilder stringBuilder = new StringBuilder();
                     stringBuilder.append("We cannot use pushHighAvailability because it would bring the total ");
@@ -2070,6 +2079,8 @@ public class AdminServiceRequestHandler implements RequestHandler {
                         stringBuilder.append(nodeId);
                     }
                     stringBuilder.append("]");
+                    stringBuilder.append(", build.replica.factor is ")
+                        .append(replicaFactor);
                     responseMessage = stringBuilder.toString();
                     logger.error(responseMessage);
                 } else {
