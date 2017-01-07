@@ -10,7 +10,7 @@ import java.io.IOException;
  */
 public class VoldemortBuildAndPushJobRunner {
     private static final Logger logger = Logger.getLogger(VoldemortBuildAndPushJobRunner.class);
-    public static void main(String[] args) {
+    public static void main(String[] args) throws Exception {
         // Validate arguments
         if (args.length < 1) {
             logger.error("Please provide a job config file name as the argument to this script.");
