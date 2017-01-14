@@ -36,6 +36,7 @@ import java.util.Map.Entry;
 import java.util.Random;
 import java.util.Set;
 
+import com.google.common.io.BaseEncoding;
 import joptsimple.OptionParser;
 import joptsimple.OptionSet;
 
@@ -68,8 +69,8 @@ import com.google.common.collect.Maps;
 
 /**
  * Build a read-only store from given input.
- * 
- * 
+ *
+ *
  */
 public class JsonStoreBuilder {
 
@@ -120,7 +121,7 @@ public class JsonStoreBuilder {
 
     /**
      * Main method to run on a input text file
-     * 
+     *
      * @param args see USAGE for details
      * @throws IOException
      */
@@ -717,10 +718,18 @@ public class JsonStoreBuilder {
             this.digest = ByteUtils.getDigest("MD5");
             this.keySerializerDefinition = storeDefinition.getKeySerializer();
             this.valueSerializerDefinition = storeDefinition.getValueSerializer();
-            this.keySerializer = (Serializer<Object>) factory.getSerializer(storeDefinition.getKeySerializer());
-            this.valueSerializer = (Serializer<Object>) factory.getSerializer(storeDefinition.getValueSerializer());
+            this.keySerializer=getSerializer(this.keySerializerDefinition, factory);
+            this.valueSerializer=getSerializer(this.valueSerializerDefinition, factory);
             this.keyCompressor = new CompressionStrategyFactory().get(keySerializerDefinition.getCompression());
             this.valueCompressor = new CompressionStrategyFactory().get(valueSerializerDefinition.getCompression());
+        }
+
+        Serializer<Object> getSerializer(SerializerDefinition definition, SerializerFactory factory) {
+            if (definition.getName().equals(DefaultSerializerFactory.IDENTITY_SERIALIZER_TYPE_NAME)) {
+                return new Base64Serializer();
+            } else {
+                return (Serializer<Object>) factory.getSerializer(definition);
+            }
         }
 
         @Override
@@ -767,6 +776,17 @@ public class JsonStoreBuilder {
 
     }
 
+    public static class Base64Serializer implements Serializer<Object> {
+        @Override
+        public byte[] toBytes(Object object) {
+            return BaseEncoding.base64().decode((String)object);
+        }
+
+        @Override
+        public Object toObject(byte[] bytes) {
+            return BaseEncoding.base64().encode(bytes);
+        }
+    }
     private static class KeyValuePair {
 
         private final byte[] key;
