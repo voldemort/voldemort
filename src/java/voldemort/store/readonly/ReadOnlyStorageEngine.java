@@ -67,6 +67,7 @@ public class ReadOnlyStorageEngine extends AbstractStorageEngine<ByteArray, byte
     private final ReadWriteLock fileModificationLock;
     private final SearchStrategy searchStrategy;
     private final StoreVersionManager storeVersionManager;
+    private final String latestDirSymLinkPath;
 
     // Mutable state
     private RoutingStrategy routingStrategy;
@@ -138,6 +139,7 @@ public class ReadOnlyStorageEngine extends AbstractStorageEngine<ByteArray, byte
          */
         this.fileModificationLock = new ReentrantReadWriteLock();
         this.isOpen = false;
+        this.latestDirSymLinkPath = storeDir.getAbsolutePath() + File.separator + "latest";
         storeVersionManager = new StoreVersionManager(storeDir, config);
         open(null);
 
@@ -176,6 +178,27 @@ public class ReadOnlyStorageEngine extends AbstractStorageEngine<ByteArray, byte
         return builder.toString();
     }
 
+    public void reSyncFileSystem() {
+        fileModificationLock.readLock().lock();
+        File latestSymLink = new File(latestDirSymLinkPath);
+        boolean needToResync = !Utils.symlinkExists(ReadOnlyUtils.getCurrentVersion(storeDir), latestSymLink);
+        fileModificationLock.readLock().unlock();
+
+        if (needToResync) {
+            logger.info("The internal state is inconsistent with the filesystem's state. Resyncing.");
+            File newLatestVersion = null;
+            try {
+                newLatestVersion = latestSymLink.getCanonicalFile();
+            } catch(IOException e) {
+                logger.error("Error in trying to follow the new symlink to its destination.", e);
+            }
+            if (newLatestVersion != null) {
+                open(newLatestVersion);
+                logger.info("Successfully resynced from filesystem.");
+            }
+        }
+    }
+
     /**
      * Open the store with the version directory specified. If null is specified
      * we open the directory with the maximum version
@@ -208,9 +231,9 @@ public class ReadOnlyStorageEngine extends AbstractStorageEngine<ByteArray, byte
             Utils.mkdirs(versionDir);
 
             // Validate symbolic link, and create it if it doesn't already exist
-            Utils.symlink(versionDir.getAbsolutePath(), storeDir.getAbsolutePath() + File.separator + "latest");
+            Utils.symlink(versionDir.getAbsolutePath(), latestDirSymLinkPath);
             this.fileSet = new ChunkedFileSet(versionDir, routingStrategy, nodeId, maxValueBufferAllocationSize);
-            storeVersionManager.syncInternalStateFromFileSystem(false);
+            storeVersionManager.syncInternalStateFromFileSystem();
             this.lastSwapped = System.currentTimeMillis();
             this.isOpen = true;
         } catch(IOException e) {
@@ -413,7 +436,7 @@ public class ReadOnlyStorageEngine extends AbstractStorageEngine<ByteArray, byte
                     Utils.rm(file);
                     logger.info("Deleting of " + file.getAbsolutePath()
                                 + " completed successfully.");
-                    storeVersionManager.syncInternalStateFromFileSystem(true);
+                    storeVersionManager.syncInternalStateFromFileSystem();
                 } catch(Exception e) {
                     logger.error("Exception during deleteAsync for path: " + file, e);
                 }

@@ -201,11 +201,11 @@ public class StoreRepository {
         return new ArrayList<StorageEngine<ByteArray, byte[], byte[]>>(this.storageEngines.values());
     }
 
-    public List<StorageEngine<ByteArray, byte[], byte[]>> getStorageEnginesByClass(Class<? extends StorageEngine<?, ?, ?>> c) {
-        List<StorageEngine<ByteArray, byte[], byte[]>> l = new ArrayList<StorageEngine<ByteArray, byte[], byte[]>>();
+    public <STORAGE_ENGINE extends StorageEngine<ByteArray, byte[], byte[]>> List<STORAGE_ENGINE> getStorageEnginesByClass(Class<STORAGE_ENGINE> c) {
+        List<STORAGE_ENGINE> l = new ArrayList<STORAGE_ENGINE>();
         for(StorageEngine<ByteArray, byte[], byte[]> engine: this.storageEngines.values())
             if(engine.getClass().equals(c))
-                l.add(engine);
+                l.add((STORAGE_ENGINE) engine);
         return l;
     }
 

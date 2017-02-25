@@ -1,12 +1,10 @@
 package voldemort.store.readonly;
 
 import com.google.common.collect.Maps;
-import org.apache.commons.io.IOUtils;
 import org.apache.log4j.Logger;
 import voldemort.server.VoldemortConfig;
 import voldemort.store.PersistenceFailureException;
 import voldemort.store.readonly.swapper.FailedFetchLock;
-import voldemort.utils.Props;
 
 import java.io.File;
 import java.io.FileFilter;
@@ -83,12 +81,12 @@ public class StoreVersionManager {
      * TODO: If the StoreVersionManager supports non-RO stores in the future,
      *       we should move some of the ReadOnlyUtils functions below to another Utils class.
      */
-    public void syncInternalStateFromFileSystem(boolean alsoSyncRemoteState) {
+    public void syncInternalStateFromFileSystem() {
         // Make sure versions missing from the file-system are cleaned up from the internal state
         for (Long version: versionToEnabledMap.keySet()) {
             File[] existingVersionDirs = ReadOnlyUtils.getVersionDirs(rootDir, version, version);
             if (existingVersionDirs.length == 0) {
-                removeVersion(version, alsoSyncRemoteState);
+                removeVersion(version);
             }
         }
 
@@ -251,36 +249,10 @@ public class StoreVersionManager {
         return disabledMarkerFile;
     }
 
-    private void removeVersion(long version, boolean alsoSyncRemoteState) {
+    private void removeVersion(long version) {
         if (currentVersion == version) {
             currentVersion = -1; // Should we throw instead?
         }
         versionToEnabledMap.remove(version);
-
-        if (alsoSyncRemoteState && config != null && config.getHighAvailabilityStateAutoCleanUp()) {
-            FailedFetchLock failedFetchLock = null;
-            try {
-                failedFetchLock = FailedFetchLock.getLock(config, new Props());
-                removeRemoteObsoleteState(failedFetchLock);
-            } catch (Exception e) {
-                logger.error("Failed to execute failedFetchLock.removeObsoleteStateForStore() for store " + storeName, e);
-            } finally {
-                IOUtils.closeQuietly(failedFetchLock);
-            }
-        }
-    }
-
-    public void removeRemoteObsoleteState(FailedFetchLock failedFetchLock) {
-        if (config != null && config.getHighAvailabilityStateAutoCleanUp()) {
-            try {
-                failedFetchLock.removeObsoleteStateForStore(config.getNodeId(), storeName, versionToEnabledMap);
-            } catch (Exception e) {
-                logger.error("Failed to execute failedFetchLock.removeObsoleteStateForStore() for store " + storeName, e);
-            }
-            logger.info("Successfully synced internal state with remote FailedFetchLock state for store " + storeName);
-        } else {
-            logger.debug("Will not attempt removeRemoteObsoleteState() because it is disabled. " +
-                    "This can be enabled with " + VoldemortConfig.PUSH_HA_STATE_AUTO_CLEANUP + "=true");
-        }
     }
 }

@@ -367,64 +367,6 @@ public class HdfsFailedFetchLock extends FailedFetchLock {
 
     }
 
-    @Override
-    public void removeObsoleteStateForStore(int nodeId, String storeName, Map<Long, Boolean> versionToEnabledMap) throws Exception {
-        int attempts = 1;
-        boolean success = false;
-        while (!success && attempts <= maxAttempts) {
-            try {
-                String nodeIdDir = NODE_ID_DIR_PREFIX + nodeId;
-                Path failedStorePath = new Path(clusterDir + "/" + nodeIdDir + "/" + storeName);
-
-                FileStatus[] disabledVersions;
-                try {
-                    disabledVersions = this.fileSystem.listStatus(failedStorePath);
-                    for (FileStatus disabledVersionDir: disabledVersions) {
-                        Long disabledVersion = Long.parseLong(disabledVersionDir.getPath().getName());
-                        Boolean isDisabledLocally = versionToEnabledMap.get(disabledVersion);
-                        if (isDisabledLocally == null || !isDisabledLocally) {
-                            logger.info("The shared state has an obsolete disabled stored version which we will delete: " +
-                                    disabledVersionDir.getPath().toString());
-                            this.fileSystem.delete(disabledVersionDir.getPath(), true);
-                        }
-                    }
-
-                    // Let's see if there's still anything left for this store?
-                    disabledVersions = this.fileSystem.listStatus(failedStorePath);
-                    if (disabledVersions.length == 0) {
-                        logger.info("There are no more disabled versions for this store, so we will delete: " +
-                                failedStorePath.toString());
-                        this.fileSystem.delete(failedStorePath, true);
-                    }
-                } catch (FileNotFoundException e) {
-                    logger.info("The shared state has no obsolete versions in: " + failedStorePath.toString());
-                }
-
-                // Let's see if there's still anything left for this node?
-                Path disabledStoresPath = new Path(clusterDir + "/" + nodeIdDir);
-                try {
-                    FileStatus[] disabledStores = this.fileSystem.listStatus(disabledStoresPath);
-                    if (disabledStores.length == 0) {
-                        logger.info("There are no more disabled stores for this node, so we will delete: " +
-                                disabledStoresPath.toString());
-                        this.fileSystem.delete(disabledStoresPath, true);
-                    }
-                } catch (FileNotFoundException e) {
-                    logger.info("The shared state has no obsolete stores in: " + disabledStoresPath.toString());
-                }
-
-                success = true;
-            }  catch (IOException e) {
-                handleIOException(e, CLEAR_OBSOLETE_STATE, attempts);
-                attempts++;
-            }
-        }
-
-        if (!success) {
-            throw new VoldemortException(exceptionMessage(CLEAR_OBSOLETE_STATE));
-        }
-    }
-
     /**
      * Closes this stream and releases any system resources associated
      * with it. If the stream is already closed then invoking this

@@ -150,6 +150,7 @@ public class VoldemortConfig implements Serializable {
     public static final String PUSH_HA_LOCK_IMPLEMENTATION = "push.ha.lock.implementation";
     public static final String PUSH_HA_MAX_NODE_FAILURES = "push.ha.max.node.failure";
     public static final String PUSH_HA_STATE_AUTO_CLEANUP = "push.ha.state.auto.cleanup";
+    public static final String PUSH_HA_RECOVERY_ATTEMPT_INTERVAL_SEC = "push.ha.recovery.attempt.interval.sec";
     public static final String MYSQL_USER = "mysql.user";
     public static final String MYSQL_PASSWORD = "mysql.password";
     public static final String MYSQL_HOST = "mysql.host";
@@ -361,6 +362,7 @@ public class VoldemortConfig implements Serializable {
         defaultConfig.put(PUSH_HA_MAX_NODE_FAILURES, 0);
         defaultConfig.put(PUSH_HA_ENABLED, false);
         defaultConfig.put(PUSH_HA_STATE_AUTO_CLEANUP, false);
+        defaultConfig.put(PUSH_HA_RECOVERY_ATTEMPT_INTERVAL_SEC, 60);
 
         defaultConfig.put(MYSQL_USER, "root");
         defaultConfig.put(MYSQL_PASSWORD, "");
@@ -608,6 +610,7 @@ public class VoldemortConfig implements Serializable {
     private String highAvailabilityPushLockImplementation;
     private int highAvailabilityPushMaxNodeFailures;
     private boolean highAvailabilityStateAutoCleanUp;
+    private int highAvailabilityRecoveryAttemptIntervalSec;
 
     private OpTimeMap testingSlowQueueingDelays;
     private OpTimeMap testingSlowConcurrentDelays;
@@ -3644,9 +3647,11 @@ public class VoldemortConfig implements Serializable {
      * accumulates in order to prevent race conditions. This state can become stale
      * if Voldemort has been recovered, which prevents the cluster from continuing
      * to be highly-available in the future. This configuration allows the server
-     * to automatically clean up this shared state when it transitions from offline
-     * to online, as well as when old store-versions are deleted, which happens
-     * asynchronously after a new store-version is swapped in.
+     * to automatically clean up this shared state. This comes into play in two cases:
+     *
+     * 1) Manually, when the operator triggers to transition from offline to online.
+     * 2) Automatically, when the server is running in
+     * {@link voldemort.store.metadata.MetadataStore.VoldemortState#RECOVERY} mode.
      *
      * N.B.: This is an experimental feature! Hence it is disabled by default.
      *
@@ -3657,6 +3662,28 @@ public class VoldemortConfig implements Serializable {
      */
     public void setHighAvailabilityStateAutoCleanUp(boolean highAvailabilityStateAutoCleanUp) {
         this.highAvailabilityStateAutoCleanUp = highAvailabilityStateAutoCleanUp;
+    }
+
+    public int getHighAvailabilityRecoveryAttemptIntervalSec() {
+        return highAvailabilityRecoveryAttemptIntervalSec;
+    }
+
+    /**
+     * When using a high-availability push strategy, the process of recovering a node
+     * involves copying the files that it's missing from peer nodes. This can take a
+     * while and it is thus desirable for the server to be capable of noticing when
+     * the missing files have come in. This configuration determines the interval at
+     * which the server performs this check, while it is in recovery mode.
+     *
+     * N.B.: This is an experimental feature!
+     *
+     * <ul>
+     * <li>Property : "{@value #PUSH_HA_RECOVERY_ATTEMPT_INTERVAL_SEC}"</li>
+     * <li>Default : 60</li>
+     * </ul>
+     */
+    public void setHighAvailabilityRecoveryAttemptIntervalSec(int highAvailabilityRecoveryAttemptIntervalSec) {
+        this.highAvailabilityRecoveryAttemptIntervalSec = highAvailabilityRecoveryAttemptIntervalSec;
     }
 
     public boolean isNetworkClassLoaderEnabled() {
