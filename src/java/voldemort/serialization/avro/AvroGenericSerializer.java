@@ -15,20 +15,19 @@
  */
 package voldemort.serialization.avro;
 
-import java.io.ByteArrayOutputStream;
-import java.io.IOException;
-
 import org.apache.avro.Schema;
 import org.apache.avro.generic.GenericDatumReader;
 import org.apache.avro.generic.GenericDatumWriter;
-import org.apache.avro.io.BinaryEncoder;
 import org.apache.avro.io.Decoder;
 import org.apache.avro.io.DecoderFactory;
 import org.apache.avro.io.Encoder;
-
+import org.apache.avro.io.EncoderFactory;
 import voldemort.serialization.SerializationException;
 import voldemort.serialization.SerializationUtils;
 import voldemort.serialization.Serializer;
+
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
 
 /**
  * Avro serializer that uses the generic representation for Avro data. This
@@ -51,7 +50,7 @@ public class AvroGenericSerializer implements Serializer<Object> {
 
     public byte[] toBytes(Object object) {
         ByteArrayOutputStream output = new ByteArrayOutputStream();
-        Encoder encoder = new BinaryEncoder(output);
+        Encoder encoder = EncoderFactory.get().binaryEncoder(output, null);
         GenericDatumWriter<Object> datumWriter = null;
         try {
             datumWriter = new GenericDatumWriter<Object>(typeDef);

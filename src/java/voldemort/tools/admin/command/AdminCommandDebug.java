@@ -16,33 +16,18 @@
 
 package voldemort.tools.admin.command;
 
-import java.io.BufferedWriter;
-import java.io.IOException;
-import java.io.OutputStreamWriter;
-import java.io.PrintStream;
-import java.io.StringReader;
-import java.io.StringWriter;
-import java.util.AbstractMap;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Date;
-import java.util.HashMap;
-import java.util.Iterator;
-import java.util.List;
-import java.util.Map;
-import java.util.Map.Entry;
-
+import com.google.common.base.Objects;
+import com.sleepycat.persist.StoreNotFoundException;
 import joptsimple.OptionParser;
 import joptsimple.OptionSet;
-
 import org.apache.avro.Schema;
 import org.apache.avro.generic.GenericDatumReader;
 import org.apache.avro.generic.GenericRecord;
+import org.apache.avro.io.DecoderFactory;
 import org.apache.avro.io.JsonDecoder;
 import org.apache.commons.codec.DecoderException;
 import org.codehaus.jackson.JsonFactory;
 import org.codehaus.jackson.map.ObjectMapper;
-
 import voldemort.VoldemortException;
 import voldemort.client.protocol.admin.AdminClient;
 import voldemort.client.protocol.admin.QueryKeyResult;
@@ -50,11 +35,7 @@ import voldemort.cluster.Cluster;
 import voldemort.cluster.Zone;
 import voldemort.routing.BaseStoreRoutingPlan;
 import voldemort.routing.StoreRoutingPlan;
-import voldemort.serialization.DefaultSerializerFactory;
-import voldemort.serialization.SerializationException;
-import voldemort.serialization.Serializer;
-import voldemort.serialization.SerializerDefinition;
-import voldemort.serialization.SerializerFactory;
+import voldemort.serialization.*;
 import voldemort.serialization.json.JsonReader;
 import voldemort.store.InvalidMetadataException;
 import voldemort.store.StoreDefinition;
@@ -69,8 +50,9 @@ import voldemort.utils.Utils;
 import voldemort.versioning.VectorClock;
 import voldemort.versioning.Versioned;
 
-import com.google.common.base.Objects;
-import com.sleepycat.persist.StoreNotFoundException;
+import java.io.*;
+import java.util.*;
+import java.util.Map.Entry;
 
 /**
  * Implements all debug commands.
@@ -322,7 +304,7 @@ public class AdminCommandDebug extends AbstractAdminCommand {
                         String keySerializerName = keySerializerDef.getName();
                         if(isAvroSchema(keySerializerName)) {
                             Schema keySchema = Schema.parse(keySerializerDef.getCurrentSchemaInfo());
-                            JsonDecoder decoder = new JsonDecoder(keySchema, keyString);
+                            JsonDecoder decoder = DecoderFactory.defaultFactory().jsonDecoder(keySchema, keyString);
                             GenericDatumReader<Object> datumReader = new GenericDatumReader<Object>(keySchema);
                             keyObject = datumReader.read(null, decoder);
                         } else if(keySerializerName.equals(DefaultSerializerFactory.JSON_SERIALIZER_TYPE_NAME)) {

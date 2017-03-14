@@ -1,15 +1,15 @@
 package voldemort.rest.coordinator.config;
 
-import java.util.Map;
-import java.util.Properties;
-import java.util.Set;
-
+import com.google.common.collect.Maps;
 import org.apache.avro.Schema;
 import org.apache.avro.generic.GenericDatumReader;
+import org.apache.avro.io.DecoderFactory;
 import org.apache.avro.io.JsonDecoder;
 import org.apache.avro.util.Utf8;
 
-import com.google.common.collect.Maps;
+import java.util.Map;
+import java.util.Properties;
+import java.util.Set;
 
 /**
  * Class with static functions for interacting with store client config files.
@@ -35,7 +35,7 @@ public class ClientConfigUtil {
     public static Properties readSingleClientConfigAvro(String configAvro) {
         Properties props = new Properties();
         try {
-            JsonDecoder decoder = new JsonDecoder(CLIENT_CONFIG_AVRO_SCHEMA, configAvro);
+            JsonDecoder decoder = DecoderFactory.defaultFactory().jsonDecoder(CLIENT_CONFIG_AVRO_SCHEMA, configAvro);
             GenericDatumReader<Object> datumReader = new GenericDatumReader<Object>(CLIENT_CONFIG_AVRO_SCHEMA);
             Map<Utf8, Utf8> flowMap = (Map<Utf8, Utf8>) datumReader.read(null, decoder);
             for(Utf8 key: flowMap.keySet()) {
@@ -58,7 +58,7 @@ public class ClientConfigUtil {
     public static Map<String, Properties> readMultipleClientConfigAvro(String configAvro) {
         Map<String, Properties> mapStoreToProps = Maps.newHashMap();
         try {
-            JsonDecoder decoder = new JsonDecoder(CLIENT_CONFIGS_AVRO_SCHEMA, configAvro);
+            JsonDecoder decoder = DecoderFactory.defaultFactory().jsonDecoder(CLIENT_CONFIGS_AVRO_SCHEMA, configAvro);
             GenericDatumReader<Object> datumReader = new GenericDatumReader<Object>(CLIENT_CONFIGS_AVRO_SCHEMA);
 
             Map<Utf8, Map<Utf8, Utf8>> storeConfigs = (Map<Utf8, Map<Utf8, Utf8>>) datumReader.read(null,

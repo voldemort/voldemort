@@ -16,34 +16,15 @@
 
 package voldemort;
 
-import java.io.BufferedReader;
-import java.io.BufferedWriter;
-import java.io.File;
-import java.io.FileReader;
-import java.io.FileWriter;
-import java.io.IOException;
-import java.io.InputStreamReader;
-import java.io.OutputStreamWriter;
-import java.io.PrintStream;
-import java.io.StringReader;
-import java.nio.ByteBuffer;
-import java.text.DateFormat;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Date;
-import java.util.Iterator;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-
+import com.google.common.base.Function;
+import com.google.common.collect.Lists;
 import joptsimple.OptionParser;
 import joptsimple.OptionSet;
-
 import org.apache.avro.Schema;
 import org.apache.avro.generic.GenericDatumReader;
+import org.apache.avro.io.DecoderFactory;
 import org.apache.avro.io.JsonDecoder;
 import org.apache.commons.lang.mutable.MutableInt;
-
 import voldemort.client.ClientConfig;
 import voldemort.client.SocketStoreClientFactory;
 import voldemort.client.StoreClient;
@@ -62,15 +43,13 @@ import voldemort.serialization.json.EndOfFileException;
 import voldemort.serialization.json.JsonReader;
 import voldemort.store.StoreDefinition;
 import voldemort.store.StoreUtils;
-import voldemort.utils.ByteArray;
-import voldemort.utils.ByteUtils;
-import voldemort.utils.Pair;
-import voldemort.utils.StoreDefinitionUtils;
-import voldemort.utils.Utils;
+import voldemort.utils.*;
 import voldemort.versioning.Versioned;
 
-import com.google.common.base.Function;
-import com.google.common.collect.Lists;
+import java.io.*;
+import java.nio.ByteBuffer;
+import java.text.DateFormat;
+import java.util.*;
 
 /**
  * Shell to interact with the voldemort cluster from the command line...
@@ -248,7 +227,7 @@ public class VoldemortClientShell {
                 // From here on, this is just normal avro parsing.
                 Schema latestSchema = Schema.parse(serializerDef.getCurrentSchemaInfo());
                 try {
-                    JsonDecoder decoder = new JsonDecoder(latestSchema, avroString);
+                    JsonDecoder decoder = DecoderFactory.defaultFactory().jsonDecoder(latestSchema, avroString);
                     GenericDatumReader<Object> datumReader = new GenericDatumReader<Object>(latestSchema);
                     obj = datumReader.read(null, decoder);
                 } catch(IOException io) {
