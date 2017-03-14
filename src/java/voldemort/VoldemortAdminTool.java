@@ -16,54 +16,25 @@
 
 package voldemort;
 
-import java.io.BufferedInputStream;
-import java.io.BufferedOutputStream;
-import java.io.BufferedWriter;
-import java.io.ByteArrayInputStream;
-import java.io.DataInputStream;
-import java.io.DataOutputStream;
-import java.io.EOFException;
-import java.io.File;
-import java.io.FileInputStream;
-import java.io.FileNotFoundException;
-import java.io.FileOutputStream;
-import java.io.FileWriter;
-import java.io.FilterOutputStream;
-import java.io.IOException;
-import java.io.OutputStream;
-import java.io.OutputStreamWriter;
-import java.io.PrintStream;
-import java.io.StringReader;
-import java.io.StringWriter;
-import java.io.Writer;
-import java.util.AbstractMap;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collection;
-import java.util.Date;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.Iterator;
-import java.util.List;
-import java.util.Map;
-import java.util.Map.Entry;
-import java.util.Properties;
-import java.util.Scanner;
-import java.util.Set;
-
+import com.google.common.base.Joiner;
+import com.google.common.base.Objects;
+import com.google.common.collect.AbstractIterator;
+import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Lists;
+import com.google.common.collect.Maps;
+import com.sleepycat.persist.StoreNotFoundException;
 import joptsimple.OptionParser;
 import joptsimple.OptionSet;
-
 import org.apache.avro.Schema;
 import org.apache.avro.generic.GenericDatumReader;
 import org.apache.avro.generic.GenericRecord;
+import org.apache.avro.io.DecoderFactory;
 import org.apache.avro.io.JsonDecoder;
 import org.apache.commons.codec.DecoderException;
 import org.apache.commons.io.FileUtils;
 import org.codehaus.jackson.JsonFactory;
 import org.codehaus.jackson.JsonGenerator;
 import org.codehaus.jackson.map.ObjectMapper;
-
 import voldemort.client.protocol.admin.AdminClient;
 import voldemort.client.protocol.admin.QueryKeyResult;
 import voldemort.cluster.Cluster;
@@ -71,12 +42,7 @@ import voldemort.cluster.Node;
 import voldemort.cluster.Zone;
 import voldemort.routing.BaseStoreRoutingPlan;
 import voldemort.routing.StoreRoutingPlan;
-import voldemort.serialization.DefaultSerializerFactory;
-import voldemort.serialization.SerializationException;
-import voldemort.serialization.Serializer;
-import voldemort.serialization.SerializerDefinition;
-import voldemort.serialization.SerializerFactory;
-import voldemort.serialization.StringSerializer;
+import voldemort.serialization.*;
 import voldemort.serialization.json.JsonReader;
 import voldemort.server.rebalance.RebalancerState;
 import voldemort.store.InvalidMetadataException;
@@ -89,24 +55,15 @@ import voldemort.store.quota.QuotaType;
 import voldemort.store.quota.QuotaUtils;
 import voldemort.store.readonly.ReadOnlyStorageConfiguration;
 import voldemort.store.system.SystemStoreConstants;
-import voldemort.utils.ByteArray;
-import voldemort.utils.ByteUtils;
-import voldemort.utils.CmdUtils;
-import voldemort.utils.Pair;
-import voldemort.utils.StoreDefinitionUtils;
-import voldemort.utils.Utils;
+import voldemort.utils.*;
 import voldemort.versioning.VectorClock;
 import voldemort.versioning.Versioned;
 import voldemort.xml.ClusterMapper;
 import voldemort.xml.StoreDefinitionsMapper;
 
-import com.google.common.base.Joiner;
-import com.google.common.base.Objects;
-import com.google.common.collect.AbstractIterator;
-import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Lists;
-import com.google.common.collect.Maps;
-import com.sleepycat.persist.StoreNotFoundException;
+import java.io.*;
+import java.util.*;
+import java.util.Map.Entry;
 
 /**
  * Provides a command line interface to the
@@ -2125,7 +2082,7 @@ public class VoldemortAdminTool {
                     String keySerializerName = keySerializerDef.getName();
                     if(isAvroSchema(keySerializerName)) {
                         Schema keySchema = Schema.parse(keySerializerDef.getCurrentSchemaInfo());
-                        JsonDecoder decoder = new JsonDecoder(keySchema, keyString);
+                        JsonDecoder decoder = DecoderFactory.defaultFactory().jsonDecoder(keySchema, keyString);
                         GenericDatumReader<Object> datumReader = new GenericDatumReader<Object>(keySchema);
                         keyObject = datumReader.read(null, decoder);
                     } else if(keySerializerName.equals(DefaultSerializerFactory.JSON_SERIALIZER_TYPE_NAME)) {

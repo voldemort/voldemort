@@ -1,15 +1,9 @@
 package voldemort;
 
-import java.io.BufferedReader;
-import java.io.FileReader;
-import java.io.IOException;
-import java.io.InputStreamReader;
-import java.util.List;
-
 import org.apache.avro.Schema;
 import org.apache.avro.generic.GenericDatumReader;
+import org.apache.avro.io.DecoderFactory;
 import org.apache.avro.io.JsonDecoder;
-
 import voldemort.client.ClientConfig;
 import voldemort.client.DefaultStoreClient;
 import voldemort.client.SocketStoreClientFactory;
@@ -19,6 +13,12 @@ import voldemort.client.protocol.admin.AdminClient;
 import voldemort.store.StoreDefinition;
 import voldemort.utils.Pair;
 import voldemort.utils.Utils;
+
+import java.io.BufferedReader;
+import java.io.FileReader;
+import java.io.IOException;
+import java.io.InputStreamReader;
+import java.util.List;
 
 /**
  * NOTE: This class is unsupported. All shell access is via the
@@ -144,7 +144,7 @@ public class VoldemortAvroClientShell {
                     System.out.println("Enter key:");
                     line = reader.readLine();
 
-                    JsonDecoder decoder = new JsonDecoder(keySchema, line);
+                    JsonDecoder decoder = DecoderFactory.defaultFactory().jsonDecoder(keySchema, line);
                     GenericDatumReader<Object> datumReader = null;
                     Object key = null;
                     try {
@@ -170,8 +170,8 @@ public class VoldemortAvroClientShell {
                     line = reader.readLine();
                     valueString = line;
 
-                    JsonDecoder keyDecoder = new JsonDecoder(keySchema, keyString);
-                    JsonDecoder valueDecoder = new JsonDecoder(valueSchema, valueString);
+                    JsonDecoder keyDecoder = DecoderFactory.defaultFactory().jsonDecoder(keySchema, keyString);
+                    JsonDecoder valueDecoder = DecoderFactory.defaultFactory().jsonDecoder(valueSchema, valueString);
 
                     GenericDatumReader<Object> datumReader = null;
                     Object key = null;

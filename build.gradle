@@ -188,7 +188,7 @@ clean {
 // Dependencies used by both BnP and Voldemort
 // TODO: Decide if we want to do that for all dependencies, even if they're used just in Voldemort...
 
-def depAvro = 'org.apache.avro:avro:1.4.0'
+def depAvro = 'org.apache.avro:avro:1.8.1'
 def depProtoBuf = 'com.google.protobuf:protobuf-java:2.3.0'
 def depJdom = 'org.jdom:jdom:1.1'
 def depAzkaban = 'com.linkedin.azkaban:azkaban:2.5.0'
@@ -199,6 +199,42 @@ def depJoda = 'joda-time:joda-time:1.6'
 def depTehuti = 'io.tehuti:tehuti:0.7.0'
 
 
+shadowJar {
+    classifier 'fat'
+    from sourceSets.main.output, sourceSets.test.output, sourceSets.main.resources
+    from {subprojects*.sourceSets.main.output}
+    from {subprojects*.sourceSets.test.output}
+    dependencies {
+//        include(dependency(depAvro))
+        include(dependency(depProtoBuf))
+        include(dependency(depJdom))
+        include(dependency(depAzkaban))
+        include(dependency(depGuava))
+        include(dependency(depLog4j))
+        include(dependency(depJacksonMapper))
+        include(dependency(depJoda))
+        include(dependency(depTehuti))
+        include(dependency('commons-io:commons-io:2.5'))
+        include(dependency('com.sleepycat:je:5.0.104'))
+        include(dependency('commons-lang:commons-lang:2.6'))
+        include(dependency('org.codehaus.jackson:jackson-core-asl:1.9.13'))
+    }
+    relocate 'org.slf4j', 'voldemort.shadow.org.lf4j'
+    relocate 'com.google', 'voldemort.shadow.com.google'
+    relocate 'org.apache.http', 'voldemort.shadow.org.apache.http'
+    relocate 'junit', 'voldemort.shadow.org.junit'
+    relocate 'org.apache.commons.io', 'voldemort.shadow.org.apache.commons.io'
+//    relocate 'org.apache.avro', 'voldemort.shadow.org.apache.avro'
+    relocate 'joptsimple', 'voldemort.shadow.joptsimple'
+    relocate 'org.apache.commons.math3', 'voldemort.shadow.org.apache.commons.math3'
+    relocate 'org.apache.commons.compress', 'voldemort.shadow.org.apache.commons.compress'
+    relocate 'org.codehaus.jackson', 'voldemort.shadow.org.codehaus.jackson'
+    relocate 'org.tukaani.xz', 'voldemort.shadow.org.tukaani.xz'
+    relocate 'org.objectweb.asm', 'voldemort.shadow.org.objectweb.asm'
+    relocate 'org.xerial.snappy', 'voldemort.shadow.org.xerial.snappy'
+    relocate 'com.thoughtworks.paranamer', 'voldemort.shadow.com.thoughtworks.paranamer'
+}
+/*
 shadowJar {
     classifier "bnp"
     from sourceSets.main.output, sourceSets.test.output, sourceSets.main.resources
@@ -220,7 +256,7 @@ shadowJar {
     relocate 'com.google.protobuf', 'voldemort.shadow.2.3.0.com.google.protobuf'
     relocate 'org.apache.avro', 'voldemort.shadow.1.4.0.org.apache.avro'
     // TODO: find a way to exclude private lib's BDB-JE which gets pulled into the fat jar...
-}
+}*/
 
 import com.github.jengelman.gradle.plugins.shadow.tasks.ShadowJar
 task protobufJar(type: ShadowJar) {
@@ -449,9 +485,11 @@ allprojects {
 task wrapper(type: Wrapper) { gradleVersion = '2.9' }
 
 dependencies {
+    compile 'commons-lang:commons-lang:2.6' // make commons lang dep explicit
     // Avro serialization format
+    testCompile group: 'org.apache.avro', name: 'avro-ipc', version: '1.8.1'
     compile depAvro
-
+    compile 'org.apache.avro:avro-mapred:1.8.1'
     // INTERNAL_LIBS azkaban version not found
     // azkaban-common-0.05.jar
 
@@ -468,10 +506,11 @@ dependencies {
     // Used by MySql storage engine classes
     // The jar supports database connection pooling
     compile 'commons-dbcp:commons-dbcp:1.2.2'
+    compile 'commons-dbcp:commons-dbcp:1.2.2'
 
     // commons io is used at many places
     // IOUtils, FileUtils and ByteArrayOutputStream
-    compile 'commons-io:commons-io:2.1'
+    compile 'commons-io:commons-io:2.5'
 
     // LZF compression strategy for store and tests.
     compile 'com.ning:compress-lzf:0.9.1'
