@@ -248,14 +248,14 @@ public class JsonReader {
 
     public Number readNumber() {
         skipWhitespace();
-        int intPiece = readInt();
+        long longPiece = readLong();
 
         // if int is all we have, return it
         if(isTerminator(current()))
-            return intPiece;
+            return longPiece;
 
         // okay its a double, check for exponent
-        double doublePiece = intPiece;
+        double doublePiece = longPiece;
         if(current() == '.')
             doublePiece += readFraction();
         if(current() == 'e' || current() == 'E') {
@@ -276,9 +276,9 @@ public class JsonReader {
                || ch == ',' || ch == -1;
     }
 
-    public int readInt() {
+    public long readLong() {
         skipWhitespace();
-        int val = 0;
+        long val = 0;
         boolean isPositive;
         if(current() == '-') {
             isPositive = false;
@@ -306,6 +306,8 @@ public class JsonReader {
             val = -val;
         return val;
     }
+
+
 
     public double readFraction() {
         skip('.');
