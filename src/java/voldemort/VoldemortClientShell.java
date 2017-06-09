@@ -569,8 +569,10 @@ public class VoldemortClientShell {
         } else if(o instanceof List) {
             List<Object> l = (List<Object>) o;
             commandOutput.print("[");
-            for(Object obj: l)
+            for(Object obj: l) {
                 printObject(obj);
+                commandOutput.print(", ");
+            }
             commandOutput.print("]");
         } else if(o instanceof Map) {
             Map<Object, Object> m = (Map<Object, Object>) o;
