@@ -13,8 +13,8 @@ import org.junit.Test;
 /**
  * A test that the avro serialization remains compatible with older serialized
  * data
- * 
- * 
+ *
+ *
  */
 public class AvroBackwardsCompatibilityTest {
 
@@ -53,7 +53,7 @@ public class AvroBackwardsCompatibilityTest {
         String versionZero = "{\"type\": \"record\", \"name\": \"myrec\",\"fields\": [{ \"name\": \"original\", \"type\": \"string\" }]}";
 
         String versionOne = "{\"type\": \"record\", \"name\": \"myrec\",\"fields\": [{ \"name\": \"original\", \"type\": \"string\" } ,"
-                            + "{ \"name\": \"new-field\", \"type\": \"string\", \"default\":\"\" }]}";
+                            + "{ \"name\": \"new_field\", \"type\": \"string\", \"default\":\"\" }]}";
 
         Schema s0 = Schema.parse(versionZero);
         Schema s1 = Schema.parse(versionOne);
@@ -79,7 +79,7 @@ public class AvroBackwardsCompatibilityTest {
         String versionZero = "{\"type\": \"record\", \"name\": \"myrec\",\"fields\": [{ \"name\": \"original\", \"type\": \"string\" }]}";
 
         String versionOne = "{\"type\": \"record\", \"name\": \"myrec\",\"fields\": [{ \"name\": \"original\", \"type\": \"string\" } ,"
-                            + "{ \"name\": \"new-field\", \"type\": \"string\", \"default\":\"\" }]}";
+                            + "{ \"name\": \"new_field\", \"type\": \"string\", \"default\":\"\" }]}";
 
         Schema s0 = Schema.parse(versionZero);
         Schema s1 = Schema.parse(versionOne);

@@ -188,7 +188,8 @@ clean {
 // Dependencies used by both BnP and Voldemort
 // TODO: Decide if we want to do that for all dependencies, even if they're used just in Voldemort...
 
-def depAvro = 'org.apache.avro:avro:1.4.0'
+def depAvro = 'org.apache.avro:avro:1.7.7'
+def depAvroIpc = 'org.apache.avro:avro-ipc:1.7.7'
 def depProtoBuf = 'com.google.protobuf:protobuf-java:2.3.0'
 def depJdom = 'org.jdom:jdom:1.1'
 def depAzkaban = 'com.linkedin.azkaban:azkaban:2.5.0'
@@ -208,6 +209,7 @@ shadowJar {
     // Required when working in an Hadoop 2.x environment
     dependencies {
         include(dependency(depAvro))
+        include(dependency(depAvroIpc))
         include(dependency(depProtoBuf))
         include(dependency(depJdom))
         include(dependency(depAzkaban))
@@ -451,6 +453,7 @@ task wrapper(type: Wrapper) { gradleVersion = '2.9' }
 dependencies {
     // Avro serialization format
     compile depAvro
+    testCompile depAvroIpc
 
     // INTERNAL_LIBS azkaban version not found
     // azkaban-common-0.05.jar
