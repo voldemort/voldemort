@@ -124,6 +124,7 @@ public class VoldemortBuildAndPushJob extends AbstractJob {
     public final static String PUSH_ROLLBACK = "push.rollback";
     public final static String PUSH_FORCE_SCHEMA_KEY = "push.force.schema.key";
     public final static String PUSH_FORCE_SCHEMA_VALUE = "push.force.schema.value";
+    public final static String PUSH_DROPBOX_CLUSTER = "push.dropbox.cluster";
     // others.optional
     public final static String KEY_SELECTION = "key.selection";
     public final static String VALUE_SELECTION = "value.selection";
@@ -608,6 +609,9 @@ public class VoldemortBuildAndPushJob extends AbstractJob {
                     verifyOrAddJsonStore(url);
                 }
                 if (build) {
+                    log.info("==================================================================================");
+                    log.info("                                     Build");
+                    log.info("==================================================================================");
                     // If we are only building and not pushing then we want the build to
                     // happen on all three clusters || we are pushing and we want to build
                     // it to only once
@@ -622,6 +626,9 @@ public class VoldemortBuildAndPushJob extends AbstractJob {
                     }
                 }
                 if (push) {
+                    log.info("==================================================================================");
+                    log.info("                                     Push");
+                    log.info("==================================================================================");
                     log.info("Pushing to cluster URL: " + clusterURLs.get(index));
                     // If we are not building and just pushing then we want to get the built
                     // from the dataDirs, or else we will just the one that we built earlier
@@ -830,7 +837,8 @@ public class VoldemortBuildAndPushJob extends AbstractJob {
                 maxNodeFailures,
                 failedFetchStrategyList,
                 url,
-                buildPrimaryReplicasOnly).run();
+                buildPrimaryReplicasOnly,
+                props).run();
     }
 
     /**
