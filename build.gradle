@@ -216,6 +216,10 @@ shadowJar {
         include(dependency(depJacksonMapper))
         include(dependency(depJoda))
         include(dependency(depTehuti))
+        include(dependency('com.linkedin.gobblin:gobblin-runtime:0.10.0'))
+        include(dependency('com.linkedin.gobblin:gobblin-data-management:0.10.0'))
+        include(dependency('com.linkedin.gobblin:gobblin-throttling-service-client:0.10.0'))
+        exclude(dependency('org.apache.hive:hive-exec'))
     }
     relocate 'com.google.protobuf', 'voldemort.shadow.2.3.0.com.google.protobuf'
     relocate 'org.apache.avro', 'voldemort.shadow.1.4.0.org.apache.avro'
@@ -613,6 +617,24 @@ dependencies {
 
     // Bouncy Castle Libaray
     compile 'org.bouncycastle:bcprov-jdk15on:1.48'
+
+    // Gobblin
+    compile ('com.linkedin.gobblin:gobblin-runtime:0.10.0') {
+        exclude group: 'org.apache.hive', module: 'hive-exec'
+        exclude group: 'com.google.protobuf'
+        exclude group: 'org.apache.avro'
+
+    }
+    compile ('com.linkedin.gobblin:gobblin-data-management:0.10.0') {
+        exclude group: 'org.apache.hive', module: 'hive-exec'
+        exclude group: 'com.google.protobuf'
+        exclude group: 'org.apache.avro'
+    }
+    compile ('com.linkedin.gobblin:gobblin-throttling-service-client:0.10.0') {
+        exclude group: 'org.apache.hive', module: 'hive-exec'
+        exclude group: 'com.google.protobuf'
+        exclude group: 'org.apache.avro'
+    }
 }
 
 subprojects {
