@@ -104,7 +104,7 @@ public class VoldemortSwapJob extends AbstractJob {
         this.props = props;
     }
 
-    private void runDistcp(Path from, Path to) throws Exception {
+    private JobExecutionResult runDistcp(Path from, Path to) throws Exception {
         info("     source: " + from);
         info("destination: " + to);
         EmbeddedGobblin embeddedGobblin = new EmbeddedGobblinDistcp(from, to).mrMode();
@@ -118,11 +118,7 @@ public class VoldemortSwapJob extends AbstractJob {
                 embeddedGobblin.setConfiguration(key, entry.getValue().toString());
             }
         }
-        JobExecutionResult result = embeddedGobblin.run();
-
-        if (!result.isSuccessful()) {
-            throw new RuntimeException("Distcp job failed.", result.getErrorCause());
-        }
+        return embeddedGobblin.run();
     }
 
     private FileSystem getRootFS(String target) throws Exception {
@@ -137,7 +133,7 @@ public class VoldemortSwapJob extends AbstractJob {
         if (fs.exists(path)) {
             fs.delete(path, true);
             if (fs.exists(path)) {
-                warn("Could not delete temp directory " + path + " in dropbox!");
+                warn("Could not delete temp directory " + path + " in CDN!");
             } else {
                 info("Deleted " + path);
             }
@@ -168,22 +164,22 @@ public class VoldemortSwapJob extends AbstractJob {
         }
     }
 
-    private String pickDropbox() {
+    private String pickCDN() {
         List<String> pushClusters = props.getList(VoldemortBuildAndPushJob.PUSH_CLUSTER);
 
-        if (!props.containsKey(VoldemortBuildAndPushJob.PUSH_DROPBOX_CLUSTER)) {
+        if (!props.containsKey(VoldemortBuildAndPushJob.PUSH_CDN_CLUSTER)) {
             return "";
         }
-        List<String> dropboxClusters = props.getList(VoldemortBuildAndPushJob.PUSH_DROPBOX_CLUSTER);
+        List<String> cdnClusters = props.getList(VoldemortBuildAndPushJob.PUSH_CDN_CLUSTER);
 
-        if (pushClusters.size() != dropboxClusters.size()) {
+        if (pushClusters.size() != cdnClusters.size()) {
             warn("Cluster sizes are different!");
-            warn("Will bypass dropbox!");
+            warn("Will bypass CDN!");
             return "";
         }
 
         int index = pushClusters.indexOf(clusterName);
-        return index == -1 ? "" : dropboxClusters.get(index);
+        return index == -1 ? "" : cdnClusters.get(index);
     }
 
     public void run() throws Exception {
@@ -193,23 +189,31 @@ public class VoldemortSwapJob extends AbstractJob {
         JobConf conf = new JobConf();
         Path dataPath = new Path(dataDir);
         String modifiedDataDir = dataPath.makeQualified(FileSystem.get(conf)).toString();
-        String dropboxURL = pickDropbox();
+        String cdnURL = pickCDN();
 
-        if (!dropboxURL.isEmpty()) {
-            info("Using dropbox: " + dropboxURL);
+        if (!cdnURL.isEmpty()) {
+            info("Using CDN: " + cdnURL);
             info("####################################");
             info("              Distcp");
             info("####################################");
+            String username = props.getString("env.USER", "unknownClient");  // TODO: Is this attribute always existing?
+            String pathPrefix = props.getString(VoldemortBuildAndPushJob.PUSH_CDN_PREFIX, "/tmp/VoldemortBnP/");
+            pathPrefix = pathPrefix.endsWith("/") ? pathPrefix : pathPrefix + "/";
+            String cdnDir = modifiedDataDir.replaceAll(".*://.*?(?=/)", cdnURL + pathPrefix + username);
+            FileSystem cdnRootFS = getRootFS(cdnDir);
             Path from = new Path(modifiedDataDir);
-            String username = props.getString("env.USER");  // TODO: Is it always existing?
-            modifiedDataDir = modifiedDataDir.replaceAll(".*://.*?(?=/)", dropboxURL + "/tmp/VoldemortBnP/" + username);
-            Path to = new Path(modifiedDataDir);
+            Path to = new Path(cdnDir);
 
-            FileSystem rootFS = getRootFS(modifiedDataDir);
-            deleteDir(rootFS, modifiedDataDir);
-            runDistcp(from, to);
-            addPermissionsToParents(rootFS, modifiedDataDir);
-            deleteDirOnExit(rootFS, modifiedDataDir);
+            deleteDir(cdnRootFS, cdnDir);
+            JobExecutionResult result = runDistcp(from, to);
+            if (result.isSuccessful()) {
+                addPermissionsToParents(cdnRootFS, cdnDir);
+                deleteDirOnExit(cdnRootFS, cdnDir);
+                modifiedDataDir = cdnDir;
+            } else {
+                warn("Distcp job failed!\n" + result.getErrorCause().getMessage());
+                warn("Use original HDFS cluster: " + modifiedDataDir);
+            }
             info("####################################");
             info("          End of Distcp");
             info("####################################");
