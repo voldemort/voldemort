@@ -183,7 +183,13 @@ public class VoldemortSwapJob extends AbstractJob {
         }
 
         int index = pushClusters.indexOf(clusterName);
-        return index == -1 ? "" : cdnClusters.get(index);
+        assert index != -1;
+        String cdnCluster = cdnClusters.get(index);
+        if (cdnCluster.equals("null")) {
+            info("Skip distcp for push cluster " + clusterName);
+            return "";
+        }
+        return cdnCluster;
     }
 
     public void run() throws Exception {
