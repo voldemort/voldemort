@@ -24,12 +24,9 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 
-import java.net.URI;
 
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
-import org.apache.hadoop.fs.permission.FsAction;
-import org.apache.hadoop.fs.permission.FsPermission;
 import org.apache.hadoop.mapred.JobConf;
 
 import voldemort.VoldemortException;
@@ -42,10 +39,6 @@ import voldemort.store.readonly.swapper.AdminStoreSwapper;
 import voldemort.store.readonly.swapper.FailedFetchStrategy;
 import voldemort.utils.logging.PrefixedLogger;
 import voldemort.utils.Props;
-
-import gobblin.runtime.api.JobExecutionResult;
-import gobblin.runtime.embedded.EmbeddedGobblin;
-import gobblin.runtime.embedded.EmbeddedGobblinDistcp;
 
 import azkaban.jobExecutor.AbstractJob;
 
@@ -104,94 +97,6 @@ public class VoldemortSwapJob extends AbstractJob {
         this.props = props;
     }
 
-    private void runDistcp(Path from, Path to) throws Exception {
-        info("     source: " + from);
-        info("destination: " + to);
-        EmbeddedGobblin embeddedGobblin = new EmbeddedGobblinDistcp(from, to).mrMode();
-
-        // Used for global throttling"
-        embeddedGobblin.distributeJar("lib/*");
-
-        for (Map.Entry<String, String> entry : this.props.entrySet()) {
-            if (entry.getKey() instanceof String && ((String) entry.getKey()).startsWith("distcpConf.")) {
-                String key = ((String) entry.getKey()).substring("distcpConf.".length());
-                embeddedGobblin.setConfiguration(key, entry.getValue().toString());
-            }
-        }
-        JobExecutionResult result =  embeddedGobblin.run();
-
-        if (!result.isSuccessful()) {
-            throw new RuntimeException("Distcp job failed!", result.getErrorCause());
-        }
-    }
-
-    private FileSystem getRootFS(String target) throws Exception {
-        URI rootURI = new URI(target.replaceAll("(?<=:[0-9]{1,5})/.*", ""));
-        FileSystem rootFS = FileSystem.get(rootURI, new JobConf());
-        return rootFS;
-    }
-
-    private void deleteDir(FileSystem fs, String target) throws Exception {
-        Path path = new Path(target.replaceAll(".*://.*?(?=/)", ""));
-
-        if (fs.exists(path)) {
-            fs.delete(path, true);
-            if (fs.exists(path)) {
-                warn("Could not delete temp directory " + path + " in CDN!");
-            } else {
-                info("Deleted " + path);
-            }
-        }
-    }
-
-    private void deleteDirOnExit(FileSystem fs, String target) throws Exception {
-        Path path = new Path(target.replaceAll(".*://.*?(?=/)", ""));
-
-        fs.deleteOnExit(path);  // Delete the directory even if an exception occurs
-        info(path + " is scheduled to be deleted on exit.");
-    }
-
-    private void addPermissionsToParents(FileSystem fs, String target) throws Exception {
-        String pathFromRoot = target.replaceAll(".*://.*?/", "");
-        String parent = "";
-
-        for (String seg: pathFromRoot.split("/")) {
-            parent = parent + "/" + seg;
-            Path parentPath = new Path(parent);
-            FsPermission perm = fs.getFileStatus(parentPath).getPermission();
-            if (!perm.getOtherAction().implies(FsAction.READ_EXECUTE)) {
-                fs.setPermission(parentPath, new FsPermission(perm.getUserAction(), perm.getGroupAction(), perm.getOtherAction().or(FsAction.READ_EXECUTE)));
-                info("for path " + parent + ", permissions changed:");
-                info("from: " + perm.toString());
-                info("  to: " + fs.getFileStatus(parentPath).getPermission().toString());
-            }
-        }
-    }
-
-    private String pickCDN() {
-        List<String> pushClusters = props.getList(VoldemortBuildAndPushJob.PUSH_CLUSTER);
-
-        if (!props.containsKey(VoldemortBuildAndPushJob.PUSH_CDN_CLUSTER)) {
-            return "";
-        }
-        List<String> cdnClusters = props.getList(VoldemortBuildAndPushJob.PUSH_CDN_CLUSTER);
-
-        if (pushClusters.size() != cdnClusters.size()) {
-            warn("Cluster sizes are different!");
-            warn("Will bypass CDN!");
-            return "";
-        }
-
-        int index = pushClusters.indexOf(clusterName);
-        assert index != -1;
-        String cdnCluster = cdnClusters.get(index);
-        if (cdnCluster.equals("null")) {
-            info("Skip distcp for push cluster " + clusterName);
-            return "";
-        }
-        return cdnCluster;
-    }
-
     public void run() throws Exception {
         ExecutorService executor = Executors.newCachedThreadPool();
 
@@ -199,34 +104,15 @@ public class VoldemortSwapJob extends AbstractJob {
         JobConf conf = new JobConf();
         Path dataPath = new Path(dataDir);
         String modifiedDataDir = dataPath.makeQualified(FileSystem.get(conf)).toString();
-        String cdnURL = pickCDN();
+        boolean cdnEnabled = props.getBoolean(VoldemortBuildAndPushJob.PUSH_CDN_ENABLED, false);
 
-        if (!cdnURL.isEmpty()) {
-            info("Using CDN: " + cdnURL);
-            info("####################################");
-            info("              Distcp");
-            info("####################################");
-            try {
-                String username = props.getString("env.USER", "unknownClient");  // TODO: Is this attribute always existing?
-                String pathPrefix = props.getString(VoldemortBuildAndPushJob.PUSH_CDN_PREFIX, "/tmp/VoldemortBnP/");
-                pathPrefix = pathPrefix.endsWith("/") ? pathPrefix : pathPrefix + "/";
-                String cdnDir = modifiedDataDir.replaceAll(".*://.*?(?=/)", cdnURL + pathPrefix + username);
-                FileSystem cdnRootFS = getRootFS(cdnDir);
-                Path from = new Path(modifiedDataDir);
-                Path to = new Path(cdnDir);
-
-                deleteDir(cdnRootFS, cdnDir);
-                runDistcp(from, to);
-                deleteDirOnExit(cdnRootFS, cdnDir);
-                addPermissionsToParents(cdnRootFS, cdnDir);
-                modifiedDataDir = cdnDir;
-            } catch (Exception e) {
-                warn("An exception occured during distcp: " + e.getMessage());
-                warn("Use original HDFS cluster: " + modifiedDataDir);
+        if (cdnEnabled) {
+            if (modifiedDataDir.matches(".*hdfs://.*:[0-9]{1,5}/.*")) {
+                new GobblinDistcpJob(getId(), modifiedDataDir, clusterName, props).run();
+                modifiedDataDir = GobblinDistcpJob.source;
+            } else {
+                warn("Invalid URL format! Skip Distcp.");
             }
-            info("####################################");
-            info("          End of Distcp");
-            info("####################################");
         }
 
         /*

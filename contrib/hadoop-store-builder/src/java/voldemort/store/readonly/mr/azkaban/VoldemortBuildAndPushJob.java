@@ -124,8 +124,9 @@ public class VoldemortBuildAndPushJob extends AbstractJob {
     public final static String PUSH_ROLLBACK = "push.rollback";
     public final static String PUSH_FORCE_SCHEMA_KEY = "push.force.schema.key";
     public final static String PUSH_FORCE_SCHEMA_VALUE = "push.force.schema.value";
-    public final static String PUSH_CDN_CLUSTER = "push.cdn.cluster";
-    public final static String PUSH_CDN_PREFIX = "push.cdn.prefix";
+    public final static String PUSH_CDN_CLUSTER = "push.cdn.cluster";   // e.g. "hdfs://cdn1.myhdfs.xyz:9000,webhdfs://cdn2.myhdfs.xyz:50070"
+    public final static String PUSH_CDN_PREFIX = "push.cdn.prefix";     // e.g. "/jobs/VoldemortBnP"
+    public final static String PUSH_CDN_ENABLED = "push.cdn.enabled";   // e.g. "true"
     // others.optional
     public final static String KEY_SELECTION = "key.selection";
     public final static String VALUE_SELECTION = "value.selection";
