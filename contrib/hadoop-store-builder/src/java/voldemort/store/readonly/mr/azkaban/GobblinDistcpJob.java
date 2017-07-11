@@ -50,6 +50,12 @@ public class GobblinDistcpJob extends AbstractJob {
                 Path from = new Path(source);
                 Path to = new Path(cdnDir);
 
+                if (!prereqSatisfied(cdnURL)) {
+                    warn("\"other_namenodes\" does not contain the CDN cluster address " + cdnURL);
+                    warn("The following steps will fail soon, and distcp will be skipped!");
+                    warn("Please add/append \"" + cdnURL + "\" to the \"other_namenodes\" attribute in your job specification.");
+                }
+
                 deleteDir(cdnRootFS, cdnDir);
                 runDistcp(from, to);
                 deleteDirOnExit(cdnRootFS, cdnDir);
@@ -138,8 +144,7 @@ public class GobblinDistcpJob extends AbstractJob {
         List<String> cdnClusters = props.getList(VoldemortBuildAndPushJob.PUSH_CDN_CLUSTER);
 
         if (pushClusters.size() != cdnClusters.size()) {
-            warn("Cluster sizes are different!");
-            warn("Will bypass CDN!");
+            warn("Cluster sizes are different! Will bypass CDN for push cluster " + destination);
             return "";
         }
 
@@ -147,13 +152,23 @@ public class GobblinDistcpJob extends AbstractJob {
         assert index != -1;
         String cdnCluster = cdnClusters.get(index);
         if (cdnCluster.equals("null")) {
-            info("Skip distcp for push cluster " + destination);
+            info("Will bypass CDN for push cluster " + destination);
             return "";
         }
+
         if (!cdnCluster.matches(".*hdfs://.*:[0-9]{1,5}/?")) {
-            warn("Invalid URL format! Skip distcp for push cluster " + destination);
+            warn("Invalid URL format! Will bypass CDN for push cluster " + destination);
             return "";
         }
         return cdnCluster.replaceAll("(?<=:[0-9]{1,5})/", "");
+    }
+
+    private boolean prereqSatisfied(String cdnURL) {
+        for (String namenode: props.getList("other_namenodes")) {
+            if (namenode.replaceAll("(?<=:[0-9]{1,5})/", "").equals(cdnURL)) {
+                return true;
+            }
+        }
+        return false;
     }
 }
