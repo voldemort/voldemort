@@ -150,6 +150,10 @@ public class GobblinDistcpJob extends AbstractJob {
             info("Skip distcp for push cluster " + destination);
             return "";
         }
-        return cdnCluster;
+        if (!cdnCluster.matches(".*hdfs://.*:[0-9]{1,5}/?")) {
+            warn("Invalid URL format! Skip distcp for push cluster " + destination);
+            return "";
+        }
+        return cdnCluster.replaceAll("(?<=:[0-9]{1,5})/", "");
     }
 }
