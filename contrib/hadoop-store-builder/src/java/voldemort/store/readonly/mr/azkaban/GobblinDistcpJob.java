@@ -126,11 +126,32 @@ public class GobblinDistcpJob extends AbstractJob {
             parent = parent + "/" + seg;
             Path parentPath = new Path(parent);
             FsPermission perm = fs.getFileStatus(parentPath).getPermission();
-            if (!perm.getOtherAction().implies(FsAction.READ_EXECUTE)) {
-                fs.setPermission(parentPath, new FsPermission(perm.getUserAction(), perm.getGroupAction(), perm.getOtherAction().or(FsAction.READ_EXECUTE)));
+            FsAction u = perm.getUserAction();
+            FsAction g = perm.getGroupAction();
+            FsAction o = perm.getOtherAction();
+            boolean changed = false;
+
+            if (props.getBoolean(VoldemortBuildAndPushJob.PUSH_CDN_READBYGROUP, false)) {
+                if (!g.implies(FsAction.READ_EXECUTE)) {
+                    g = g.or(FsAction.READ_EXECUTE);
+                    changed = true;
+                }
+            }
+
+            if (props.getBoolean(VoldemortBuildAndPushJob.PUSH_CDN_READBYOTHER, false)) {
+                if (!o.implies(FsAction.READ_EXECUTE)) {
+                    o = o.or(FsAction.READ_EXECUTE);
+                    changed = true;
+                }
+            }
+
+            if (changed) {
+                FsPermission desiredPerm = new FsPermission(u, g, o);
+                fs.setPermission(parentPath, desiredPerm);
+                assert fs.getFileStatus(parentPath).getPermission().equals(desiredPerm);
                 info("for path " + parent + ", permissions changed:");
-                info("from: " + perm.toString());
-                info("  to: " + fs.getFileStatus(parentPath).getPermission().toString());
+                info("from: " + perm);
+                info("  to: " + desiredPerm);
             }
         }
     }
