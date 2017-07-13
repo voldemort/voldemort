@@ -16,18 +16,17 @@ import gobblin.runtime.embedded.EmbeddedGobblinDistcp;
 
 import voldemort.utils.Props;
 import voldemort.utils.logging.PrefixedLogger;
-import voldemort.store.readonly.swapper.AdminStoreSwapper;
 
 import azkaban.jobExecutor.AbstractJob;
 
 
 public class GobblinDistcpJob extends AbstractJob {
-    static String source;
+    private String source;
     private final String destination;
     private final Props props;
 
     GobblinDistcpJob(String id, String source, String destination, Props props) {
-        super(id, PrefixedLogger.getLogger(AdminStoreSwapper.class.getName(), destination));
+        super(id, PrefixedLogger.getLogger(GobblinDistcpJob.class.getName(), destination));
         this.source = source;
         this.destination = destination;
         this.props = props;
@@ -51,9 +50,9 @@ public class GobblinDistcpJob extends AbstractJob {
                 Path to = new Path(cdnDir);
 
                 if (!prereqSatisfied(cdnURL)) {
-                    warn("\"other_namenodes\" does not contain the CDN cluster address " + cdnURL);
-                    warn("The following steps will fail soon, and distcp will be skipped!");
-                    warn("Please add/append \"" + cdnURL + "\" to the \"other_namenodes\" attribute in your job specification.");
+                    warn("\"other_namenodes\" does not contain the CDN cluster address " + cdnURL
+                            + "The following steps will fail soon, and distcp will be skipped!"
+                            + "Please add/append \"" + cdnURL + "\" to the \"other_namenodes\" attribute in your job specification.");
                 }
 
                 deleteDir(cdnRootFS, cdnDir);
@@ -191,5 +190,9 @@ public class GobblinDistcpJob extends AbstractJob {
             }
         }
         return false;
+    }
+
+    public String getSource() {
+        return source;
     }
 }

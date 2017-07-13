@@ -2,10 +2,10 @@ apply plugin: 'java'
 apply plugin: 'war'
 
 buildscript {
-  repositories { jcenter() }
-  dependencies {
-    classpath 'com.github.jengelman.gradle.plugins:shadow:1.2.1'
-  }
+    repositories { jcenter() }
+    dependencies {
+        classpath 'com.github.jengelman.gradle.plugins:shadow:1.2.4'
+    }
 }
 
 apply plugin: 'com.github.johnrengelman.shadow'
@@ -200,10 +200,18 @@ def depTehuti = 'io.tehuti:tehuti:0.7.0'
 
 
 shadowJar {
+    zip64 true
     classifier "bnp"
     from sourceSets.main.output, sourceSets.test.output, sourceSets.main.resources
     from {subprojects*.sourceSets.main.output}
     from {subprojects*.sourceSets.test.output}
+    from project('gobblin').projectDir
+    dependsOn 'gobblin:jar'
+
+    // Hadoop dependencies are expected to be provided by Azkaban.
+    // If Azkaban is not included in your deployment, you may need to remove the following excludes
+    exclude("**/org/apache/hadoop/**")
+    exclude("**/org.apache.hadoop**")
 
     // Required when working in an Hadoop 2.x environment
     dependencies {
@@ -216,10 +224,6 @@ shadowJar {
         include(dependency(depJacksonMapper))
         include(dependency(depJoda))
         include(dependency(depTehuti))
-        include(dependency('com.linkedin.gobblin:gobblin-runtime:0.10.0'))
-        include(dependency('com.linkedin.gobblin:gobblin-data-management:0.10.0'))
-        include(dependency('com.linkedin.gobblin:gobblin-throttling-service-client:0.10.0'))
-        exclude(dependency('org.apache.hive:hive-exec'))
     }
     relocate 'com.google.protobuf', 'voldemort.shadow.2.3.0.com.google.protobuf'
     relocate 'org.apache.avro', 'voldemort.shadow.1.4.0.org.apache.avro'

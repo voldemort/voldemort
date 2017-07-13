@@ -107,8 +107,9 @@ public class VoldemortSwapJob extends AbstractJob {
 
         if (cdnEnabled) {
             if (modifiedDataDir.matches(".*hdfs://.*:[0-9]{1,5}/.*")) {
-                new GobblinDistcpJob(getId(), modifiedDataDir, clusterName, props).run();
-                modifiedDataDir = GobblinDistcpJob.source;
+                GobblinDistcpJob distcpJob = new GobblinDistcpJob(getId(), modifiedDataDir, clusterName, props);
+                distcpJob.run();
+                modifiedDataDir = distcpJob.getSource();
             } else {
                 warn("Invalid URL format! Skip Distcp.");
             }
