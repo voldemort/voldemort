@@ -25,10 +25,10 @@ public class GobblinDistcpJob extends AbstractJob {
     private final String destination;
     private final Props props;
 
-    GobblinDistcpJob(String id, String source, String destination, Props props) {
-        super(id, PrefixedLogger.getLogger(GobblinDistcpJob.class.getName(), destination));
-        this.source = source;
-        this.destination = destination;
+    GobblinDistcpJob(String id, String sourceHdfsCluster, String destinationVoldemortCluster, Props props) {
+        super(id, PrefixedLogger.getLogger(GobblinDistcpJob.class.getName(), destinationVoldemortCluster));
+        this.source = sourceHdfsCluster;
+        this.destination = destinationVoldemortCluster;
         this.props = props;
     }
 
@@ -44,15 +44,15 @@ public class GobblinDistcpJob extends AbstractJob {
                 String username = props.getString("env.USER", "unknownClient");
                 String pathPrefix = props.getString(VoldemortBuildAndPushJob.PUSH_CDN_PREFIX, "/tmp/VoldemortBnP/");
                 pathPrefix = pathPrefix.endsWith("/") ? pathPrefix : pathPrefix + "/";
+                // Replace original cluster with CDN, e.g. hdfs://original:9000/a/b/c => webhdfs://cdn:50070/a/b/c
                 String cdnDir = source.replaceAll(".*://.*?(?=/)", cdnURL + pathPrefix + username);
                 FileSystem cdnRootFS = getRootFS(cdnDir);
                 Path from = new Path(source);
                 Path to = new Path(cdnDir);
 
                 if (!prereqSatisfied(cdnURL)) {
-                    warn("\"other_namenodes\" does not contain the CDN cluster address " + cdnURL
-                            + "The following steps will fail soon, and distcp will be skipped!"
-                            + "Please add/append \"" + cdnURL + "\" to the \"other_namenodes\" attribute in your job specification.");
+                    warn("Please add/append \"" + cdnURL + "\" to the \"other_namenodes\" attribute in your job specification.");
+                    throw new RuntimeException("\"other_namenodes\" does not contain the CDN cluster address " + cdnURL);
                 }
 
                 deleteDir(cdnRootFS, cdnDir);
@@ -73,7 +73,7 @@ public class GobblinDistcpJob extends AbstractJob {
 
     private void runDistcp(Path from, Path to) throws Exception {
         info("source: " + from);
-        info("destination: " + to);
+        info("CDN: " + to);
         EmbeddedGobblin embeddedGobblin = new EmbeddedGobblinDistcp(from, to).mrMode();
 
         // Used for global throttling"
@@ -93,11 +93,13 @@ public class GobblinDistcpJob extends AbstractJob {
     }
 
     private FileSystem getRootFS(String target) throws Exception {
+        // Remove directory path from URL, e.g. hdfs://hostname:9000/a/b/c => hdfs://hostname:9000
         URI rootURI = new URI(target.replaceAll("(?<=:[0-9]{1,5})/.*", ""));
         return FileSystem.get(rootURI, new JobConf());
     }
 
     private void deleteDir(FileSystem fs, String target) throws Exception {
+        // Extract directory path from URL, e.g. hdfs://hostname:9000/a/b/c => /a/b/c
         Path path = new Path(target.replaceAll(".*://.*?(?=/)", ""));
 
         if (fs.exists(path)) {
@@ -111,6 +113,7 @@ public class GobblinDistcpJob extends AbstractJob {
     }
 
     private void deleteDirOnExit(FileSystem fs, String target) throws Exception {
+        // Extract directory path from URL, e.g. hdfs://hostname:9000/a/b/c => /a/b/c
         Path path = new Path(target.replaceAll(".*://.*?(?=/)", ""));
 
         fs.deleteOnExit(path);  // Delete the directory even if an exception occurs
@@ -118,6 +121,7 @@ public class GobblinDistcpJob extends AbstractJob {
     }
 
     private void addPermissionsToParents(FileSystem fs, String target) throws Exception {
+        // Extract directory path from URL, e.g. hdfs://hostname:9000/a/b/c => a/b/c
         String pathFromRoot = target.replaceAll(".*://.*?/", "");
         String parent = "";
 
@@ -176,16 +180,16 @@ public class GobblinDistcpJob extends AbstractJob {
             return "";
         }
 
-        if (!cdnCluster.matches(".*hdfs://.*:[0-9]{1,5}/?")) {
+        if (!cdnCluster.matches(".*hdfs://.+:[0-9]{1,5}/?")) {
             warn("Invalid URL format! Will bypass CDN for push cluster " + destination);
             return "";
         }
-        return cdnCluster.replaceAll("(?<=:[0-9]{1,5})/", "");
+        return cdnCluster.replaceAll("(?<=:[0-9]{1,5})/", "");  // Regex removes trailing slash
     }
 
     private boolean prereqSatisfied(String cdnURL) {
         for (String namenode: props.getList("other_namenodes")) {
-            if (namenode.replaceAll("(?<=:[0-9]{1,5})/", "").equals(cdnURL)) {
+            if (namenode.replaceAll("(?<=:[0-9]{1,5})/", "").equals(cdnURL)) {  // Regex removes trailing slash
                 return true;
             }
         }
