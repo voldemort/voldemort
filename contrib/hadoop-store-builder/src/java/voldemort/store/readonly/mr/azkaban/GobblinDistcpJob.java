@@ -21,6 +21,7 @@ import azkaban.jobExecutor.AbstractJob;
 
 
 public class GobblinDistcpJob extends AbstractJob {
+    private final static String ATTR_PREFIX = "distcpConf.";
     private String source;
     private final String destination;
     private final Props props;
@@ -80,8 +81,8 @@ public class GobblinDistcpJob extends AbstractJob {
         embeddedGobblin.distributeJar("lib/*");
 
         for (Map.Entry<String, String> entry : this.props.entrySet()) {
-            if (entry.getKey() != null && (entry.getKey()).startsWith("distcpConf.")) {
-                String key = (entry.getKey()).substring("distcpConf.".length());
+            if (entry.getKey() != null && (entry.getKey()).startsWith(ATTR_PREFIX)) {
+                String key = (entry.getKey()).substring(ATTR_PREFIX.length());
                 embeddedGobblin.setConfiguration(key, entry.getValue());
             }
         }
