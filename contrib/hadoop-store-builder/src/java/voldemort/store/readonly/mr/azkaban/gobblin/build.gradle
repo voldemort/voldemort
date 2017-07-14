@@ -1,5 +1,4 @@
 apply plugin: 'com.github.johnrengelman.shadow'
-apply plugin: 'java'
 
 repositories {
     jcenter()
@@ -46,13 +45,4 @@ shadowJar {
         println '================================'
     }
 
-}
-
-jar {
-    dependsOn shadowJar
-    doLast {
-        print "${buildDir}"
-        def gobblinJar = new File("${buildDir}/libs/${project.name}-all.jar")
-        gobblinJar.renameTo(new File("${buildDir}/libs/${project.name}.jar"))
-    }
 }

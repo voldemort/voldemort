@@ -206,7 +206,7 @@ shadowJar {
     from {subprojects*.sourceSets.main.output}
     from {subprojects*.sourceSets.test.output}
     from project('gobblin').projectDir
-    dependsOn 'gobblin:jar'
+    dependsOn 'gobblin:shadowJar'
 
     // Hadoop dependencies are expected to be provided by Azkaban.
     // If Azkaban is not included in your deployment, you may need to remove the following excludes
@@ -627,7 +627,6 @@ dependencies {
         exclude group: 'org.apache.hive', module: 'hive-exec'
         exclude group: 'com.google.protobuf'
         exclude group: 'org.apache.avro'
-
     }
     compile ('com.linkedin.gobblin:gobblin-data-management:0.10.0') {
         exclude group: 'org.apache.hive', module: 'hive-exec'
