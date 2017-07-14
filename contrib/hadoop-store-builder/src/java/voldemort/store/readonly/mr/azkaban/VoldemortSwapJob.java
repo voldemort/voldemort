@@ -24,9 +24,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 
-import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
-import org.apache.hadoop.mapred.JobConf;
 
 import voldemort.VoldemortException;
 import voldemort.client.ClientConfig;
@@ -37,7 +35,6 @@ import voldemort.store.readonly.mr.utils.VoldemortUtils;
 import voldemort.store.readonly.swapper.AdminStoreSwapper;
 import voldemort.store.readonly.swapper.FailedFetchStrategy;
 import voldemort.utils.logging.PrefixedLogger;
-import voldemort.utils.Props;
 
 import azkaban.jobExecutor.AbstractJob;
 
@@ -59,9 +56,9 @@ public class VoldemortSwapJob extends AbstractJob {
     private final String dataDir;
     private final String clusterName;
     private final boolean buildPrimaryReplicasOnly;
-    private final Props props;
 
     // The following internal state mutates during run()
+    private String modifiedDataDir;
     private long pushVersion;
 
     public VoldemortSwapJob(String id,
@@ -77,8 +74,8 @@ public class VoldemortSwapJob extends AbstractJob {
                             int maxNodeFailures,
                             List<FailedFetchStrategy> failedFetchStrategyList,
                             String clusterName,
-                            boolean buildPrimaryReplicasOnly,
-                            Props props) throws IOException {
+                            String modifiedDataDir,
+                            boolean buildPrimaryReplicasOnly) throws IOException {
         super(id, PrefixedLogger.getLogger(AdminStoreSwapper.class.getName(), clusterName));
         this.cluster = cluster;
         this.dataDir = dataDir;
@@ -92,28 +89,12 @@ public class VoldemortSwapJob extends AbstractJob {
         this.maxNodeFailures = maxNodeFailures;
         this.failedFetchStrategyList = failedFetchStrategyList;
         this.clusterName = clusterName;
+        this.modifiedDataDir  = modifiedDataDir;
         this.buildPrimaryReplicasOnly = buildPrimaryReplicasOnly;
-        this.props = props;
     }
 
     public void run() throws Exception {
         ExecutorService executor = Executors.newCachedThreadPool();
-
-        // Read the hadoop configuration settings
-        JobConf conf = new JobConf();
-        Path dataPath = new Path(dataDir);
-        String modifiedDataDir = dataPath.makeQualified(FileSystem.get(conf)).toString();
-        boolean cdnEnabled = props.getBoolean(VoldemortBuildAndPushJob.PUSH_CDN_ENABLED, false);
-
-        if (cdnEnabled) {
-            if (modifiedDataDir.matches(".*hdfs://.*:[0-9]{1,5}/.*")) {
-                GobblinDistcpJob distcpJob = new GobblinDistcpJob(getId(), modifiedDataDir, clusterName, props);
-                distcpJob.run();
-                modifiedDataDir = distcpJob.getSource();
-            } else {
-                warn("Invalid URL format! Skip Distcp.");
-            }
-        }
 
         /*
          * Replace the default protocol and port with the one derived as above

@@ -41,6 +41,7 @@ import java.util.concurrent.TimeUnit;
 import org.apache.avro.Schema;
 import org.apache.avro.mapred.AvroInputFormat;
 import org.apache.commons.lang.Validate;
+import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.mapred.InputFormat;
 import org.apache.hadoop.mapred.JobConf;
@@ -821,6 +822,20 @@ public class VoldemortBuildAndPushJob extends AbstractJob {
 
         log.info("Push starting for cluster: " + url);
 
+        // CDN distcp
+        boolean cdnEnabled = props.getBoolean(VoldemortBuildAndPushJob.PUSH_CDN_ENABLED, false);
+        String modifiedDataDir = new Path(dataDir).makeQualified(FileSystem.get(new JobConf())).toString();
+
+        if (cdnEnabled) {
+            if (modifiedDataDir.matches(".*hdfs://.*:[0-9]{1,5}/.*")) {
+                GobblinDistcpJob distcpJob = new GobblinDistcpJob(getId(), modifiedDataDir, url, props);
+                distcpJob.run();
+                modifiedDataDir = distcpJob.getSource();
+            } else {
+                warn("Invalid URL format! Skip Distcp.");
+            }
+        }
+
         new VoldemortSwapJob(
                 this.getId() + "-push-store",
                 cluster,
@@ -835,8 +850,8 @@ public class VoldemortBuildAndPushJob extends AbstractJob {
                 maxNodeFailures,
                 failedFetchStrategyList,
                 url,
-                buildPrimaryReplicasOnly,
-                props).run();
+                modifiedDataDir,
+                buildPrimaryReplicasOnly).run();
     }
 
     /**
