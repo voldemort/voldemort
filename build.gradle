@@ -200,7 +200,7 @@ def depTehuti = 'io.tehuti:tehuti:0.7.0'
 
 
 shadowJar {
-    zip64 true
+    zip64 true  // Required if fatjar has more than 64K files
     classifier "bnp"
     from sourceSets.main.output, sourceSets.test.output, sourceSets.main.resources
     from {subprojects*.sourceSets.main.output}

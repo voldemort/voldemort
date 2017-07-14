@@ -34,15 +34,12 @@ public class GobblinDistcpJob extends AbstractJob {
     }
 
     public void run() throws Exception {
-        String cdnURL = pickCDN();
-
-        if (!cdnURL.isEmpty()) {
-            info("####################################");
-            info("              Distcp");
-            info("####################################");
-            info("Using CDN: " + cdnURL);
-            try {
-                String username = props.getString("env.USER", "unknownClient");
+        info("###############  Distcp  ###############");
+        try {
+            String cdnURL = pickCDN();
+            if (!cdnURL.isEmpty()) {
+                info("Using CDN: " + cdnURL);
+                String username = props.getString("env.USER", "unknownUser");
                 String pathPrefix = props.getString(VoldemortBuildAndPushJob.PUSH_CDN_PREFIX);
                 pathPrefix = pathPrefix.endsWith("/") ? pathPrefix : pathPrefix + "/";
                 // Replace original cluster with CDN, e.g. hdfs://original:9000/a/b/c => webhdfs://cdn:50070/a/b/c
@@ -62,14 +59,12 @@ public class GobblinDistcpJob extends AbstractJob {
                 addPermissionsToParents(cdnRootFS, cdnDir);
                 source = cdnDir;
                 info("Use CDN HDFS cluster: " + source);
-            } catch (Exception e) {
-                warn("An exception occurred during distcp: " + e.getMessage());
-                warn("Use original HDFS cluster: " + source);
             }
-            info("####################################");
-            info("          End of Distcp");
-            info("####################################");
+        } catch (Exception e) {
+            warn("An exception occurred during distcp: " + e.getMessage());
+            warn("Use original HDFS cluster: " + source);
         }
+        info("############  End of Distcp  ###########");
     }
 
     private void runDistcp(Path from, Path to) throws Exception {
@@ -158,7 +153,7 @@ public class GobblinDistcpJob extends AbstractJob {
         }
     }
 
-    private String pickCDN() {
+    private String pickCDN() throws Exception {
         List<String> pushClusters = props.getList(VoldemortBuildAndPushJob.PUSH_CLUSTER);
         List<String> cdnClusters = props.getList(VoldemortBuildAndPushJob.PUSH_CDN_CLUSTER);
 
@@ -182,7 +177,7 @@ public class GobblinDistcpJob extends AbstractJob {
         return cdnCluster.replaceAll("(?<=:[0-9]{1,5})/", "");  // Regex removes trailing slash
     }
 
-    private boolean prereqSatisfied(String cdnURL) {
+    private boolean prereqSatisfied(String cdnURL) throws Exception {
         for (String namenode: props.getList("other_namenodes")) {
             if (namenode.replaceAll("(?<=:[0-9]{1,5})/", "").equals(cdnURL)) {  // Regex removes trailing slash
                 return true;
