@@ -52,6 +52,12 @@ def deleteDirectoryContents(directory) {
     project.file(directory).mkdirs()
 }
 
+def gobblinExcludes = {
+    exclude group: 'org.apache.hive', module: 'hive-exec'
+    exclude group: 'com.google.protobuf'
+    exclude group: 'org.apache.avro'
+}
+
 allprojects {
     sourceCompatibility = javacVersion
     targetCompatibility = javacVersion
@@ -623,21 +629,9 @@ dependencies {
     compile 'org.bouncycastle:bcprov-jdk15on:1.48'
 
     // Gobblin
-    compile ('com.linkedin.gobblin:gobblin-runtime:0.10.0') {
-        exclude group: 'org.apache.hive', module: 'hive-exec'
-        exclude group: 'com.google.protobuf'
-        exclude group: 'org.apache.avro'
-    }
-    compile ('com.linkedin.gobblin:gobblin-data-management:0.10.0') {
-        exclude group: 'org.apache.hive', module: 'hive-exec'
-        exclude group: 'com.google.protobuf'
-        exclude group: 'org.apache.avro'
-    }
-    compile ('com.linkedin.gobblin:gobblin-throttling-service-client:0.10.0') {
-        exclude group: 'org.apache.hive', module: 'hive-exec'
-        exclude group: 'com.google.protobuf'
-        exclude group: 'org.apache.avro'
-    }
+    compile 'com.linkedin.gobblin:gobblin-runtime:0.10.0', gobblinExcludes
+    compile 'com.linkedin.gobblin:gobblin-data-management:0.10.0', gobblinExcludes
+    compile 'com.linkedin.gobblin:gobblin-throttling-service-client:0.10.0', gobblinExcludes
 }
 
 subprojects {
