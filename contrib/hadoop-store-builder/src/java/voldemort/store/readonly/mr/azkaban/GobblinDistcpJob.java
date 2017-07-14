@@ -68,8 +68,7 @@ public class GobblinDistcpJob extends AbstractJob {
     }
 
     private void runDistcp(Path from, Path to) throws Exception {
-        info("source: " + from);
-        info("CDN: " + to);
+        info("sourcePath: " + from + ", destinationPath: " + to);
         EmbeddedGobblin embeddedGobblin = new EmbeddedGobblinDistcp(from, to).mrMode();
 
         // Used for global throttling"
@@ -130,14 +129,14 @@ public class GobblinDistcpJob extends AbstractJob {
             FsAction o = perm.getOtherAction();
             boolean changed = false;
 
-            if (props.getBoolean(VoldemortBuildAndPushJob.PUSH_CDN_READBYGROUP, false)) {
+            if (props.getBoolean(VoldemortBuildAndPushJob.PUSH_CDN_READ_BY_GROUP, false)) {
                 if (!g.implies(FsAction.READ_EXECUTE)) {
                     g = g.or(FsAction.READ_EXECUTE);
                     changed = true;
                 }
             }
 
-            if (props.getBoolean(VoldemortBuildAndPushJob.PUSH_CDN_READBYOTHER, false)) {
+            if (props.getBoolean(VoldemortBuildAndPushJob.PUSH_CDN_READ_BY_OTHER, false)) {
                 if (!o.implies(FsAction.READ_EXECUTE)) {
                     o = o.or(FsAction.READ_EXECUTE);
                     changed = true;

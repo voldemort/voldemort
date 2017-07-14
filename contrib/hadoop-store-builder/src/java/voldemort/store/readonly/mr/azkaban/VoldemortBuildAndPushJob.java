@@ -128,8 +128,8 @@ public class VoldemortBuildAndPushJob extends AbstractJob {
     public final static String PUSH_CDN_CLUSTER = "push.cdn.cluster";   // e.g. "hdfs://cdn1.myhdfs.xyz:9000,webhdfs://cdn2.myhdfs.xyz:50070"
     public final static String PUSH_CDN_PREFIX = "push.cdn.prefix";     // e.g. "/jobs/VoldemortBnP"
     public final static String PUSH_CDN_ENABLED = "push.cdn.enabled";   // e.g. "true"
-    public final static String PUSH_CDN_READBYGROUP = "push.cdn.readByGroup";   // e.g. "true"
-    public final static String PUSH_CDN_READBYOTHER = "push.cdn.readByOther";   // e.g. "true"
+    public final static String PUSH_CDN_READ_BY_GROUP = "push.cdn.readByGroup";   // e.g. "true"
+    public final static String PUSH_CDN_READ_BY_OTHER = "push.cdn.readByOther";   // e.g. "true"
     // others.optional
     public final static String KEY_SELECTION = "key.selection";
     public final static String VALUE_SELECTION = "value.selection";

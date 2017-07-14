@@ -15,4 +15,4 @@ include 'contrib-restclient'
 project(':contrib-restclient').projectDir = file('contrib/restclient')
 
 include 'gobblin'
-project(':gobblin').projectDir = file('contrib/hadoop-store-builder/src/java/voldemort/store/readonly/mr/azkaban/gobblin')
+project(':gobblin').projectDir = file('gobblin')
