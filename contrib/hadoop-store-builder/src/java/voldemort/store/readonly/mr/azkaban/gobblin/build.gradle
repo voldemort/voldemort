@@ -10,7 +10,7 @@ repositories {
 }
 
 configurations {
-    gobblin.exclude group: 'com.google.guava'     // cannot be "compile", otherwise won't pass ":voldemort-bnp:validateDependencies"
+    gobblin.exclude group: 'com.google.guava'
     resolvedIncorrectly
 }
 

@@ -42,7 +42,7 @@ public class GobblinDistcpJob extends AbstractJob {
             info("Using CDN: " + cdnURL);
             try {
                 String username = props.getString("env.USER", "unknownClient");
-                String pathPrefix = props.getString(VoldemortBuildAndPushJob.PUSH_CDN_PREFIX, "/tmp/VoldemortBnP/");
+                String pathPrefix = props.getString(VoldemortBuildAndPushJob.PUSH_CDN_PREFIX);
                 pathPrefix = pathPrefix.endsWith("/") ? pathPrefix : pathPrefix + "/";
                 // Replace original cluster with CDN, e.g. hdfs://original:9000/a/b/c => webhdfs://cdn:50070/a/b/c
                 String cdnDir = source.replaceAll(".*://.*?(?=/)", cdnURL + pathPrefix + username);
@@ -152,19 +152,13 @@ public class GobblinDistcpJob extends AbstractJob {
                 FsPermission desiredPerm = new FsPermission(u, g, o);
                 fs.setPermission(parentPath, desiredPerm);
                 assert fs.getFileStatus(parentPath).getPermission().equals(desiredPerm);
-                info("for path " + parent + ", permissions changed:");
-                info("from: " + perm);
-                info("  to: " + desiredPerm);
+                info("for path " + parent + ", permissions changed from: " + perm + " to: " + desiredPerm);
             }
         }
     }
 
     private String pickCDN() {
         List<String> pushClusters = props.getList(VoldemortBuildAndPushJob.PUSH_CLUSTER);
-
-        if (!props.containsKey(VoldemortBuildAndPushJob.PUSH_CDN_CLUSTER)) {
-            return "";
-        }
         List<String> cdnClusters = props.getList(VoldemortBuildAndPushJob.PUSH_CDN_CLUSTER);
 
         if (pushClusters.size() != cdnClusters.size()) {
