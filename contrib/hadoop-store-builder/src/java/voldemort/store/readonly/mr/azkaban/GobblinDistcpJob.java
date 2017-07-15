@@ -41,9 +41,10 @@ public class GobblinDistcpJob extends AbstractJob {
                 info("Using CDN: " + cdnURL);
                 String username = props.getString("env.USER", "unknownUser");
                 String pathPrefix = props.getString(VoldemortBuildAndPushJob.PUSH_CDN_PREFIX);
-                pathPrefix = pathPrefix.endsWith("/") ? pathPrefix : pathPrefix + "/";
-                // Replace original cluster with CDN, e.g. hdfs://original:9000/a/b/c => webhdfs://cdn:50070/a/b/c
-                String cdnDir = source.replaceAll(".*://.*?(?=/)", cdnURL + pathPrefix + username);
+                assert pathPrefix.startsWith("/");
+                pathPrefix = removeTrailingSlash(pathPrefix);
+                // Replace original cluster with CDN, e.g. hdfs://original:9000/a/b/c => webhdfs://cdn:50070/prefix/user/a/b/c
+                String cdnDir =  cdnURL + pathPrefix + "/" + username + extractPathFromUrl(source);
                 FileSystem cdnRootFS = getRootFS(cdnDir);
                 Path from = new Path(source);
                 Path to = new Path(cdnDir);
@@ -89,13 +90,12 @@ public class GobblinDistcpJob extends AbstractJob {
 
     private FileSystem getRootFS(String target) throws Exception {
         // Remove directory path from URL, e.g. hdfs://hostname:9000/a/b/c => hdfs://hostname:9000
-        URI rootURI = new URI(target.replaceAll("(?<=:[0-9]{1,5})/.*", ""));
+        URI rootURI = new URI(removePathFromUrl(target));
         return FileSystem.get(rootURI, new JobConf());
     }
 
     private void deleteDir(FileSystem fs, String target) throws Exception {
-        // Extract directory path from URL, e.g. hdfs://hostname:9000/a/b/c => /a/b/c
-        Path path = new Path(target.replaceAll(".*://.*?(?=/)", ""));
+        Path path = new Path(extractPathFromUrl(target));
 
         if (fs.exists(path)) {
             fs.delete(path, true);
@@ -108,16 +108,14 @@ public class GobblinDistcpJob extends AbstractJob {
     }
 
     private void deleteDirOnExit(FileSystem fs, String target) throws Exception {
-        // Extract directory path from URL, e.g. hdfs://hostname:9000/a/b/c => /a/b/c
-        Path path = new Path(target.replaceAll(".*://.*?(?=/)", ""));
+        Path path = new Path(extractPathFromUrl(target));
 
         fs.deleteOnExit(path);  // Delete the directory even if an exception occurs
         info(path + " is scheduled to be deleted on exit.");
     }
 
     private void addPermissionsToParents(FileSystem fs, String target) throws Exception {
-        // Extract directory path from URL, e.g. hdfs://hostname:9000/a/b/c => a/b/c
-        String pathFromRoot = target.replaceAll(".*://.*?/", "");
+        String pathFromRoot = removeLeadingSlash(extractPathFromUrl(target));
         String parent = "";
 
         for (String seg: pathFromRoot.split("/")) {
@@ -173,12 +171,12 @@ public class GobblinDistcpJob extends AbstractJob {
             warn("Invalid URL format! Will bypass CDN for push cluster " + destination);
             return "";
         }
-        return cdnCluster.replaceAll("(?<=:[0-9]{1,5})/", "");  // Regex removes trailing slash
+        return removeTrailingSlash(cdnCluster);
     }
 
     private boolean prereqSatisfied(String cdnURL) throws Exception {
         for (String namenode: props.getList("other_namenodes")) {
-            if (namenode.replaceAll("(?<=:[0-9]{1,5})/", "").equals(cdnURL)) {  // Regex removes trailing slash
+            if (removeTrailingSlash(namenode).equals(cdnURL)) {
                 return true;
             }
         }
@@ -187,5 +185,29 @@ public class GobblinDistcpJob extends AbstractJob {
 
     public String getSource() {
         return source;
+    }
+
+    private String removeLeadingSlash(String s) {
+        return s.replaceAll("^/", "");
+    }
+
+    private String removeTrailingSlash(String s) {
+        return s.replaceAll("/$", "");
+    }
+
+    // Extract directory path from URL, e.g. hdfs://hostname:9000/a/b/c => /a/b/c
+    private String extractPathFromUrl(String url) {
+        String path = url.replaceAll(".+://.+?(?=/)", "");
+        assert path.startsWith("/");
+        return path;
+    }
+
+    // Remove directory path from URL,  e.g. hdfs://hostname:9000/a/b/c => hdfs://hostname:9000
+    private String removePathFromUrl(String url) {
+        String path = extractPathFromUrl(url);
+        int end = url.indexOf(path);
+        return url.substring(0, end);
+
+        // Alternative: return url.replaceAll("(?<=:[0-9]{1,5})/.*", "")), assume url contains port number
     }
 }

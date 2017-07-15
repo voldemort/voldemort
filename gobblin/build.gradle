@@ -44,5 +44,4 @@ shadowJar {
         println "${project.name} jar size: ${((float)(file.length()/1024/1024)).round(2)} MB"
         println '================================'
     }
-
 }
