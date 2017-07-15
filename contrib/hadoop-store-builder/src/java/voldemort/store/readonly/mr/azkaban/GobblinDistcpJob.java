@@ -89,7 +89,6 @@ public class GobblinDistcpJob extends AbstractJob {
     }
 
     private FileSystem getRootFS(String target) throws Exception {
-        // Remove directory path from URL, e.g. hdfs://hostname:9000/a/b/c => hdfs://hostname:9000
         URI rootURI = new URI(removePathFromUrl(target));
         return FileSystem.get(rootURI, new JobConf());
     }
