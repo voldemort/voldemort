@@ -194,14 +194,18 @@ public class GobblinDistcpJob extends AbstractJob {
         return s.replaceAll("/$", "");
     }
 
-    // Extract directory path from URL, e.g. hdfs://hostname:9000/a/b/c => /a/b/c
+    /**
+     * Extract directory path from URL, e.g. hdfs://hostname:9000/a/b/c => /a/b/c
+     */
     private String extractPathFromUrl(String url) {
         String path = url.replaceAll(".+://.+?(?=/)", "");
         assert path.startsWith("/");
         return path;
     }
 
-    // Remove directory path from URL,  e.g. hdfs://hostname:9000/a/b/c => hdfs://hostname:9000
+    /**
+     * Remove directory path from URL,  e.g. hdfs://hostname:9000/a/b/c => hdfs://hostname:9000
+     */
     private String removePathFromUrl(String url) {
         String path = extractPathFromUrl(url);
         int end = url.indexOf(path);
