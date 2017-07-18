@@ -53,7 +53,7 @@ def deleteDirectoryContents(directory) {
 }
 
 def gobblinExcludes = {
-    exclude group: 'org.apache.hive', module: 'hive-exec'
+    exclude group: 'org.apache.hive'
     exclude group: 'com.google.protobuf'
     exclude group: 'org.apache.avro'
 }

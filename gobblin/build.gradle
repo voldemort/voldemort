@@ -2,15 +2,25 @@ apply plugin: 'com.github.johnrengelman.shadow'
 
 repositories {
     jcenter()
-    maven {
-        // For: "org.pentaho:pentaho-aggdesigner-algorithm:5.1.3-jhyde"
-        // required by: "gobblin-runtime:0.10.0 > org.apache.hive:hive-exec:1.0.1"
-        url "http://repo.spring.io/plugins-release"
-    }
 }
 
 configurations {
-    gobblin.exclude group: 'com.google.guava'
+    gobblin {
+        exclude group: 'com.google.guava'
+        // Hadoop dependencies are expected to be provided by Azkaban.
+        // If Azkaban is not included in your deployment, you may need to remove the following line
+        exclude group: 'org.apache.hadoop'
+
+        // Deadweight:
+        exclude group: 'org.apache.curator'
+        exclude group: 'org.apache.hive'
+        exclude group: 'org.apache.httpcomponents'
+        exclude group: 'org.quartz-scheduler'
+        exclude group: 'com.google.inject', module: 'guice'
+        exclude group: 'com.linkedin.gobblin', module: 'gobblin-hive-registration'
+        exclude group: 'com.linkedin.gobblin', module: 'google-ingestion'
+        exclude group: 'com.twitter', module: 'parquet-hadoop-bundle'
+    }
     resolvedIncorrectly
 }
 
@@ -27,12 +37,6 @@ dependencies {
 shadowJar {
     zip64 true
     configurations = [project.configurations.gobblin, project.configurations.resolvedIncorrectly]
-
-    // Hadoop dependencies are expected to be provided by Azkaban.
-    // If Azkaban is not included in your deployment, you may need to remove the following block
-    dependencies {
-        exclude(dependency('org.apache.hadoop:.*'))
-    }
 
     def troublemakers = ['org.apache.avro', 'com.google.protobuf', 'com.google.common']
     troublemakers.each {
