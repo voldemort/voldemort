@@ -40,7 +40,7 @@ public class GobblinDistcpJob extends AbstractJob {
             if (!cdnURL.isEmpty()) {
                 info("Using CDN: " + cdnURL);
                 String username = props.getString("env.USER", "unknownUser");
-                String pathPrefix = props.getString(VoldemortBuildAndPushJob.PUSH_CDN_PREFIX);
+                String pathPrefix = props.getString(VoldemortBuildAndPushJob.PUSH_CDN_PREFIX).trim();
                 assert pathPrefix.startsWith("/");
                 pathPrefix = removeTrailingSlash(pathPrefix);
                 // Replace original cluster with CDN, e.g. hdfs://original:9000/a/b/c => webhdfs://cdn:50070/prefix/user/a/b/c
