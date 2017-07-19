@@ -61,7 +61,7 @@ public class GobblinDistcpJob extends AbstractJob {
                 deleteDir(cdnTargetFS, cdnDir);
                 runDistcp(from, to);
                 deleteDirOnExit(cdnTargetFS, cdnDir);
-                addPermissionsToParents(cdnTargetFS, cdnDir);
+                addPermissionsToParentDirs(cdnTargetFS, cdnDir, pathPrefix);
                 source = cdnDir;
                 info("Use CDN HDFS cluster: " + source);
             }
@@ -117,40 +117,67 @@ public class GobblinDistcpJob extends AbstractJob {
         info(path + " is scheduled to be deleted on exit.");
     }
 
-    private void addPermissionsToParents(FileSystem fs, String target) throws Exception {
+    private void checkPermission(FileSystem fs, Path path, boolean checkWritePermission) throws Exception {
+        FsPermission perm = fs.getFileStatus(path).getPermission();
+        FsAction u = perm.getUserAction();
+        FsAction g = perm.getGroupAction();
+        FsAction o = perm.getOtherAction();
+        boolean changed = false;
+
+        // Check read permission
+        if (props.getBoolean(VoldemortBuildAndPushJob.PUSH_CDN_READ_BY_GROUP, false)) {
+            if (!g.implies(FsAction.READ_EXECUTE)) {
+                g = g.or(FsAction.READ_EXECUTE);
+                changed = true;
+            }
+        }
+
+        if (props.getBoolean(VoldemortBuildAndPushJob.PUSH_CDN_READ_BY_OTHER, false)) {
+            if (!o.implies(FsAction.READ_EXECUTE)) {
+                o = o.or(FsAction.READ_EXECUTE);
+                changed = true;
+            }
+        }
+
+        // Check write permission
+        if (checkWritePermission) {
+            if (props.getBoolean(VoldemortBuildAndPushJob.PUSH_CDN_WRITTEN_BY_GROUP, false)) {
+                if (!g.implies(FsAction.WRITE)) {
+                    g = g.or(FsAction.WRITE);
+                    changed = true;
+                }
+            }
+
+            if (props.getBoolean(VoldemortBuildAndPushJob.PUSH_CDN_WRITTEN_BY_OTHER, false)) {
+                if (!o.implies(FsAction.WRITE)) {
+                    o = o.or(FsAction.WRITE);
+                    changed = true;
+                }
+            }
+        }
+
+        if (changed) {
+            FsPermission desiredPerm = new FsPermission(u, g, o);
+            fs.setPermission(path, desiredPerm);
+            if (!fs.getFileStatus(path).getPermission().equals(desiredPerm)) {
+                throw new RuntimeException("Failed to set permission for " + path + " from: " + perm + " to: " + desiredPerm);
+            }
+            info("for path " + path + ", permissions changed from: " + perm + " to: " + desiredPerm);
+        }
+    }
+
+    private void addPermissionsToParentDirs(FileSystem fs, String target, String pathPrefix) throws Exception {
         String pathFromRoot = removeLeadingSlash(extractPathFromUrl(target));
         String parent = "";
 
         for (String seg: pathFromRoot.split("/")) {
             parent = parent + "/" + seg;
             Path parentPath = new Path(parent);
-            FsPermission perm = fs.getFileStatus(parentPath).getPermission();
-            FsAction u = perm.getUserAction();
-            FsAction g = perm.getGroupAction();
-            FsAction o = perm.getOtherAction();
-            boolean changed = false;
 
-            if (props.getBoolean(VoldemortBuildAndPushJob.PUSH_CDN_READ_BY_GROUP, false)) {
-                if (!g.implies(FsAction.READ_EXECUTE)) {
-                    g = g.or(FsAction.READ_EXECUTE);
-                    changed = true;
-                }
-            }
-
-            if (props.getBoolean(VoldemortBuildAndPushJob.PUSH_CDN_READ_BY_OTHER, false)) {
-                if (!o.implies(FsAction.READ_EXECUTE)) {
-                    o = o.or(FsAction.READ_EXECUTE);
-                    changed = true;
-                }
-            }
-
-            if (changed) {
-                FsPermission desiredPerm = new FsPermission(u, g, o);
-                fs.setPermission(parentPath, desiredPerm);
-                if (!fs.getFileStatus(parentPath).getPermission().equals(desiredPerm)) {
-                    throw new RuntimeException("Failed to set permission for " + parent);
-                }
-                info("for path " + parent + ", permissions changed from: " + perm + " to: " + desiredPerm);
+            if (parent.length() <= pathPrefix.length()) {
+                checkPermission(fs, parentPath, false);
+            } else {
+                checkPermission(fs, parentPath, true);
             }
         }
     }
