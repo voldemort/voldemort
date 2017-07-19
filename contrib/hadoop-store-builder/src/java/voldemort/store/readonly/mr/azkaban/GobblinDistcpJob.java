@@ -26,6 +26,7 @@ public class GobblinDistcpJob extends AbstractJob {
     private String source;
     private final String destination;
     private final Props props;
+    private FileSystem cdnTargetFS;
 
     GobblinDistcpJob(String id, String sourceHdfsCluster, String destinationVoldemortCluster, Props props) {
         super(id, PrefixedLogger.getLogger(GobblinDistcpJob.class.getName(), destinationVoldemortCluster));
@@ -49,7 +50,7 @@ public class GobblinDistcpJob extends AbstractJob {
 
                 // Replace original cluster with CDN, e.g. hdfs://original:9000/a/b/c => webhdfs://cdn:50070/prefix/user/a/b/c
                 String cdnDir =  cdnURL + pathPrefix + "/" + storeName + extractPathFromUrl(source);
-                FileSystem cdnTargetFS = getTargetFS(cdnDir);
+                cdnTargetFS = getTargetFS(cdnDir);
                 Path from = new Path(source);
                 Path to = new Path(cdnDir);
 
@@ -260,5 +261,9 @@ public class GobblinDistcpJob extends AbstractJob {
 
     public String getSource() {
         return source;
+    }
+
+    public FileSystem getCdnTargetFS() {
+        return cdnTargetFS;
     }
 }

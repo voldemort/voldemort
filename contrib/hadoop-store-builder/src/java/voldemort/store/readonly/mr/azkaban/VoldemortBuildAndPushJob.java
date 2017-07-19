@@ -829,10 +829,11 @@ public class VoldemortBuildAndPushJob extends AbstractJob {
         boolean cdnEnabled = props.getBoolean(PUSH_CDN_ENABLED, false);
         String modifiedDataDir = new Path(dataDir).makeQualified(FileSystem.get(new JobConf())).toString();
         String storeWhitelist = props.getString(PUSH_CDN_STORE_WHITELIST, null);
+        GobblinDistcpJob distcpJob;
 
         if (cdnEnabled && storeWhitelist != null && storeWhitelist.contains(storeName)) {
             if (modifiedDataDir.matches(".*hdfs://.*:[0-9]{1,5}/.*")) {
-                GobblinDistcpJob distcpJob = new GobblinDistcpJob(getId(), modifiedDataDir, url, props);
+                distcpJob = new GobblinDistcpJob(getId(), modifiedDataDir, url, props);
                 distcpJob.run();
                 modifiedDataDir = distcpJob.getSource();
             } else {
@@ -856,6 +857,11 @@ public class VoldemortBuildAndPushJob extends AbstractJob {
                 url,
                 modifiedDataDir,
                 buildPrimaryReplicasOnly).run();
+
+        if (distcpJob != null && distcpJob.getCdnTargetFS() != null) {
+            // This would allow temp dirs marked by deleteDirOnExit() to be deleted.
+            distcpJob.getCdnTargetFS().close();
+        }
     }
 
     /**
