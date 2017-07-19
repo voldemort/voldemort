@@ -1,5 +1,6 @@
 package voldemort.store.readonly.mr.azkaban;
 
+import java.util.HashMap;
 import java.util.Map;
 import java.util.List;
 import java.net.URI;
@@ -39,13 +40,16 @@ public class GobblinDistcpJob extends AbstractJob {
             String cdnURL = pickCDN();
             if (!cdnURL.isEmpty()) {
                 info("Using CDN: " + cdnURL);
-                String username = props.getString("env.USER", "unknownUser");
+                String storeName = props.getString(VoldemortBuildAndPushJob.PUSH_STORE_NAME).trim();
                 String pathPrefix = props.getString(VoldemortBuildAndPushJob.PUSH_CDN_PREFIX).trim();
-                assert pathPrefix.startsWith("/");
+                if (!pathPrefix.startsWith("/")) {
+                    throw new RuntimeException(VoldemortBuildAndPushJob.PUSH_CDN_PREFIX + " must start with '/': " + pathPrefix);
+                }
                 pathPrefix = removeTrailingSlash(pathPrefix);
+
                 // Replace original cluster with CDN, e.g. hdfs://original:9000/a/b/c => webhdfs://cdn:50070/prefix/user/a/b/c
-                String cdnDir =  cdnURL + pathPrefix + "/" + username + extractPathFromUrl(source);
-                FileSystem cdnRootFS = getRootFS(cdnDir);
+                String cdnDir =  cdnURL + pathPrefix + "/" + storeName + extractPathFromUrl(source);
+                FileSystem cdnTargetFS = getTargetFS(cdnDir);
                 Path from = new Path(source);
                 Path to = new Path(cdnDir);
 
@@ -54,16 +58,15 @@ public class GobblinDistcpJob extends AbstractJob {
                     throw new RuntimeException("\"other_namenodes\" does not contain the CDN cluster address " + cdnURL);
                 }
 
-                deleteDir(cdnRootFS, cdnDir);
+                deleteDir(cdnTargetFS, cdnDir);
                 runDistcp(from, to);
-                deleteDirOnExit(cdnRootFS, cdnDir);
-                addPermissionsToParents(cdnRootFS, cdnDir);
+                deleteDirOnExit(cdnTargetFS, cdnDir);
+                addPermissionsToParents(cdnTargetFS, cdnDir);
                 source = cdnDir;
                 info("Use CDN HDFS cluster: " + source);
             }
         } catch (Exception e) {
-            warn("An exception occurred during distcp: " + e.getMessage());
-            e.printStackTrace();
+            warn("An exception occurred during distcp: " + e.getMessage(), e);
             warn("Use original HDFS cluster: " + source);
         }
         info("############  End of Distcp  ###########");
@@ -89,9 +92,9 @@ public class GobblinDistcpJob extends AbstractJob {
         }
     }
 
-    private FileSystem getRootFS(String target) throws Exception {
-        URI rootURI = new URI(removePathFromUrl(target));
-        return FileSystem.get(rootURI, new JobConf());
+    private FileSystem getTargetFS(String target) throws Exception {
+        URI targetURI = new URI(removePathFromUrl(target));
+        return FileSystem.get(targetURI, new JobConf());
     }
 
     private void deleteDir(FileSystem fs, String target) throws Exception {
@@ -144,34 +147,49 @@ public class GobblinDistcpJob extends AbstractJob {
             if (changed) {
                 FsPermission desiredPerm = new FsPermission(u, g, o);
                 fs.setPermission(parentPath, desiredPerm);
-                assert fs.getFileStatus(parentPath).getPermission().equals(desiredPerm);
+                if (!fs.getFileStatus(parentPath).getPermission().equals(desiredPerm)) {
+                    throw new RuntimeException("Failed to set permission for " + parent);
+                }
                 info("for path " + parent + ", permissions changed from: " + perm + " to: " + desiredPerm);
             }
         }
     }
 
-    private String pickCDN() throws Exception {
-        List<String> pushClusters = props.getList(VoldemortBuildAndPushJob.PUSH_CLUSTER);
-        List<String> cdnClusters = props.getList(VoldemortBuildAndPushJob.PUSH_CDN_CLUSTER);
+    private Map<String, String> buildCdnMap() throws Exception {
+        List<String> pairs = props.getList(VoldemortBuildAndPushJob.PUSH_CDN_CLUSTER);
+        Map<String, String> cdnMap = new HashMap<>(pairs.size());
 
-        if (pushClusters.size() != cdnClusters.size()) {
-            warn("Cluster sizes are different! Will bypass CDN for push cluster " + destination);
-            return "";
+        for (String pair : pairs) {
+            if (!pair.contains("|")) {
+                throw new RuntimeException("Cannot find separator '|' in K-V pair \"" + pair + "\"");
+            }
+            String[] urls = pair.split("\\|");
+            if (urls.length != 2) {
+                throw new RuntimeException("More than one separator found in K-V pair \"" + pair + "\"");
+            }
+            cdnMap.put(removeTrailingSlash(urls[0].trim()), removeTrailingSlash(urls[1].trim()));
         }
+        return cdnMap;
+    }
 
-        int index = pushClusters.indexOf(destination);
-        assert index != -1;
-        String cdnCluster = cdnClusters.get(index);
+    private String pickCDN() throws Exception {
+        String cdnCluster = buildCdnMap().get(removeTrailingSlash(destination));
+
         if (cdnCluster.equals("null")) {
             info("Will bypass CDN for push cluster " + destination);
             return "";
         }
 
-        if (!cdnCluster.matches(".*hdfs://.+:[0-9]{1,5}/?")) {
+        if (cdnCluster == null) {
+            warn("Cannot find corresponding CDN! Will bypass CDN for push cluster " + destination);
+            return "";
+        }
+
+        if (!cdnCluster.matches(".*hdfs://.+:[0-9]{1,5}")) {
             warn("Invalid URL format! Will bypass CDN for push cluster " + destination);
             return "";
         }
-        return removeTrailingSlash(cdnCluster);
+        return cdnCluster;
     }
 
     private boolean prereqSatisfied(String cdnURL) throws Exception {
@@ -181,10 +199,6 @@ public class GobblinDistcpJob extends AbstractJob {
             }
         }
         return false;
-    }
-
-    public String getSource() {
-        return source;
     }
 
     private String removeLeadingSlash(String s) {
@@ -200,7 +214,9 @@ public class GobblinDistcpJob extends AbstractJob {
      */
     private String extractPathFromUrl(String url) {
         String path = url.replaceAll(".+://.+?(?=/)", "");
-        assert path.startsWith("/");
+        if (!path.startsWith("/")) {
+            throw new RuntimeException("Path must start with '/': " + path);
+        }
         return path;
     }
 
@@ -213,5 +229,9 @@ public class GobblinDistcpJob extends AbstractJob {
         return url.substring(0, end);
 
         // Alternative: return url.replaceAll("(?<=:[0-9]{1,5})/.*", "")), assume url contains port number
+    }
+
+    public String getSource() {
+        return source;
     }
 }

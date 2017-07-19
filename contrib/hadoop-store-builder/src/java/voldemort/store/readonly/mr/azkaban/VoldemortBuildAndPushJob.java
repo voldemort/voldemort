@@ -130,6 +130,7 @@ public class VoldemortBuildAndPushJob extends AbstractJob {
     public final static String PUSH_CDN_ENABLED = "push.cdn.enabled";   // e.g. "true"
     public final static String PUSH_CDN_READ_BY_GROUP = "push.cdn.readByGroup";   // e.g. "true"
     public final static String PUSH_CDN_READ_BY_OTHER = "push.cdn.readByOther";   // e.g. "true"
+    public final static String PUSH_CDN_STORE_WHITELIST = "push.cdn.storeWhitelist";    // "storename1,storename2"
     // others.optional
     public final static String KEY_SELECTION = "key.selection";
     public final static String VALUE_SELECTION = "value.selection";
@@ -823,10 +824,11 @@ public class VoldemortBuildAndPushJob extends AbstractJob {
         log.info("Push starting for cluster: " + url);
 
         // CDN distcp
-        boolean cdnEnabled = props.getBoolean(VoldemortBuildAndPushJob.PUSH_CDN_ENABLED, false);
+        boolean cdnEnabled = props.getBoolean(PUSH_CDN_ENABLED, false);
         String modifiedDataDir = new Path(dataDir).makeQualified(FileSystem.get(new JobConf())).toString();
+        String storeWhitelist = props.getString(PUSH_CDN_STORE_WHITELIST, null);
 
-        if (cdnEnabled) {
+        if (cdnEnabled && storeWhitelist != null && storeWhitelist.contains(storeName)) {
             if (modifiedDataDir.matches(".*hdfs://.*:[0-9]{1,5}/.*")) {
                 GobblinDistcpJob distcpJob = new GobblinDistcpJob(getId(), modifiedDataDir, url, props);
                 distcpJob.run();
