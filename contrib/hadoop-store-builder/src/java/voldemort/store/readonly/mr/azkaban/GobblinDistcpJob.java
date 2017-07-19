@@ -37,6 +37,7 @@ public class GobblinDistcpJob extends AbstractJob {
 
     public void run() throws Exception {
         info("###############  Distcp  ###############");
+        long startTime = System.currentTimeMillis();
         try {
             String cdnURL = pickCDN();
             if (!cdnURL.isEmpty()) {
@@ -70,7 +71,8 @@ public class GobblinDistcpJob extends AbstractJob {
             warn("An exception occurred during distcp: ", e);
             warn("Use original HDFS cluster: " + source);
         }
-        info("############  End of Distcp  ###########");
+        long duration = System.currentTimeMillis() - startTime;
+        info("############  End of Distcp  ########### (duration: " + duration/1000 + "s)");
     }
 
     private void runDistcp(Path from, Path to) throws Exception {

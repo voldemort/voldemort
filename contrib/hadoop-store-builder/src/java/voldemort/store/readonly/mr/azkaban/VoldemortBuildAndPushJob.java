@@ -829,7 +829,7 @@ public class VoldemortBuildAndPushJob extends AbstractJob {
         boolean cdnEnabled = props.getBoolean(PUSH_CDN_ENABLED, false);
         String modifiedDataDir = new Path(dataDir).makeQualified(FileSystem.get(new JobConf())).toString();
         String storeWhitelist = props.getString(PUSH_CDN_STORE_WHITELIST, null);
-        GobblinDistcpJob distcpJob;
+        GobblinDistcpJob distcpJob = null;
 
         if (cdnEnabled && storeWhitelist != null && storeWhitelist.contains(storeName)) {
             if (modifiedDataDir.matches(".*hdfs://.*:[0-9]{1,5}/.*")) {
