@@ -66,7 +66,7 @@ public class GobblinDistcpJob extends AbstractJob {
                 info("Use CDN HDFS cluster: " + source);
             }
         } catch (Exception e) {
-            warn("An exception occurred during distcp: " + e.getMessage(), e);
+            warn("An exception occurred during distcp: ", e);
             warn("Use original HDFS cluster: " + source);
         }
         info("############  End of Distcp  ###########");
