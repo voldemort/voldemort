@@ -208,13 +208,13 @@ public class GobblinDistcpJob extends AbstractJob {
     private String pickCDN() throws Exception {
         String cdnCluster = buildCdnMap().get(removeTrailingSlash(destination));
 
-        if (cdnCluster.equals("null")) {
-            info("Will bypass CDN for push cluster " + destination);
+        if (cdnCluster == null) {
+            warn("Cannot find corresponding CDN! Will bypass CDN for push cluster " + destination);
             return "";
         }
 
-        if (cdnCluster == null) {
-            warn("Cannot find corresponding CDN! Will bypass CDN for push cluster " + destination);
+        if (cdnCluster.equals("null")) {
+            info("Will bypass CDN for push cluster " + destination);
             return "";
         }
 
