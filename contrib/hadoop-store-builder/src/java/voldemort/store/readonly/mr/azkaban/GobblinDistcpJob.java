@@ -132,14 +132,14 @@ public class GobblinDistcpJob extends AbstractJob {
         boolean changed = false;
 
         // Check read permission
-        if (props.getBoolean(VoldemortBuildAndPushJob.PUSH_CDN_READ_BY_GROUP, false)) {
+        if (props.getBoolean(VoldemortBuildAndPushJob.PUSH_CDN_READ_BY_GROUP, true)) {
             if (!g.implies(FsAction.READ_EXECUTE)) {
                 g = g.or(FsAction.READ_EXECUTE);
                 changed = true;
             }
         }
 
-        if (props.getBoolean(VoldemortBuildAndPushJob.PUSH_CDN_READ_BY_OTHER, false)) {
+        if (props.getBoolean(VoldemortBuildAndPushJob.PUSH_CDN_READ_BY_OTHER, true)) {
             if (!o.implies(FsAction.READ_EXECUTE)) {
                 o = o.or(FsAction.READ_EXECUTE);
                 changed = true;
@@ -148,14 +148,14 @@ public class GobblinDistcpJob extends AbstractJob {
 
         // Check write permission
         if (checkWritePermission) {
-            if (props.getBoolean(VoldemortBuildAndPushJob.PUSH_CDN_WRITTEN_BY_GROUP, false)) {
+            if (props.getBoolean(VoldemortBuildAndPushJob.PUSH_CDN_WRITTEN_BY_GROUP, true)) {
                 if (!g.implies(FsAction.WRITE)) {
                     g = g.or(FsAction.WRITE);
                     changed = true;
                 }
             }
 
-            if (props.getBoolean(VoldemortBuildAndPushJob.PUSH_CDN_WRITTEN_BY_OTHER, false)) {
+            if (props.getBoolean(VoldemortBuildAndPushJob.PUSH_CDN_WRITTEN_BY_OTHER, true)) {
                 if (!o.implies(FsAction.WRITE)) {
                     o = o.or(FsAction.WRITE);
                     changed = true;
