@@ -70,10 +70,12 @@ public class GobblinDistcpJob extends AbstractJob {
         } catch (Exception e) {
             warn("An exception occurred during distcp: ", e);
             warn("Will use data on original HDFS cluster: " + source);
+            long duration = System.currentTimeMillis() - startTime;
+            info("#############  End of Distcp (FAILED) ############ (duration: " + duration/1000 + "s)");
             throw new RuntimeException("An exception occurred during distcp", e);
         }
         long duration = System.currentTimeMillis() - startTime;
-        info("############  End of Distcp  ########### (duration: " + duration/1000 + "s)");
+        info("#############  End of Distcp  ########### (duration: " + duration/1000 + "s)");
     }
 
     private void runDistcp(Path from, Path to) throws Exception {
