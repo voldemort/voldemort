@@ -132,7 +132,7 @@ public class VoldemortBuildAndPushJob extends AbstractJob {
     public final static String PUSH_CDN_READ_BY_OTHER = "push.cdn.readByOther";   // e.g. "true"
     public final static String PUSH_CDN_WRITTEN_BY_GROUP = "push.cdn.writtenByGroup";   // e.g. "true"
     public final static String PUSH_CDN_WRITTEN_BY_OTHER = "push.cdn.writtenByOther";   // e.g. "true"
-    public final static String PUSH_CDN_STORE_WHITELIST = "push.cdn.storeWhitelist";    // "storename1,storename2"
+    public final static String PUSH_CDN_STORE_WHITELIST = "push.cdn.storeWhitelist";    // "storename1,storename2" no whitespace
     // others.optional
     public final static String KEY_SELECTION = "key.selection";
     public final static String VALUE_SELECTION = "value.selection";
@@ -828,7 +828,7 @@ public class VoldemortBuildAndPushJob extends AbstractJob {
         // CDN distcp
         boolean cdnEnabled = props.getBoolean(PUSH_CDN_ENABLED, false);
         String modifiedDataDir = new Path(dataDir).makeQualified(FileSystem.get(new JobConf())).toString();
-        String storeWhitelist = props.getString(PUSH_CDN_STORE_WHITELIST, null);
+        List storeWhitelist = props.getList(PUSH_CDN_STORE_WHITELIST, null);
         GobblinDistcpJob distcpJob = null;
 
         if (cdnEnabled && storeWhitelist != null && storeWhitelist.contains(storeName)) {
