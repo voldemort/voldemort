@@ -41,7 +41,7 @@ public class GobblinDistcpJob extends AbstractJob {
         try {
             String cdnURL = pickCDN();
             if (!cdnURL.isEmpty()) {
-                info("Using CDN: " + cdnURL);
+                info("CDN: " + cdnURL);
                 String storeName = props.getString(VoldemortBuildAndPushJob.PUSH_STORE_NAME).trim();
                 String pathPrefix = props.getString(VoldemortBuildAndPushJob.PUSH_CDN_PREFIX).trim();
                 if (!pathPrefix.startsWith("/")) {
