@@ -41,6 +41,7 @@ import java.util.concurrent.TimeUnit;
 import org.apache.avro.Schema;
 import org.apache.avro.mapred.AvroInputFormat;
 import org.apache.commons.lang.Validate;
+import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.mapred.InputFormat;
 import org.apache.hadoop.mapred.JobConf;
@@ -124,6 +125,14 @@ public class VoldemortBuildAndPushJob extends AbstractJob {
     public final static String PUSH_ROLLBACK = "push.rollback";
     public final static String PUSH_FORCE_SCHEMA_KEY = "push.force.schema.key";
     public final static String PUSH_FORCE_SCHEMA_VALUE = "push.force.schema.value";
+    public final static String PUSH_CDN_CLUSTER = "push.cdn.cluster";   // e.g. "hdfs://source1:9000|hdfs://cdn1:9000,hdfs://source2:9000|webhdfs://cdn2:50070"
+    public final static String PUSH_CDN_PREFIX = "push.cdn.prefix";     // e.g. "/jobs/VoldemortBnP"
+    public final static String PUSH_CDN_ENABLED = "push.cdn.enabled";   // e.g. "true"
+    public final static String PUSH_CDN_READ_BY_GROUP = "push.cdn.readByGroup";   // e.g. "true"
+    public final static String PUSH_CDN_READ_BY_OTHER = "push.cdn.readByOther";   // e.g. "true"
+    public final static String PUSH_CDN_WRITTEN_BY_GROUP = "push.cdn.writtenByGroup";   // e.g. "true"
+    public final static String PUSH_CDN_WRITTEN_BY_OTHER = "push.cdn.writtenByOther";   // e.g. "true"
+    public final static String PUSH_CDN_STORE_WHITELIST = "push.cdn.storeWhitelist";    // "storename1,storename2" no whitespace
     // others.optional
     public final static String KEY_SELECTION = "key.selection";
     public final static String VALUE_SELECTION = "value.selection";
@@ -816,6 +825,29 @@ public class VoldemortBuildAndPushJob extends AbstractJob {
 
         log.info("Push starting for cluster: " + url);
 
+        // CDN distcp
+        boolean cdnEnabled = props.getBoolean(PUSH_CDN_ENABLED, false);
+        String modifiedDataDir = new Path(dataDir).makeQualified(FileSystem.get(new JobConf())).toString();
+        List storeWhitelist = props.getList(PUSH_CDN_STORE_WHITELIST, null);
+        GobblinDistcpJob distcpJob = null;
+
+        if (cdnEnabled && storeWhitelist != null && storeWhitelist.contains(storeName)) {
+            try {
+                if (modifiedDataDir.matches(".*hdfs://.*:[0-9]{1,5}/.*")) {
+                    invokeHooks(BuildAndPushStatus.DISTCP_STARTING, url);
+                    distcpJob = new GobblinDistcpJob(getId(), modifiedDataDir, url, props);
+                    distcpJob.run();
+                    modifiedDataDir = distcpJob.getSource();
+                    invokeHooks(BuildAndPushStatus.DISTCP_FINISHED, url);
+                } else {
+                    warn("Invalid URL format! Skip Distcp.");
+                    throw new RuntimeException("Invalid URL format! Skip Distcp.");
+                }
+            } catch (Exception e) {
+                invokeHooks(BuildAndPushStatus.DISTCP_FAILED, url + " : " + e.getMessage());
+            }
+        }
+
         new VoldemortSwapJob(
                 this.getId() + "-push-store",
                 cluster,
@@ -830,7 +862,13 @@ public class VoldemortBuildAndPushJob extends AbstractJob {
                 maxNodeFailures,
                 failedFetchStrategyList,
                 url,
+                modifiedDataDir,
                 buildPrimaryReplicasOnly).run();
+
+        if (distcpJob != null) {
+            // This would allow temp dirs marked by deleteDirOnExit() to be deleted.
+            distcpJob.closeCdnFS();
+        }
     }
 
     /**
