@@ -832,12 +832,19 @@ public class VoldemortBuildAndPushJob extends AbstractJob {
         GobblinDistcpJob distcpJob = null;
 
         if (cdnEnabled && storeWhitelist != null && storeWhitelist.contains(storeName)) {
-            if (modifiedDataDir.matches(".*hdfs://.*:[0-9]{1,5}/.*")) {
-                distcpJob = new GobblinDistcpJob(getId(), modifiedDataDir, url, props);
-                distcpJob.run();
-                modifiedDataDir = distcpJob.getSource();
-            } else {
-                warn("Invalid URL format! Skip Distcp.");
+            try {
+                if (modifiedDataDir.matches(".*hdfs://.*:[0-9]{1,5}/.*")) {
+                    invokeHooks(BuildAndPushStatus.DISTCP_STARTING, url);
+                    distcpJob = new GobblinDistcpJob(getId(), modifiedDataDir, url, props);
+                    distcpJob.run();
+                    modifiedDataDir = distcpJob.getSource();
+                    invokeHooks(BuildAndPushStatus.DISTCP_FINISHED, url);
+                } else {
+                    warn("Invalid URL format! Skip Distcp.");
+                    throw new RuntimeException();
+                }
+            } catch (Exception e) {
+                invokeHooks(BuildAndPushStatus.DISTCP_FAILED, url);
             }
         }
 
