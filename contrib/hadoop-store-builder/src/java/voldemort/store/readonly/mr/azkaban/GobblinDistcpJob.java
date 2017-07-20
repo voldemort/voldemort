@@ -65,11 +65,11 @@ public class GobblinDistcpJob extends AbstractJob {
                 deleteDirOnExit(cdnTargetFS, cdnDir);
                 addPermissionsToParentDirs(cdnTargetFS, cdnDir, pathPrefix);
                 source = cdnDir;
-                info("Use CDN HDFS cluster: " + source);
+                info("Will use data on CDN HDFS cluster: " + source);
             }
         } catch (Exception e) {
             warn("An exception occurred during distcp: ", e);
-            warn("Use original HDFS cluster: " + source);
+            warn("Will use data on original HDFS cluster: " + source);
         }
         long duration = System.currentTimeMillis() - startTime;
         info("############  End of Distcp  ########### (duration: " + duration/1000 + "s)");
