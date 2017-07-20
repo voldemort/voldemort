@@ -841,10 +841,10 @@ public class VoldemortBuildAndPushJob extends AbstractJob {
                     invokeHooks(BuildAndPushStatus.DISTCP_FINISHED, url);
                 } else {
                     warn("Invalid URL format! Skip Distcp.");
-                    throw new RuntimeException();
+                    throw new RuntimeException("Invalid URL format! Skip Distcp.");
                 }
             } catch (Exception e) {
-                invokeHooks(BuildAndPushStatus.DISTCP_FAILED, url);
+                invokeHooks(BuildAndPushStatus.DISTCP_FAILED, url + " : " + e.getMessage());
             }
         }
 
@@ -865,9 +865,9 @@ public class VoldemortBuildAndPushJob extends AbstractJob {
                 modifiedDataDir,
                 buildPrimaryReplicasOnly).run();
 
-        if (distcpJob != null && distcpJob.getCdnTargetFS() != null) {
+        if (distcpJob != null) {
             // This would allow temp dirs marked by deleteDirOnExit() to be deleted.
-            distcpJob.getCdnTargetFS().close();
+            distcpJob.closeCdnFS();
         }
     }
 

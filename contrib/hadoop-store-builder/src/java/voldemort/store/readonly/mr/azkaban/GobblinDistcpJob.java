@@ -23,6 +23,7 @@ import azkaban.jobExecutor.AbstractJob;
 
 public class GobblinDistcpJob extends AbstractJob {
     private final static String ATTR_PREFIX = "distcpConf.";
+    private final static String OTHER_NAMENODES = "other_namenodes";
     private String source;
     private final String destination;
     private final Props props;
@@ -56,8 +57,8 @@ public class GobblinDistcpJob extends AbstractJob {
                 Path to = new Path(cdnDir);
 
                 if (!prereqSatisfied(cdnURL)) {
-                    warn("Please add/append \"" + cdnURL + "\" to the \"other_namenodes\" attribute in your job specification.");
-                    throw new RuntimeException("\"other_namenodes\" does not contain the CDN cluster address " + cdnURL);
+                    warn("Please add/append \"" + cdnURL + "\" to the \"" + OTHER_NAMENODES + "\" attribute in your job specification.");
+                    throw new RuntimeException("\"" + OTHER_NAMENODES + "\" does not contain the CDN cluster address " + cdnURL);
                 }
 
                 deleteDir(cdnTargetFS, cdnDir);
@@ -226,7 +227,7 @@ public class GobblinDistcpJob extends AbstractJob {
     }
 
     private boolean prereqSatisfied(String cdnURL) throws Exception {
-        for (String namenode: props.getList("other_namenodes")) {
+        for (String namenode: props.getList(OTHER_NAMENODES)) {
             if (removeTrailingSlash(namenode).equals(cdnURL)) {
                 return true;
             }
@@ -268,7 +269,13 @@ public class GobblinDistcpJob extends AbstractJob {
         return source;
     }
 
-    public FileSystem getCdnTargetFS() {
-        return cdnTargetFS;
+    void closeCdnFS() {
+        try {
+            if (cdnTargetFS != null) {
+                cdnTargetFS.close();
+            }
+        } catch (Exception e) {
+            warn("Failed to close CDN filesystem!");
+        }
     }
 }
