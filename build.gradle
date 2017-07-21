@@ -2,10 +2,10 @@ apply plugin: 'java'
 apply plugin: 'war'
 
 buildscript {
-  repositories { jcenter() }
-  dependencies {
-    classpath 'com.github.jengelman.gradle.plugins:shadow:1.2.1'
-  }
+    repositories { jcenter() }
+    dependencies {
+        classpath 'com.github.jengelman.gradle.plugins:shadow:1.2.4'
+    }
 }
 
 apply plugin: 'com.github.johnrengelman.shadow'
@@ -50,6 +50,12 @@ def javadocEnabled = getProjectProperty('javadoc.enabled').toBoolean()
 def deleteDirectoryContents(directory) {
     project.file(directory).deleteDir()
     project.file(directory).mkdirs()
+}
+
+def gobblinExcludes = {
+    exclude group: 'org.apache.hive'
+    exclude group: 'com.google.protobuf'
+    exclude group: 'org.apache.avro'
 }
 
 allprojects {
@@ -200,10 +206,18 @@ def depTehuti = 'io.tehuti:tehuti:0.7.0'
 
 
 shadowJar {
+    zip64 true  // Required if fatjar has more than 64K files
     classifier "bnp"
     from sourceSets.main.output, sourceSets.test.output, sourceSets.main.resources
     from {subprojects*.sourceSets.main.output}
     from {subprojects*.sourceSets.test.output}
+    from project('gobblin').projectDir
+    dependsOn 'gobblin:shadowJar'
+
+    // Hadoop dependencies are expected to be provided by Azkaban.
+    // If Azkaban is not included in your deployment, you may need to remove the following excludes
+    exclude("**/org/apache/hadoop/**")
+    exclude("**/org.apache.hadoop**")
 
     // Required when working in an Hadoop 2.x environment
     dependencies {
@@ -613,6 +627,11 @@ dependencies {
 
     // Bouncy Castle Libaray
     compile 'org.bouncycastle:bcprov-jdk15on:1.48'
+
+    // Gobblin
+    compile 'com.linkedin.gobblin:gobblin-runtime:0.10.0', gobblinExcludes
+    compile 'com.linkedin.gobblin:gobblin-data-management:0.10.0', gobblinExcludes
+    compile 'com.linkedin.gobblin:gobblin-throttling-service-client:0.10.0', gobblinExcludes
 }
 
 subprojects {

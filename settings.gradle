@@ -1,4 +1,3 @@
-
 rootProject.name = 'voldemort'
 
 // the following dance creates the subprojects (the contrib modules) and
@@ -14,3 +13,6 @@ project(':contrib-krati').projectDir = file('contrib/krati')
 
 include 'contrib-restclient'
 project(':contrib-restclient').projectDir = file('contrib/restclient')
+
+include 'gobblin'
+project(':gobblin').projectDir = file('gobblin')

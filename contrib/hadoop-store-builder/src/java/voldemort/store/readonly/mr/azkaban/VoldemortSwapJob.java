@@ -1,12 +1,12 @@
 /*
  * Copyright 2008-2013 LinkedIn, Inc
- * 
+ *
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not
  * use this file except in compliance with the License. You may obtain a copy of
  * the License at
- * 
+ *
  * http://www.apache.org/licenses/LICENSE-2.0
- * 
+ *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
  * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
@@ -24,9 +24,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 
-import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
-import org.apache.hadoop.mapred.JobConf;
 
 import voldemort.VoldemortException;
 import voldemort.client.ClientConfig;
@@ -37,6 +35,7 @@ import voldemort.store.readonly.mr.utils.VoldemortUtils;
 import voldemort.store.readonly.swapper.AdminStoreSwapper;
 import voldemort.store.readonly.swapper.FailedFetchStrategy;
 import voldemort.utils.logging.PrefixedLogger;
+
 import azkaban.jobExecutor.AbstractJob;
 
 /*
@@ -59,6 +58,7 @@ public class VoldemortSwapJob extends AbstractJob {
     private final boolean buildPrimaryReplicasOnly;
 
     // The following internal state mutates during run()
+    private String modifiedDataDir;
     private long pushVersion;
 
     public VoldemortSwapJob(String id,
@@ -74,6 +74,7 @@ public class VoldemortSwapJob extends AbstractJob {
                             int maxNodeFailures,
                             List<FailedFetchStrategy> failedFetchStrategyList,
                             String clusterName,
+                            String modifiedDataDir,
                             boolean buildPrimaryReplicasOnly) throws IOException {
         super(id, PrefixedLogger.getLogger(AdminStoreSwapper.class.getName(), clusterName));
         this.cluster = cluster;
@@ -88,16 +89,12 @@ public class VoldemortSwapJob extends AbstractJob {
         this.maxNodeFailures = maxNodeFailures;
         this.failedFetchStrategyList = failedFetchStrategyList;
         this.clusterName = clusterName;
+        this.modifiedDataDir  = modifiedDataDir;
         this.buildPrimaryReplicasOnly = buildPrimaryReplicasOnly;
     }
 
     public void run() throws Exception {
         ExecutorService executor = Executors.newCachedThreadPool();
-
-        // Read the hadoop configuration settings
-        JobConf conf = new JobConf();
-        Path dataPath = new Path(dataDir);
-        String modifiedDataDir = dataPath.makeQualified(FileSystem.get(conf)).toString();
 
         /*
          * Replace the default protocol and port with the one derived as above
