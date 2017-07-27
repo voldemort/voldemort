@@ -1,3 +1,6 @@
+Release 1.10.25 7/26/2017
+* Updated Gobblin dependency from 0.10.0 to 0.11.0
+
 Release 1.10.24 7/21/2017
 * Added optional CDN feature to the BnP pipeline.
 * Fixed the client shell's list parsing logic.
