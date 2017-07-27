@@ -25,12 +25,12 @@ configurations {
 }
 
 dependencies {
-    gobblin 'com.linkedin.gobblin:gobblin-runtime:0.10.0'
-    gobblin 'com.linkedin.gobblin:gobblin-data-management:0.10.0'
-    gobblin 'com.linkedin.gobblin:gobblin-throttling-service-client:0.10.0'
-    gobblin 'com.linkedin.gobblin:gobblin-throttling-service-api-rest-client:0.10.0'
-    gobblin 'com.linkedin.gobblin:gobblin-throttling-service-api-data-template:0.10.0'
-    gobblin 'com.linkedin.gobblin:gobblin-metrics:0.10.0'
+    gobblin 'com.linkedin.gobblin:gobblin-runtime:0.11.0'
+    gobblin 'com.linkedin.gobblin:gobblin-data-management:0.11.0'
+    gobblin 'com.linkedin.gobblin:gobblin-throttling-service-client:0.11.0'
+    gobblin 'com.linkedin.gobblin:gobblin-throttling-service-api-rest-client:0.11.0'
+    gobblin 'com.linkedin.gobblin:gobblin-throttling-service-api-data-template:0.11.0'
+    gobblin 'com.linkedin.gobblin:gobblin-metrics:0.11.0'
     resolvedIncorrectly 'com.google.guava:guava:15.0'
 }
 
