@@ -67,8 +67,8 @@ public class ReadOnlyStorageConfiguration implements StorageConfiguration {
                                                                 this.searcher,
                                                                 this.routingStrategy,
                                                                 this.nodeId,
-                                                                new File(storageDir,
-                                                                         storeDef.getName()),
+                                                                getStoreDirectory(storageDir.getAbsolutePath(),
+                                                                                  storeDef.getName()),
                                                                 numBackups,
                                                                 deleteBackupMs,
                                                                 maxValueBufferAllocationSize,
@@ -90,5 +90,9 @@ public class ReadOnlyStorageConfiguration implements StorageConfiguration {
      */
     @Override
     public void removeStorageEngine(StorageEngine<ByteArray, byte[], byte[]> engine) {
+    }
+
+    public static File getStoreDirectory(String storageDir, String storeName) {
+        return new File(storageDir, storeName);
     }
 }

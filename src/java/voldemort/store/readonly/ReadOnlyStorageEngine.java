@@ -60,6 +60,10 @@ public class ReadOnlyStorageEngine extends AbstractStorageEngine<ByteArray, byte
 
     private static Logger logger = Logger.getLogger(ReadOnlyStorageEngine.class);
     public static final int NO_FETCH_IN_PROGRESS = -1;
+    public static final String VERSION_DIR_NAME = "version-%s";
+    public static String getVersionDirName(String storeDir, long version) {
+        return storeDir + File.separator + String.format(VERSION_DIR_NAME, version);
+    }
 
     // Immutable state
     private final int numBackups, nodeId, deleteBackupMs, maxValueBufferAllocationSize;
@@ -196,7 +200,7 @@ public class ReadOnlyStorageEngine extends AbstractStorageEngine<ByteArray, byte
                 versionDir = ReadOnlyUtils.getCurrentVersion(storeDir);
 
                 if(versionDir == null)
-                    versionDir = new File(storeDir, "version-0");
+                    versionDir = new File(storeDir, String.format(VERSION_DIR_NAME, 0));
             }
 
             // Set the max version id
@@ -237,8 +241,7 @@ public class ReadOnlyStorageEngine extends AbstractStorageEngine<ByteArray, byte
      * @return Returns the absolute path of the current dir
      */
     public String getCurrentDirPath() {
-        return storeDir.getAbsolutePath() + File.separator + "version-"
-               + Long.toString(getCurrentVersionId());
+        return getVersionDirName(storeDir.getAbsolutePath(), getCurrentVersionId());
     }
 
     /**

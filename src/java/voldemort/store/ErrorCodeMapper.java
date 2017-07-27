@@ -22,8 +22,10 @@ import java.util.Map;
 import voldemort.VoldemortApplicationException;
 import voldemort.VoldemortException;
 import voldemort.VoldemortUnsupportedOperationalException;
+import voldemort.server.protocol.admin.AsyncOperationNotFoundException;
 import voldemort.server.protocol.admin.AsyncOperationStoppedException;
 import voldemort.server.protocol.admin.ReadOnlyFetchDisabledException;
+import voldemort.server.protocol.admin.StoreVersionAlreadyExistsException;
 import voldemort.server.rebalance.AlreadyRebalancingException;
 import voldemort.server.rebalance.VoldemortRebalancingException;
 import voldemort.store.quota.QuotaExceededException;
@@ -69,6 +71,8 @@ public class ErrorCodeMapper {
         codeToException.put((short) 20, AsyncOperationStoppedException.class);
         codeToException.put((short) 21, ReadOnlyFetchDisabledException.class);
         codeToException.put((short) 22, StoreNotFoundException.class);
+        codeToException.put((short) 23, AsyncOperationNotFoundException.class);
+        codeToException.put((short) 24, StoreVersionAlreadyExistsException.class);
 
         exceptionToCode = new HashMap<Class<? extends VoldemortException>, Short>();
         for(Map.Entry<Short, Class<? extends VoldemortException>> entry: codeToException.entrySet())

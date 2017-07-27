@@ -84,7 +84,7 @@ public class AsyncOperationService extends AbstractService {
      */
     public synchronized boolean isComplete(int requestId, boolean remove) {
         if (!operations.containsKey(requestId))
-            throw new VoldemortException("No operation with id " + requestId + " found");
+            throw new AsyncOperationNotFoundException(requestId);
 
         if (operations.get(requestId).getStatus().isComplete()) {
             if (logger.isDebugEnabled())
@@ -112,7 +112,7 @@ public class AsyncOperationService extends AbstractService {
         try {
             return getOperationStatus(id).toString();
         } catch(VoldemortException e) {
-            return "No operation with id " + id + " found";
+            return String.format(AsyncOperationNotFoundException.MESSAGE, id);
         }
     }
 
@@ -168,7 +168,7 @@ public class AsyncOperationService extends AbstractService {
 
     public AsyncOperationStatus getOperationStatus(int requestId) {
         if(!operations.containsKey(requestId))
-            throw new VoldemortException("No operation with id " + requestId + " found");
+            throw new AsyncOperationNotFoundException(requestId);
 
         return operations.get(requestId).getStatus();
     }
@@ -187,7 +187,7 @@ public class AsyncOperationService extends AbstractService {
 
     public void stopOperation(int requestId) {
         if(!operations.containsKey(requestId))
-            throw new VoldemortException("No operation with id " + requestId + " found");
+            throw new AsyncOperationNotFoundException(requestId);
 
         operations.get(requestId).stop();
     }

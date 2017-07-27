@@ -38,6 +38,7 @@ import voldemort.routing.RoutingStrategyFactory;
 import voldemort.server.VoldemortConfig;
 import voldemort.server.protocol.admin.AdminServiceRequestHandler;
 import voldemort.server.protocol.admin.AsyncOperationStatus;
+import voldemort.server.protocol.admin.StoreVersionAlreadyExistsException;
 import voldemort.store.StoreDefinition;
 import voldemort.store.metadata.MetadataStore;
 import voldemort.store.quota.QuotaExceededException;
@@ -222,8 +223,7 @@ public class HdfsFetcher implements FileFetcher {
             File destination = new File(destinationFile);
 
             if(destination.exists()) {
-                throw new VoldemortException("Version directory " + destination.getAbsolutePath()
-                                             + " already exists");
+                throw new StoreVersionAlreadyExistsException(destination);
             }
 
             boolean isFile = isFile(fs, rootPath);
