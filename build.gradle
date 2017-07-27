@@ -56,6 +56,7 @@ def gobblinExcludes = {
     exclude group: 'org.apache.hive'
     exclude group: 'com.google.protobuf'
     exclude group: 'org.apache.avro'
+    exclude group: 'com.linkedin.gobblin', module: 'gobblin-hive-registration'
 }
 
 allprojects {
@@ -629,9 +630,9 @@ dependencies {
     compile 'org.bouncycastle:bcprov-jdk15on:1.48'
 
     // Gobblin
-    compile 'com.linkedin.gobblin:gobblin-runtime:0.10.0', gobblinExcludes
-    compile 'com.linkedin.gobblin:gobblin-data-management:0.10.0', gobblinExcludes
-    compile 'com.linkedin.gobblin:gobblin-throttling-service-client:0.10.0', gobblinExcludes
+    compile 'com.linkedin.gobblin:gobblin-runtime:0.11.0', gobblinExcludes
+    compile 'com.linkedin.gobblin:gobblin-data-management:0.11.0', gobblinExcludes
+    compile 'com.linkedin.gobblin:gobblin-throttling-service-client:0.11.0', gobblinExcludes
 }
 
 subprojects {
