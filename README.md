@@ -25,7 +25,7 @@ It is used at LinkedIn by numerous critical services powering a large portion of
 cd ~/workspace
 git clone https://github.com/voldemort/voldemort.git
 cd voldemort
-./gradlew clean jar
+./gradlew clean build -x test
 ```
 
 ### Start Server ###
