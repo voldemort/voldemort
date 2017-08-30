@@ -1,3 +1,9 @@
+Release 1.10.26 8/30/2017
+* Improved some BnP-related logging.
+* The RO server is now returning old async op IDs idempotently.
+* Added retries for soft errors in AdminClient#waitForCompletion.
+* Fixed issue with too long commands in Windows 10 bat files.
+
 Release 1.10.25 7/26/2017
 * Updated Gobblin dependency from 0.10.0 to 0.11.0
 
