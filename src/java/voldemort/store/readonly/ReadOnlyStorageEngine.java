@@ -74,6 +74,7 @@ public class ReadOnlyStorageEngine extends AbstractStorageEngine<ByteArray, byte
     private volatile boolean isOpen;
     private long lastSwapped;
     private int lastFetchRequestId;
+    private Long lastVersionGettingFetched = null;
 
     /**
      * Create an instance of the store
@@ -670,5 +671,12 @@ public class ReadOnlyStorageEngine extends AbstractStorageEngine<ByteArray, byte
 
     public int getFetchingRequest() { return lastFetchRequestId; }
 
-    public void setFetchingRequest(int requestId) { lastFetchRequestId = requestId; }
+    public Long getLastVersionGettingFetched() {
+        return lastVersionGettingFetched;
+    }
+
+    public void setFetchingRequest(int requestId, long lastVersionGettingFetched) {
+        this.lastFetchRequestId = requestId;
+        this.lastVersionGettingFetched = lastVersionGettingFetched;
+    }
 }
