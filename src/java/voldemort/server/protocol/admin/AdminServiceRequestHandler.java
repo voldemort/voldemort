@@ -1114,7 +1114,7 @@ public class AdminServiceRequestHandler implements RequestHandler {
 
                     if (!complete)
                         throw new VoldemortException("The store: " + storeName + " is currently blocked since it is fetching data " +
-                                "(existing operation request ID: " + previousRequestId + ")");
+                                "(existing operation request ID: " + previousRequestId + "). Status: " + asyncService.getStatus(previousRequestId));
                 }
 
                 store.setFetchingRequest(requestId);
