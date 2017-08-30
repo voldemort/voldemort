@@ -1102,24 +1102,39 @@ public class AdminServiceRequestHandler implements RequestHandler {
             AdminServiceRequestHandler.storeLock.lock();
 
             try {
-                boolean complete;
+                Long lastVersionGettingFetched = null;
+                Boolean isPreviousRequestComplete = null;
                 int previousRequestId = store.getFetchingRequest();
-
-                if (previousRequestId != ReadOnlyStorageEngine.NO_FETCH_IN_PROGRESS) {
-                    try {
-                        complete = asyncService.isComplete(store.getFetchingRequest(), false);
-                    } catch (VoldemortException e) {
-                        complete = true;
-                    }
-
-                    if (!complete)
-                        throw new VoldemortException("The store: " + storeName + " is currently blocked since it is fetching data " +
-                                "(existing operation request ID: " + previousRequestId + "). Status: " + asyncService.getStatus(previousRequestId));
+                try {
+                    lastVersionGettingFetched = store.getLastVersionGettingFetched();
+                    isPreviousRequestComplete = asyncService.isComplete(previousRequestId, false);
+                } catch (VoldemortException e) {
+                    /** We carry on with the default values for {@link lastVersionGettingFetched} and {@link isPreviousRequestComplete} */
                 }
 
-                store.setFetchingRequest(requestId);
-                asyncService.submitOperation(requestId, operation);
-            }finally {
+                if ( // The first two conditions ensure that we found a valid previous job for this store
+                        lastVersionGettingFetched != null &&
+                        isPreviousRequestComplete != null &&
+                     // We check that this handleFetchROStore request comes with a desired store-version specified by the BnP job
+                        request.hasPushVersion() &&
+                     // The already existing job is for the same store-version as the current request wants
+                        lastVersionGettingFetched == request.getPushVersion() &&
+                     // This is just a sanity check but if there are no fetches in progress, we should already have short-circuited earlier
+                        previousRequestId != ReadOnlyStorageEngine.NO_FETCH_IN_PROGRESS) {
+                    // We have already received a request to fetch this particular store-version,
+                    // so we will return the previous one, in an idempotent manner.
+                    response.setRequestId(previousRequestId);
+                } else if (isPreviousRequestComplete == null || isPreviousRequestComplete) {
+                    // No fetch in progress for this store, and we have not already received a
+                    // fetch request for this store-version, so we submit a new one
+                    store.setFetchingRequest(requestId, pushVersion);
+                    asyncService.submitOperation(requestId, operation);
+                } else {
+                    // We are already fetching ANOTHER store-version for this store, so we will return an error
+                    throw new VoldemortException("The store: " + storeName + " is currently blocked since it is already fetching data " +
+                            "(existing operation request ID: " + previousRequestId + "). Status: " + asyncService.getStatus(previousRequestId));
+                }
+            } finally {
                 AdminServiceRequestHandler.storeLock.unlock();
             }
         } catch(VoldemortException e) {
