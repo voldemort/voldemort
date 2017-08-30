@@ -212,7 +212,7 @@ public class AdminStoreSwapper {
                                 } else {
                                     logMessage += " The cluster.xml is up to date. We will retry with the same AdminClient.";
                                 }
-                                logger.info(logMessage);
+                                logger.info(logMessage, ve);
                                 attempt++;
                             } else {
                                 throw ve;
