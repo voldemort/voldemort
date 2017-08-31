@@ -41,6 +41,7 @@ import joptsimple.OptionSet;
 
 import org.apache.avro.Schema;
 import org.apache.avro.generic.GenericDatumReader;
+import org.apache.avro.io.AvroMigrationHelper;
 import org.apache.avro.io.JsonDecoder;
 import org.apache.commons.lang.mutable.MutableInt;
 
@@ -248,7 +249,7 @@ public class VoldemortClientShell {
                 // From here on, this is just normal avro parsing.
                 Schema latestSchema = Schema.parse(serializerDef.getCurrentSchemaInfo());
                 try {
-                    JsonDecoder decoder = new JsonDecoder(latestSchema, avroString);
+                    JsonDecoder decoder = AvroMigrationHelper.newJsonDecoder(latestSchema, avroString); // new JsonDecoder(latestSchema, avroString);
                     GenericDatumReader<Object> datumReader = new GenericDatumReader<Object>(latestSchema);
                     obj = datumReader.read(null, decoder);
                 } catch(IOException io) {

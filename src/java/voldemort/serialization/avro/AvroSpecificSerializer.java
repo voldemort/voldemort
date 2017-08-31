@@ -18,6 +18,7 @@ package voldemort.serialization.avro;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 
+import org.apache.avro.io.AvroMigrationHelper;
 import org.apache.avro.io.BinaryEncoder;
 import org.apache.avro.io.Decoder;
 import org.apache.avro.io.DecoderFactory;
@@ -67,7 +68,7 @@ public class AvroSpecificSerializer<T extends SpecificRecord> implements Seriali
 
     public byte[] toBytes(T object) {
         ByteArrayOutputStream output = new ByteArrayOutputStream();
-        Encoder encoder = new BinaryEncoder(output);
+        Encoder encoder = AvroMigrationHelper.newBinaryEncoder(output); // new BinaryEncoder(output);
         SpecificDatumWriter<T> datumWriter = null;
         try {
             datumWriter = new SpecificDatumWriter<T>(clazz);

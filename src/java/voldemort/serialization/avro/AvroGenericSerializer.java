@@ -21,6 +21,7 @@ import java.io.IOException;
 import org.apache.avro.Schema;
 import org.apache.avro.generic.GenericDatumReader;
 import org.apache.avro.generic.GenericDatumWriter;
+import org.apache.avro.io.AvroMigrationHelper;
 import org.apache.avro.io.BinaryEncoder;
 import org.apache.avro.io.Decoder;
 import org.apache.avro.io.DecoderFactory;
@@ -51,7 +52,7 @@ public class AvroGenericSerializer implements Serializer<Object> {
 
     public byte[] toBytes(Object object) {
         ByteArrayOutputStream output = new ByteArrayOutputStream();
-        Encoder encoder = new BinaryEncoder(output);
+        Encoder encoder = AvroMigrationHelper.newBinaryEncoder(output); // new BinaryEncoder(output);
         GenericDatumWriter<Object> datumWriter = null;
         try {
             datumWriter = new GenericDatumWriter<Object>(typeDef);
