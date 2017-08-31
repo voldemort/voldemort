@@ -22,7 +22,7 @@ import com.sleepycat.je.StatsConfig;
 public class BdbEnvironmentStats {
 
     // Don't fetch entry count/btree stats more than twice a day
-    private final static long INVASIVE_STATS_TTL_MS = 12 * 3600 * 1000;
+    private final static long INVASIVE_STATS_TTL_MS = 12 * 3600 * 1024;
 
     private final Environment environment;
     private final Database database;
@@ -217,9 +217,13 @@ public class BdbEnvironmentStats {
         return getFastStats().getNRandomWrites();
     }
 
-    @JmxGetter(name = "NumRandomWriteBytes")
     public long getNumRandomWriteBytes() {
         return getFastStats().getNRandomWriteBytes();
+    }
+
+    @JmxGetter(name = "NumRandomWriteKB")
+    public long getNumRandomWriteKB() {
+        return getNumRandomWriteBytes() / 1024;
     }
 
     @JmxGetter(name = "NumRandomReads")
@@ -227,9 +231,13 @@ public class BdbEnvironmentStats {
         return getFastStats().getNRandomReads();
     }
 
-    @JmxGetter(name = "NumRandomReadBytes")
     public long getNumRandomReadBytes() {
         return getFastStats().getNRandomReadBytes();
+    }
+
+    @JmxGetter(name = "NumRandomReadKB")
+    public long getNumRandomReadKB() {
+        return getNumRandomReadBytes() / 1024;
     }
 
     @JmxGetter(name = "NumSequentialWrites")
@@ -237,9 +245,13 @@ public class BdbEnvironmentStats {
         return getFastStats().getNSequentialWrites();
     }
 
-    @JmxGetter(name = "NumSequentialWriteBytes")
     public long getNumSequentialWriteBytes() {
         return getFastStats().getNSequentialWriteBytes();
+    }
+
+    @JmxGetter(name = "NumSequentialWriteKB")
+    public long getNumSequentialWriteKB() {
+        return getNumSequentialWriteBytes() / 1024;
     }
 
     @JmxGetter(name = "NumSequentialReads")
@@ -247,9 +259,13 @@ public class BdbEnvironmentStats {
         return getFastStats().getNSequentialReads();
     }
 
-    @JmxGetter(name = "NumSequentialReadBytes")
     public long getNumSequentialReadBytes() {
         return getFastStats().getNSequentialReadBytes();
+    }
+
+    @JmxGetter(name = "NumSequentialReadKB")
+    public long getNumSequentialReadKB() {
+        return getNumSequentialReadBytes() / 1024;
     }
 
     @JmxGetter(name = "NumFSyncs")
@@ -269,12 +285,16 @@ public class BdbEnvironmentStats {
         return getFastStats().getFileDeletionBacklog();
     }
 
-    @JmxGetter(name = "FileDeletionBacklogBytes")
     public long getFileDeletionBacklogBytes() {
         String logFileMaxStr = environment.getConfig()
                                           .getConfigParam(EnvironmentConfig.LOG_FILE_MAX);
         long logFileMax = Long.parseLong(logFileMaxStr);
         return getFileDeletionBacklog() * logFileMax;
+    }
+
+    @JmxGetter(name = "FileDeletionBacklogKB")
+    public long getFileDeletionBacklogKB() {
+        return getFileDeletionBacklogBytes() / 1024;
     }
 
     @JmxGetter(name = "CleanerBacklog")
@@ -368,9 +388,13 @@ public class BdbEnvironmentStats {
         return getNumRandomWrites() + getNumSequentialWrites();
     }
 
-    @JmxGetter(name = "NumWriteBytesTotal")
     public long getNumWriteBytesTotal() {
         return getNumSequentialWriteBytes() + getNumRandomWriteBytes();
+    }
+
+    @JmxGetter(name = "NumWriteKBTotal")
+    public long getNumWriteKBTotal() {
+        return getNumWriteBytesTotal() / 1024;
     }
 
     @JmxGetter(name = "NumReadsTotal")
@@ -378,9 +402,13 @@ public class BdbEnvironmentStats {
         return getNumRandomReads() + getNumSequentialReads();
     }
 
-    @JmxGetter(name = "NumReadBytesTotal")
     public long getNumReadBytesTotal() {
         return getNumRandomReadBytes() + getNumSequentialReadBytes();
+    }
+
+    @JmxGetter(name = "NumReadKBTotal")
+    public long getNumReadKBTotal() {
+        return getNumReadBytesTotal() / 1024;
     }
 
     @JmxGetter(name = "PercentRandomWrites")
@@ -390,8 +418,7 @@ public class BdbEnvironmentStats {
 
     @JmxGetter(name = "PercentageRandomWriteBytes")
     public double getPercentageRandomWriteBytes() {
-        return Utils.safeGetPercentage(getNumRandomWriteBytes(), getNumRandomWriteBytes()
-                                                                 + getNumSequentialWriteBytes());
+        return Utils.safeGetPercentage(getNumRandomWriteBytes(), getNumWriteBytesTotal());
     }
 
     @JmxGetter(name = "PercentageRandomReads")
@@ -401,8 +428,7 @@ public class BdbEnvironmentStats {
 
     @JmxGetter(name = "PercentageRandomReadBytes")
     public double getPercentageRandomReadBytes() {
-        return Utils.safeGetPercentage(getNumRandomWriteBytes(), getNumRandomReadBytes()
-                                                                 + getNumSequentialReadBytes());
+        return Utils.safeGetPercentage(getNumRandomReadBytes(), getNumReadBytesTotal());
     }
 
     @JmxGetter(name = "PercentageReads")
