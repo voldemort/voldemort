@@ -58,7 +58,7 @@ class VoldemortClient
   end
 
   def put(key, value, version = nil)
-    self.connection.put(key_serializer.to_bytes(key), value_serializer.to_bytes(value))
+    self.connection.put(key_serializer.to_bytes(key), value_serializer.to_bytes(value), version)
   end
 
   def delete(key)
