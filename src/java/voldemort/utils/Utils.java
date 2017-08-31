@@ -148,11 +148,37 @@ public class Utils {
     }
 
     /**
+     * Checks if a symlink already exists and already points to the intended destination
+     *
+     * @param file The file the symbolic link should point to
+     * @param symLink The symbolic link which should already exist
+     * @return true if the symlink exists and points to the intended destination, false otherwise.
+     * @throws VoldemortException if the destination file does not exist or IOException occurs.
+     */
+    public static boolean symlinkExists(File file, File symLink) {
+        if (!file.exists()) {
+            throw new VoldemortException("File " + file.getPath() + " does not exist");
+        }
+
+        if (symLink.exists()) {
+            try {
+                if (symLink.getCanonicalFile().equals(file.getCanonicalFile())) {
+                    return true;
+                }
+            } catch (IOException e) {
+                throw new VoldemortException("Got an IOException while trying to read a symlink.", e);
+            }
+        }
+
+        return false;
+    }
+
+    /**
      * Creates a symbolic link to an existing file. If the symlink already exists and
      * already points to the intended destination, no changes are made to the file-system.
      * If the symlink already exists but points to wrong destination, it is deleted first
      * before being recreated.
-     * 
+     *
      * @param filePath Path of the file for whom to create the symbolic link
      * @param symLinkPath Path of the symbolic link
      */
@@ -160,33 +186,22 @@ public class Utils {
         File file = new File(filePath);
         File symLink = new File(symLinkPath);
 
-        if (!file.exists()) {
-            throw new VoldemortException("File " + filePath + " does not exist");
+        if (symlinkExists(file, symLink)) {
+            // No need to do anything else, the symlink already points to the right destination
+            logger.info("Symlink '" + symLink.getParentFile().getName() + "/" + symLink.getName() +
+                        "' pointing to '" + file.getName() + "' already exists. Leaving it as is.");
+        } else {
+            symLink.delete();
+
+            Posix posix = (Posix) Native.loadLibrary("c", Posix.class);
+            int returnCode = posix.symlink(filePath, symLinkPath);
+            if (returnCode < 0)
+                throw new VoldemortException("Unable to create symbolic link for " + filePath +
+                                             " (received return code " + returnCode + ")");
+
+            logger.info("Symlink '" + symLink.getParentFile().getName() + "/" + symLink.getName() +
+                        "' pointing to '" + file.getName() + "' has been created.");
         }
-
-        if (symLink.exists()) {
-            try {
-                if (symLink.getCanonicalFile().equals(file.getCanonicalFile())) {
-                    // No need to do anything else, the symlink already points to the right destination
-                    logger.info("Symlink '" + symLink.getParentFile().getName() + "/" + symLink.getName() +
-                                "' pointing to '" + file.getName() + "' already exists. Leaving it as is.");
-                    return;
-                }
-            } catch (IOException e) {
-                throw new VoldemortException("Got an IOException while trying to read a symlink.", e);
-            }
-        }
-
-        symLink.delete();
-
-        Posix posix = (Posix) Native.loadLibrary("c", Posix.class);
-        int returnCode = posix.symlink(filePath, symLinkPath);
-        if (returnCode < 0)
-            throw new VoldemortException("Unable to create symbolic link for " + filePath +
-                                         " (received return code " + returnCode + ")");
-
-        logger.info("Symlink '" + symLink.getParentFile().getName() + "/" + symLink.getName() +
-                    "' pointing to '" + file.getName() + "' has been created.");
     }
 
     public interface Posix extends Library {

@@ -23,7 +23,7 @@ public class StoreVersionManagerTest extends TestCase {
         Assert.assertTrue("Failed to create version directory!", version0.mkdir());
         Assert.assertTrue("Failed to create version directory!", version1.mkdir());
         storeVersionManager = new StoreVersionManager(rootDir, null);
-        storeVersionManager.syncInternalStateFromFileSystem(false);
+        storeVersionManager.syncInternalStateFromFileSystem();
     }
 
     @Test
@@ -43,7 +43,7 @@ public class StoreVersionManagerTest extends TestCase {
 
         // Verify that another instance of StoreVersionManager, freshly synced from disk, also has proper state.
         StoreVersionManager storeVersionManager2 = new StoreVersionManager(rootDir, null);
-        storeVersionManager2.syncInternalStateFromFileSystem(false);
+        storeVersionManager2.syncInternalStateFromFileSystem();
         Assert.assertTrue("Expected persistent state to have some store version disabled.",
                           storeVersionManager2.hasAnyDisabledVersion());
         Assert.assertTrue("Expected persistent state to have store version 1 enabled.",
@@ -75,7 +75,7 @@ public class StoreVersionManagerTest extends TestCase {
 
         // Verify that another instance of StoreVersionManager, freshly synced from disk, does NOT have proper state.
         StoreVersionManager storeVersionManager2 = new StoreVersionManager(rootDir, null);
-        storeVersionManager2.syncInternalStateFromFileSystem(false);
+        storeVersionManager2.syncInternalStateFromFileSystem();
         Assert.assertFalse("Expected persistent state to have no version disabled.",
                           storeVersionManager2.hasAnyDisabledVersion());
     }

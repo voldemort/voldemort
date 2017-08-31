@@ -47,6 +47,7 @@ import voldemort.server.niosocket.NioSocketService;
 import voldemort.server.protocol.ClientRequestHandlerFactory;
 import voldemort.server.protocol.RequestHandlerFactory;
 import voldemort.server.protocol.SocketRequestHandlerFactory;
+import voldemort.server.protocol.admin.AsyncOperation;
 import voldemort.server.protocol.admin.AsyncOperationService;
 import voldemort.server.rebalance.Rebalancer;
 import voldemort.server.rebalance.RebalancerService;
@@ -469,11 +470,8 @@ public class VoldemortServer extends AbstractService {
         logger.info("Starting " + basicServices.size() + " services.");
         long start = System.currentTimeMillis();
 
-        boolean goOnline;
-        if (getMetadataStore().getServerStateUnlocked() == MetadataStore.VoldemortState.OFFLINE_SERVER)
-            goOnline = false;
-        else
-            goOnline = true;
+        MetadataStore.VoldemortState serverState = getMetadataStore().getServerStateUnlocked();
+        boolean goOnline = serverState.enableOnlineServices;
 
         for(VoldemortService service: basicServices) {
             try {
@@ -487,7 +485,13 @@ public class VoldemortServer extends AbstractService {
         if (goOnline) {
             startOnlineServices();
         } else {
-            goOffline();
+            switch (serverState) {
+                case RECOVERY: {
+                    goIntoRecoveryMode();
+                    break;
+                }
+                default: goOffline();
+            }
         }
         long end = System.currentTimeMillis();
         logger.info("Startup completed in " + (end - start) + " ms.");
@@ -596,7 +600,7 @@ public class VoldemortServer extends AbstractService {
     }
 
     public void goOffline() {
-        getMetadataStore().setOfflineState(true);
+        getMetadataStore().setState(MetadataStore.VoldemortState.OFFLINE_SERVER);
         stopOnlineServices();
     }
 
@@ -604,7 +608,7 @@ public class VoldemortServer extends AbstractService {
         ReadOnlyStoreStatusValidation validation = validateReadOnlyStoreStatusBeforeGoingOnline();
 
         if (validation.readyToGoOnline) {
-            getMetadataStore().setOfflineState(false);
+            getMetadataStore().setState(MetadataStore.VoldemortState.NORMAL_SERVER);
             createOnlineServices();
             startOnlineServices();
         }
@@ -612,6 +616,35 @@ public class VoldemortServer extends AbstractService {
         if (validation.e != null) {
             throw new VoldemortException("Problem while going online!", validation.e);
         }
+    }
+
+    public void goIntoRecoveryMode() {
+        getMetadataStore().setState(MetadataStore.VoldemortState.RECOVERY);
+
+        // Spin up an async task to check RO stores periodically...
+        int asyncOpId = asyncService.getUniqueRequestId();
+        asyncService.submitOperation(asyncOpId, new AsyncOperation(asyncOpId, "RecoveryTask") {
+            private boolean keepGoing = true;
+
+            @Override
+            public void operate() throws Exception {
+                while (getMetadataStore().getServerStateLocked() == MetadataStore.VoldemortState.RECOVERY && keepGoing) {
+                    try {
+                        goOnline();
+                    } catch (VoldemortException e) {
+                        long sleepTime = getVoldemortConfig().getHighAvailabilityRecoveryAttemptIntervalSec();
+                        logger.info("Recovery task tried going online, but the server is not ready yet. " +
+                                "Will sleep " + sleepTime + " seconds before next attempt.");
+                        Thread.sleep(sleepTime);
+                    }
+                }
+            }
+
+            @Override
+            public void stop() {
+                keepGoing = false;
+            }
+        });
     }
 
     private class ReadOnlyStoreStatusValidation {
@@ -626,7 +659,7 @@ public class VoldemortServer extends AbstractService {
     }
 
     private ReadOnlyStoreStatusValidation validateReadOnlyStoreStatusBeforeGoingOnline() {
-        List<StorageEngine<ByteArray, byte[], byte[]>> storageEngines =
+        List<ReadOnlyStorageEngine> storageEngines =
                 storageService.getStoreRepository().getStorageEnginesByClass(ReadOnlyStorageEngine.class);
 
         if (storageEngines.isEmpty()) {
@@ -634,7 +667,8 @@ public class VoldemortServer extends AbstractService {
             return new ReadOnlyStoreStatusValidation(true, null);
         } else {
             List<String> storesWithDisabledVersions = Lists.newArrayList();
-            for (StorageEngine storageEngine : storageEngines) {
+            for (ReadOnlyStorageEngine storageEngine : storageEngines) {
+                storageEngine.reSyncFileSystem();
                 StoreVersionManager storeVersionManager = (StoreVersionManager)
                         storageEngine.getCapability(StoreCapabilityType.DISABLE_STORE_VERSION);
                 if (storeVersionManager.hasAnyDisabledVersion()) {

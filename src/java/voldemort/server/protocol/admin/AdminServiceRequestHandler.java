@@ -1005,10 +1005,10 @@ public class AdminServiceRequestHandler implements RequestHandler {
 
         String currentDirPath = store.getCurrentDirPath();
 
-        logger.info("Swapping RO store '" + storeName + "' to version directory '" + directory
+        logger.info("Will swap RO store '" + storeName + "' to version directory '" + directory
                     + "'");
         store.swapFiles(directory);
-        logger.info("Swapping swapped RO store '" + storeName + "' to version directory '"
+        logger.info("Finished swapping RO store '" + storeName + "' to version directory '"
                     + directory + "'");
 
         return currentDirPath;
@@ -1019,17 +1019,15 @@ public class AdminServiceRequestHandler implements RequestHandler {
         final String storeName = request.getStoreName();
         VAdminProto.SwapStoreResponse.Builder response = VAdminProto.SwapStoreResponse.newBuilder();
 
-        if(!metadataStore.getServerStateUnlocked()
-                         .equals(MetadataStore.VoldemortState.NORMAL_SERVER)
-           && !metadataStore.getServerStateUnlocked()
-                            .equals(MetadataStore.VoldemortState.OFFLINE_SERVER)) {
+        MetadataStore.VoldemortState state = metadataStore.getServerStateUnlocked();
+        if(!state.enableReadOnlyFetches) {
             response.setError(ProtoUtils.encodeError(errorCodeMapper,
                                                      new VoldemortException("Voldemort server "
                                                                             + metadataStore.getNodeId()
-                                                                            + " is neither in normal state nor in offline state while swapping store "
-                                                                            + storeName
-                                                                            + " with directory "
-                                                                            + dir)));
+                                                                            + " is in state '" + state + "'"
+                                                                            + " which does not allow Read-Only fetches."
+                                                                            + " Aborting the swap of store '"
+                                                                            + storeName + "' to directory: " + dir)));
             return response.build();
         }
 

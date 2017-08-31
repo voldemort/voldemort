@@ -28,9 +28,6 @@ public abstract class FailedFetchLock implements Closeable {
     public abstract void addDisabledNode(int nodeId,
                                          String storeName,
                                          long storeVersion) throws Exception;
-    public abstract void removeObsoleteStateForStore(int nodeId,
-                                                     String storeName,
-                                                     Map<Long, Boolean> versionToEnabledMap) throws Exception;
     public abstract void removeObsoleteStateForNode(int nodeId) throws Exception;
 
     @Override

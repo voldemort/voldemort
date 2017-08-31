@@ -123,16 +123,37 @@ public class MetadataStore extends AbstractStorageEngine<ByteArray, byte[], byte
 
     /**
      * Identifies the Voldemort server state.
-     * 
-     * NORMAL_SERVER is the default state; OFFLINE_SERVER is where online
-     * services and slop pushing are turned off, only admin operations
-     * permitted; REBALANCING_MASTER_SERVER is the server state during the
-     * rebalancing operation.
+     *
+     *
+     *                     put(SLOP_STREAMING_ENABLED_KEY, false);
+     initCache(SLOP_STREAMING_ENABLED_KEY);
+     put(PARTITION_STREAMING_ENABLED_KEY, false);
+     initCache(PARTITION_STREAMING_ENABLED_KEY);
+     put(READONLY_FETCH_ENABLED_KEY, false);
+     initCache(READONLY_FETCH_ENABLED_KEY);
+
      */
-    public static enum VoldemortState {
-        NORMAL_SERVER,
-        OFFLINE_SERVER,
-        REBALANCING_MASTER_SERVER
+    public enum VoldemortState {
+        /** The default state. */
+        NORMAL_SERVER(true, true, true, true),
+        /** Online services and slop pushing are turned off. Only admin operations permitted. */
+        OFFLINE_SERVER(false, false, false, false),
+        /** Rebalancing in progress. */
+        REBALANCING_MASTER_SERVER(true, true, true, true),
+        /** Waiting for Read-Only store data to be restored before going online. */
+        RECOVERY(false, true, false, false);
+
+        public final boolean enableOnlineServices;
+        public final boolean enableReadOnlyFetches;
+        public final boolean enablePartitionStreaming;
+        public final boolean enableSlopStreaming;
+
+        VoldemortState(boolean enableOnlineServices, boolean enableReadOnlyFetches, boolean enablePartitionStreaming, boolean enableSlopStreaming) {
+            this.enableOnlineServices = enableOnlineServices;
+            this.enableReadOnlyFetches = enableReadOnlyFetches;
+            this.enablePartitionStreaming = enablePartitionStreaming;
+            this.enableSlopStreaming = enableSlopStreaming;
+        }
     }
 
     private final Store<String, String, String> innerStore;
@@ -885,7 +906,7 @@ public class MetadataStore extends AbstractStorageEngine<ByteArray, byte[], byte
         HashMap<String, RoutingStrategy> routingStrategyMap = createRoutingStrategyMap(cluster,
                                                                                        makeStoreDefinitionMap(getSystemStoreDefList()));
         this.metadataCache.put(SYSTEM_ROUTING_STRATEGY_KEY,
-                               new Versioned<Object>(routingStrategyMap));
+            new Versioned<Object>(routingStrategyMap));
     }
 
     /**
@@ -947,58 +968,28 @@ public class MetadataStore extends AbstractStorageEngine<ByteArray, byte[], byte
         }
     }
 
-    /**
-     * change server state between OFFLINE_SERVER and NORMAL_SERVER
-     * 
-     * @param setToOffline True if set to OFFLINE_SERVER
-     */
-    public void setOfflineState(boolean setToOffline) {
+    public void setState(VoldemortState newState) {
         // acquire write lock
         writeLock.lock();
         try {
-            String currentState = ByteUtils.getString(get(SERVER_STATE_KEY, null).get(0).getValue(),
-                                                      "UTF-8");
-            if(setToOffline) {
-                // from NORMAL_SERVER to OFFLINE_SERVER
-                if(currentState.equals(VoldemortState.NORMAL_SERVER.toString())) {
-                    put(SERVER_STATE_KEY, VoldemortState.OFFLINE_SERVER);
-                    initCache(SERVER_STATE_KEY);
-                    put(SLOP_STREAMING_ENABLED_KEY, false);
-                    initCache(SLOP_STREAMING_ENABLED_KEY);
-                    put(PARTITION_STREAMING_ENABLED_KEY, false);
-                    initCache(PARTITION_STREAMING_ENABLED_KEY);
-                    put(READONLY_FETCH_ENABLED_KEY, false);
-                    initCache(READONLY_FETCH_ENABLED_KEY);
-                } else if(currentState.equals(VoldemortState.OFFLINE_SERVER.toString())) {
-                    logger.warn("Already in OFFLINE_SERVER state.");
-                    return;
-                } else {
-                    logger.error("Cannot enter OFFLINE_SERVER state from " + currentState);
-                    throw new VoldemortException("Cannot enter OFFLINE_SERVER state from "
-                                                 + currentState);
-                }
-            } else {
-                // from OFFLINE_SERVER to NORMAL_SERVER
-                if(currentState.equals(VoldemortState.NORMAL_SERVER.toString())) {
-                    logger.warn("Already in NORMAL_SERVER state.");
-                    return;
-                } else if(currentState.equals(VoldemortState.OFFLINE_SERVER.toString())) {
-                    put(SERVER_STATE_KEY, VoldemortState.NORMAL_SERVER);
-                    initCache(SERVER_STATE_KEY);
-                    put(SLOP_STREAMING_ENABLED_KEY, true);
-                    initCache(SLOP_STREAMING_ENABLED_KEY);
-                    put(PARTITION_STREAMING_ENABLED_KEY, true);
-                    initCache(PARTITION_STREAMING_ENABLED_KEY);
-                    put(READONLY_FETCH_ENABLED_KEY, true);
-                    initCache(READONLY_FETCH_ENABLED_KEY);
-                    init();
-                    initNodeId(getNodeIdNoLock());
-                } else {
-                    logger.error("Cannot enter NORMAL_SERVER state from " + currentState);
-                    throw new VoldemortException("Cannot enter NORMAL_SERVER state from "
-                                                 + currentState);
-                }
+            VoldemortState currentState = VoldemortState.valueOf(
+                ByteUtils.getString(get(SERVER_STATE_KEY, null).get(0).getValue(), "UTF-8")
+            );
+
+            if (currentState.equals(newState)) {
+              logger.warn("Already in " + currentState.toString() + " state.");
+              return;
             }
+
+            // Set metadata properties corresponding to newState:
+            put(SERVER_STATE_KEY, newState);
+            initCache(SERVER_STATE_KEY);
+            put(SLOP_STREAMING_ENABLED_KEY, newState.enableSlopStreaming);
+            initCache(SLOP_STREAMING_ENABLED_KEY);
+            put(PARTITION_STREAMING_ENABLED_KEY, newState.enablePartitionStreaming);
+            initCache(PARTITION_STREAMING_ENABLED_KEY);
+            put(READONLY_FETCH_ENABLED_KEY, newState.enableReadOnlyFetches);
+            initCache(READONLY_FETCH_ENABLED_KEY);
         } finally {
             writeLock.unlock();
         }

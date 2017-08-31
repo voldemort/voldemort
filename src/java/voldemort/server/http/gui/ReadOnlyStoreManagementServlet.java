@@ -132,12 +132,7 @@ public class ReadOnlyStoreManagementServlet extends HttpServlet {
     private List<ReadOnlyStorageEngine> getReadOnlyStores(VoldemortServer server) {
         StorageService storage = (StorageService) Utils.notNull(server)
                                                        .getService(ServiceType.STORAGE);
-        List<ReadOnlyStorageEngine> l = Lists.newArrayList();
-        for(StorageEngine<ByteArray, byte[], byte[]> engine: storage.getStoreRepository()
-                                                                    .getStorageEnginesByClass(ReadOnlyStorageEngine.class)) {
-            l.add((ReadOnlyStorageEngine) engine);
-        }
-        return l;
+        return storage.getStoreRepository().getStorageEnginesByClass(ReadOnlyStorageEngine.class);
     }
 
     @Override
