@@ -16,11 +16,12 @@
 package voldemort.serialization.avro;
 
 import static org.junit.Assert.assertArrayEquals;
-import junit.framework.TestCase;
 
 import org.apache.avro.Schema;
 import org.apache.avro.generic.GenericData.Record;
 import org.apache.avro.util.Utf8;
+
+import junit.framework.TestCase;
 
 import voldemort.utils.ByteUtils;
 
@@ -49,13 +50,13 @@ public class AvroGenericSerializerTest extends TestCase {
     }
 
     public void testRoundtripAvroWithGenericRecord() throws Exception {
-        String jsonSchema = "{\"name\": \"Compact Disk\", \"type\": \"record\", "
+        String jsonSchema = "{\"name\": \"CompactDisk\", \"type\": \"record\", "
                             + "\"fields\": ["
                             + "{\"name\": \"name\", \"type\": \"string\", \"order\": \"ascending\"}"
                             + "]}";
 
         AvroGenericSerializer serializer = new AvroGenericSerializer(jsonSchema);
-        Record record = new Record(Schema.parse(jsonSchema));
+        Record record = new Record(new Schema.Parser().parse(jsonSchema));
         // we need to use a Utf8 instance to map to a String.
         record.put("name", new Utf8("Hello"));
         byte[] bytes = serializer.toBytes(record);

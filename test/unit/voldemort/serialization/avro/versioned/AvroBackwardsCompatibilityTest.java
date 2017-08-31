@@ -6,7 +6,6 @@ import java.util.Map;
 
 import org.apache.avro.Schema;
 import org.apache.avro.generic.GenericData;
-import org.apache.avro.generic.GenericData.Record;
 import org.apache.avro.util.Utf8;
 import org.junit.Test;
 
@@ -53,10 +52,9 @@ public class AvroBackwardsCompatibilityTest {
         String versionZero = "{\"type\": \"record\", \"name\": \"myrec\",\"fields\": [{ \"name\": \"original\", \"type\": \"string\" }]}";
 
         String versionOne = "{\"type\": \"record\", \"name\": \"myrec\",\"fields\": [{ \"name\": \"original\", \"type\": \"string\" } ,"
-                            + "{ \"name\": \"new-field\", \"type\": \"string\", \"default\":\"\" }]}";
+                            + "{ \"name\": \"new_field\", \"type\": \"string\", \"default\":\"\" }]}";
 
-        Schema s0 = Schema.parse(versionZero);
-        Schema s1 = Schema.parse(versionOne);
+        Schema s0 = new Schema.Parser().parse(versionZero);
 
         Map<Integer, String> versions = new HashMap<Integer, String>();
 
@@ -65,8 +63,7 @@ public class AvroBackwardsCompatibilityTest {
 
         byte[] versionZeroBytes = writeVersion0(s0);
 
-        GenericData.Record record = (Record) readVersion0(versions, versionZeroBytes);
-
+        readVersion0(versions, versionZeroBytes);
     }
 
     /*
@@ -79,17 +76,16 @@ public class AvroBackwardsCompatibilityTest {
         String versionZero = "{\"type\": \"record\", \"name\": \"myrec\",\"fields\": [{ \"name\": \"original\", \"type\": \"string\" }]}";
 
         String versionOne = "{\"type\": \"record\", \"name\": \"myrec\",\"fields\": [{ \"name\": \"original\", \"type\": \"string\" } ,"
-                            + "{ \"name\": \"new-field\", \"type\": \"string\", \"default\":\"\" }]}";
+                            + "{ \"name\": \"new_field\", \"type\": \"string\", \"default\":\"\" }]}";
 
-        Schema s0 = Schema.parse(versionZero);
-        Schema s1 = Schema.parse(versionOne);
+        Schema s0 = new Schema.Parser().parse(versionZero);
 
         Map<Integer, String> versions = new HashMap<Integer, String>();
 
         versions.put(0, versionZero);
         versions.put(1, versionOne);
 
-        byte[] versionZeroBytes = writeVersion0with1Present(versions, s0);
+        writeVersion0with1Present(versions, s0);
 
     }
 }
