@@ -36,9 +36,9 @@ goto :eof
 SET BASE_DIR=%~dp0..
 SET CLASSPATH=.
 
-for %%j in ("%BASE_DIR%\dist\*.jar") do (call :append_classpath "%%j")
+call :append_classpath "dist\*"
 for %%j in ("%BASE_DIR%\contrib\*\lib\*.jar") do (call :append_classpath "%%j")
-for %%j in ("%BASE_DIR%\lib\*.jar") do (call :append_classpath "%%j")
+call :append_classpath "lib\*"
 set CLASSPATH=%CLASSPATH%;"%BASE_DIR%\dist\resources"
 goto :run
 

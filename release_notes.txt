@@ -1,4 +1,21 @@
-Release 1.10.23 10/11/16
+Release 1.10.26 8/30/2017
+* Improved some BnP-related logging.
+* The RO server is now returning old async op IDs idempotently.
+* Added retries for soft errors in AdminClient#waitForCompletion.
+* Fixed issue with too long commands in Windows 10 bat files.
+
+Release 1.10.25 7/26/2017
+* Updated Gobblin dependency from 0.10.0 to 0.11.0
+
+Release 1.10.24 7/21/2017
+* Added optional CDN feature to the BnP pipeline.
+* Fixed the client shell's list parsing logic.
+* Fixed a connection leakage due to unclosed adminClient.
+* Improved failure detection in HA mode.
+* Increased javac version to 1.7
+* Fixed various minor problems.
+
+Release 1.10.23 10/11/2016
 * Added some extra logging when OOM occurs in BnP.
 * Made admin connection/socket timeout configurable in BnP.
 * Changed the DeleteAllFailedFetchStrategy so that it affects all nodes.
@@ -6,14 +23,14 @@ Release 1.10.23 10/11/16
 * Tweaked the AdminClient's currentVersion so that it is not stale.
 * BnP now retries fetches when cluster.xml is stale.
 
-Release 1.10.22 9/20/16
+Release 1.10.22 9/20/2016
 * Fixes BnP resilience to colo failures
 * Fixes indentation issue with python client
 * Adds 'readonly.omit.port' server configuration
 * Fixes data cleanup job
 * Fixes discrepancy on data retention configuration
 
-Release 1.10.21 8/10/16
+Release 1.10.21 8/10/2016
 * Fix admin request timeout issue because HDFSFailedlock takes long time.
 * Provide chunk size suggestion for BnP jobs.
 

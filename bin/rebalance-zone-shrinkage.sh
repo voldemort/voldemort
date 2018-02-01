@@ -54,7 +54,7 @@ dir="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 vold_home="$(dirname "$dir")"
 
 # Parse options
-while getopts “hc:s:d:o:” OPTION
+while getopts "hc:s:d:o:" OPTION
 do
   case $OPTION in
   h)

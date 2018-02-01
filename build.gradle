@@ -1,12 +1,11 @@
-
 apply plugin: 'java'
 apply plugin: 'war'
 
 buildscript {
-  repositories { jcenter() }
-  dependencies {
-    classpath 'com.github.jengelman.gradle.plugins:shadow:1.2.1'
-  }
+    repositories { jcenter() }
+    dependencies {
+        classpath 'com.github.jengelman.gradle.plugins:shadow:1.2.4'
+    }
 }
 
 apply plugin: 'com.github.johnrengelman.shadow'
@@ -53,6 +52,13 @@ def deleteDirectoryContents(directory) {
     project.file(directory).mkdirs()
 }
 
+def gobblinExcludes = {
+    exclude group: 'org.apache.hive'
+    exclude group: 'com.google.protobuf'
+    exclude group: 'org.apache.avro'
+    exclude group: 'com.linkedin.gobblin', module: 'gobblin-hive-registration'
+}
+
 allprojects {
     sourceCompatibility = javacVersion
     targetCompatibility = javacVersion
@@ -81,7 +87,7 @@ allprojects {
             options.addStringOption('Xdoclint:none', '-quiet')
         }
     }
-    
+
     tasks.withType(Javadoc) {
         enabled = javadocEnabled
     }
@@ -206,10 +212,18 @@ def depTehuti = 'io.tehuti:tehuti:0.7.0'
 
 
 shadowJar {
+    zip64 true  // Required if fatjar has more than 64K files
     classifier "bnp"
     from sourceSets.main.output, sourceSets.test.output, sourceSets.main.resources
     from {subprojects*.sourceSets.main.output}
     from {subprojects*.sourceSets.test.output}
+    from project('gobblin').projectDir
+    dependsOn 'gobblin:shadowJar'
+
+    // Hadoop dependencies are expected to be provided by Azkaban.
+    // If Azkaban is not included in your deployment, you may need to remove the following excludes
+    exclude("**/org/apache/hadoop/**")
+    exclude("**/org.apache.hadoop**")
 
     // Required when working in an Hadoop 2.x environment
     dependencies {
@@ -624,6 +638,11 @@ dependencies {
 
     // Bouncy Castle Libaray
     compile 'org.bouncycastle:bcprov-jdk15on:1.48'
+
+    // Gobblin
+    compile 'com.linkedin.gobblin:gobblin-runtime:0.11.0', gobblinExcludes
+    compile 'com.linkedin.gobblin:gobblin-data-management:0.11.0', gobblinExcludes
+    compile 'com.linkedin.gobblin:gobblin-throttling-service-client:0.11.0', gobblinExcludes
 }
 
 subprojects {
@@ -631,6 +650,9 @@ subprojects {
     // note at the moment there dependencies are still
     // declared in the dependency block above.
     apply plugin:'java'
+    sourceCompatibility = javacVersion
+    targetCompatibility = javacVersion
+
     sourceSets {
         // note that the contrib projects don't currently have resource
         // directories so below is actually just a to keep idea & gradle from
@@ -663,9 +685,7 @@ allprojects {
 
     eclipse {
         jdt {
-            // Currently the javac Version of jar is set to 1.5
-            // But @Override works differently between both, so overriding here
-            sourceCompatibility = targetCompatibility = 1.6
+            sourceCompatibility = targetCompatibility = 1.7
         }
         classpath {
             defaultOutputDir = project.file('classes') // overrides the default of /bin which is where our scripts are

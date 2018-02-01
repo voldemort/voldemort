@@ -1,0 +1,51 @@
+apply plugin: 'com.github.johnrengelman.shadow'
+
+repositories {
+    jcenter()
+}
+
+configurations {
+    gobblin {
+        exclude group: 'com.google.guava'
+        // Hadoop dependencies are expected to be provided by Azkaban.
+        // If Azkaban is not included in your deployment, you may need to remove the following line
+        exclude group: 'org.apache.hadoop'
+
+        // Deadweight:
+        exclude group: 'org.apache.curator'
+        exclude group: 'org.apache.hive'
+        exclude group: 'org.apache.httpcomponents'
+        exclude group: 'org.quartz-scheduler'
+        exclude group: 'com.google.inject', module: 'guice'
+        exclude group: 'com.linkedin.gobblin', module: 'gobblin-hive-registration'
+        exclude group: 'com.linkedin.gobblin', module: 'google-ingestion'
+        exclude group: 'com.twitter', module: 'parquet-hadoop-bundle'
+    }
+    resolvedIncorrectly
+}
+
+dependencies {
+    gobblin 'com.linkedin.gobblin:gobblin-runtime:0.11.0'
+    gobblin 'com.linkedin.gobblin:gobblin-data-management:0.11.0'
+    gobblin 'com.linkedin.gobblin:gobblin-throttling-service-client:0.11.0'
+    gobblin 'com.linkedin.gobblin:gobblin-throttling-service-api-rest-client:0.11.0'
+    gobblin 'com.linkedin.gobblin:gobblin-throttling-service-api-data-template:0.11.0'
+    gobblin 'com.linkedin.gobblin:gobblin-metrics:0.11.0'
+    resolvedIncorrectly 'com.google.guava:guava:15.0'
+}
+
+shadowJar {
+    zip64 true
+    configurations = [project.configurations.gobblin, project.configurations.resolvedIncorrectly]
+
+    def troublemakers = ['org.apache.avro', 'com.google.protobuf', 'com.google.common']
+    troublemakers.each {
+        relocate it, 'gobblin-dep/' + it
+    }
+    doLast {
+        def file = new File("${buildDir}/libs/${project.name}-all.jar")
+        println '================================'
+        println "${project.name} jar size: ${((float)(file.length()/1024/1024)).round(2)} MB"
+        println '================================'
+    }
+}

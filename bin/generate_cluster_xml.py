@@ -97,10 +97,11 @@ genType.add_argument('--seed', type=int, default=rseed, dest='seed',
 args = parser.parse_args()
 
 # Check if the input file exists
-try:
-   with open(args.file): pass
-except IOError:
-   print 'File does not exist'
+if args.file:
+  try:
+     with open(args.file): pass
+  except IOError:
+     print 'File does not exist'
 
 # create output-dir if it does not exist
 try:

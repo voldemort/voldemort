@@ -939,6 +939,10 @@ public class AdminClient implements Closeable {
             long lastStatusReportTime = -1;
             final long maxUnchangingStatusDelay = adminClientConfig.getMaxBackoffDelayMs() * 10; // 10 minutes under default settings
 
+            // State to detect soft errors (i.e.: connectivity issues)
+            int currentSoftErrors = 0;
+            final int maxSoftErrors = 30;
+
             while(System.currentTimeMillis() < waitUntil) {
                 try {
                     AsyncOperationStatus status = getAsyncRequestStatus(nodeId, requestId);
@@ -971,24 +975,40 @@ public class AdminClient implements Closeable {
                         return status.getStatus();
                     }
 
-                    if(delay < adminClientConfig.getMaxBackoffDelayMs())
-                        delay <<= 1;
-
-                    try {
-                        Thread.sleep(delay);
-                    } catch(InterruptedException e) {
-                        Thread.currentThread().interrupt();
-                    }
+                    currentSoftErrors = 0;
                 } catch(Exception e) {
-                    String errorMessage = "Failed while waiting for async task ("
-                            + description + ") at " + nodeName
-                            + " to finish";
-                    if(e instanceof VoldemortException) {
-                        throw (VoldemortException) e;
-                    } else {
-                        throw new VoldemortException(errorMessage, e);
+                    boolean shouldThrow = true;
+                    if (ExceptionUtils.recursiveClassEquals(e, ExceptionUtils.BNP_SOFT_ERRORS)) {
+                        currentSoftErrors++;
+                        String errorMessage = "Got a soft error trying to request AsyncOperationStatus. " +
+                                "current/max soft errors in a row: " + currentSoftErrors + "/" + maxSoftErrors;
+                        if (currentSoftErrors < maxSoftErrors) {
+                            logger.error(errorMessage + ". Will wait " + delay + " ms and try again.", e);
+                            shouldThrow = false;
+                        } else {
+                            logger.error(errorMessage + ". Will rethrow exception.", e);
+                        }
+                    }
+                    if (shouldThrow) {
+                        String errorMessage = "Failed while waiting for async task ("
+                                + description + ") at " + nodeName + " to finish";
+
+                        if (e instanceof VoldemortException) {
+                            throw (VoldemortException) e;
+                        } else {
+                            throw new VoldemortException(errorMessage, e);
+                        }
                     }
                 }
+
+                try {
+                    Thread.sleep(delay);
+                } catch(InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                }
+
+                if(delay < adminClientConfig.getMaxBackoffDelayMs())
+                    delay <<= 1;
             }
             throw new AsyncOperationTimeoutException("Failed to finish task requestId: " + requestId
                                                      + " in maxWait " + maxWait + " " + timeUnit.toString()
