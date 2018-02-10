@@ -77,6 +77,14 @@ public interface Store<K, V, T> {
     public boolean delete(K key, Version version) throws VoldemortException;
 
     /**
+     * 
+     * @param Map<K, Versioned<V>> map containing values and associated keys and
+     *        version
+     * @throws VoldemortException
+     */
+    public void putAll(Map<K, Versioned<V>> entries, T transforms) throws VoldemortException;
+
+    /**
      * @return The name of the store.
      */
     public String getName();

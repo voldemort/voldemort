@@ -4,7 +4,7 @@
                 <id>0</id>
                 <host>localhost</host>
                 <http-port>8081</http-port>
-                <socket-port>6666</socket-port>
+                <socket-port>8888</socket-port>
                 <partitions>0, 1</partitions>
         </server>
 </cluster>

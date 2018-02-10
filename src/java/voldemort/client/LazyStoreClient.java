@@ -150,4 +150,14 @@ public class LazyStoreClient<K, V> implements StoreClient<K, V> {
     public List<Node> getResponsibleNodes(K key) {
         return getStoreClient().getResponsibleNodes(key);
     }
+
+    @Override
+    public List<Version> putAll(Map<K, V> entries) {
+        return getStoreClient().putAll(entries);
+    }
+
+    @Override
+    public List<Version> putAll(Map<K, V> entries, Object transforms) {
+        return getStoreClient().putAll(entries, transforms);
+    }
 }

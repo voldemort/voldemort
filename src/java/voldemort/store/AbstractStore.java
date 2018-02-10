@@ -31,6 +31,9 @@ public abstract class AbstractStore<K, V, T> implements Store<K, V, T> {
     public void put(K key, Versioned<V> value, T transforms) throws VoldemortException {}
 
     @Override
+    public void putAll(Map<K, Versioned<V>> entries, T transforms) throws VoldemortException {}
+
+    @Override
     public boolean delete(K key, Version version) throws VoldemortException {
         return false;
     }

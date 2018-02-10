@@ -23,6 +23,8 @@ import java.util.Map;
 
 import org.junit.Test;
 
+import com.google.common.collect.ImmutableMap;
+
 import voldemort.TestUtils;
 import voldemort.serialization.StringSerializer;
 import voldemort.store.serialized.SerializingStorageEngine;
@@ -30,8 +32,6 @@ import voldemort.utils.ByteArray;
 import voldemort.utils.ClosableIterator;
 import voldemort.utils.Pair;
 import voldemort.versioning.Versioned;
-
-import com.google.common.collect.ImmutableMap;
 
 public abstract class AbstractStorageEngineTest extends AbstractByteArrayStoreTest {
 
@@ -248,24 +248,44 @@ public abstract class AbstractStorageEngineTest extends AbstractByteArrayStoreTe
         final int numPut = 10000;
         final StorageEngine<ByteArray, byte[], byte[]> store = getStorageEngine();
         
+        long startTime = System.currentTimeMillis();
         for(int i = 0; i < numPut; i++) {
             String key = "key-" + i;
             String value = "Value for " + key;
             store.put(new ByteArray(key.getBytes()), new Versioned<byte[]>(value.getBytes()), null);
         }
+        long endTime = System.currentTimeMillis();
         
+
         int numGet = 0;
         ClosableIterator<Pair<ByteArray, Versioned<byte[]>>> it = null;
         
+
         try {
+            long getEntriesStart = System.currentTimeMillis();
             it = store.entries();
+            long getEntriesEnd = System.currentTimeMillis();
+
+            long startIter = System.currentTimeMillis();
             while (it.hasNext()) {
                 it.next();
+                // System.out.println("item : " + it.next());
                 numGet++;
             }
+            long endIter = System.currentTimeMillis();
+
+            System.out.println("Put time : " + (endTime - startTime) / 1000);
+            System.out.println("Entries time : " + (getEntriesEnd - getEntriesStart) / 1000);
+            System.out.println("Iteration time : " + (endIter - startIter) / 1000);
         } finally {
             if (it != null) {
+                long currentTimeMillis4 = System.currentTimeMillis();
+                System.out.println("I am before iterator close");
                 it.close();
+                System.out.println("I am after iterator close");
+                long currentTimeMillis5 = System.currentTimeMillis();
+                System.out.println("Closing Time taken : "
+                                   + (currentTimeMillis5 - currentTimeMillis4));
             }
         }
         

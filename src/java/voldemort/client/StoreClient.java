@@ -158,6 +158,25 @@ public interface StoreClient<K, V> {
     public boolean putIfNotObsolete(K key, Versioned<V> versioned);
 
     /**
+     * Ingest a batch of key values pairs
+     * 
+     * @param batch of key value entries
+     * @return version The version of the object
+     */
+    public List<Version> putAll(Map<K, V> entries);
+
+    /**
+     * Like {@link voldemort.client.StoreClient #putAll(Map<K, V> entrieso)},
+     * except that the given transforms are applied on the value before writing
+     * it to the store
+     * 
+     * @param entries
+     * @param transforms
+     * @return
+     */
+    public List<Version> putAll(Map<K, V> entries, Object transforms);
+
+    /**
      * Apply the given action repeatedly until no ObsoleteVersionException is
      * thrown. This is useful for implementing a read-modify-store loop that
      * could be pre-empted by another concurrent update, and should be repeated

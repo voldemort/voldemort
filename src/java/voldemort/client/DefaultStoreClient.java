@@ -16,12 +16,16 @@
 
 package voldemort.client;
 
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.concurrent.Callable;
 
 import org.apache.log4j.Logger;
+
+import com.google.common.collect.Maps;
 
 import voldemort.VoldemortException;
 import voldemort.annotations.concurrency.Threadsafe;
@@ -41,8 +45,6 @@ import voldemort.versioning.ObsoleteVersionException;
 import voldemort.versioning.VectorClock;
 import voldemort.versioning.Version;
 import voldemort.versioning.Versioned;
-
-import com.google.common.collect.Maps;
 
 /**
  * The default {@link voldemort.client.StoreClient StoreClient} implementation
@@ -361,6 +363,7 @@ public class DefaultStoreClient<K, V> implements StoreClient<K, V> {
         return version;
     }
 
+    @Override
     public Version put(K key, V value, Object transforms) {
         Version version = getVersionForPut(key);
         Versioned<V> versioned = Versioned.value(value, version);
@@ -370,5 +373,34 @@ public class DefaultStoreClient<K, V> implements StoreClient<K, V> {
 
     public void setBeforeRebootstrapCallback(Callable<Object> callback) {
         beforeRebootstrapCallback = callback;
+    }
+
+    @Override
+    public List<Version> putAll(Map<K, V> entries) {
+        List<Version> versionList = new ArrayList<Version>();
+        Map<K, Versioned<V>> batch = new HashMap<K, Versioned<V>>();
+        for(Map.Entry<K, V> entry: entries.entrySet()) {
+            Version version = getVersionForPut(entry.getKey());
+            Versioned<V> versioned = Versioned.value(entry.getValue(), version);
+            versionList.add(version);
+            batch.put(entry.getKey(), versioned);
+        }
+        store.putAll(batch, null);
+        return versionList;
+    }
+
+
+    @Override
+    public List<Version> putAll(Map<K, V> entries, Object transforms) {
+        List<Version> versionList = new ArrayList<Version>();
+        Map<K, Versioned<V>> batch = new HashMap<K, Versioned<V>>();
+        for(Map.Entry<K, V> entry: entries.entrySet()) {
+            Version version = getVersionForPut(entry.getKey());
+            Versioned<V> versioned = Versioned.value(entry.getValue(), version);
+            versionList.add(version);
+            batch.put(entry.getKey(), versioned);
+        }
+        store.putAll(batch, transforms);
+        return versionList;
     }
 }
