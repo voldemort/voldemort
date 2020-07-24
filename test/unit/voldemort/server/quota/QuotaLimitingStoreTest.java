@@ -6,7 +6,7 @@ import static org.junit.Assert.fail;
 
 import java.io.File;
 import java.io.IOException;
-import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Properties;
@@ -77,7 +77,7 @@ public class QuotaLimitingStoreTest {
         int numGetExceptions = 0;
         int numPutExceptions = 0;
 
-        Map<String, String> populatedValues = new HashMap<String, String>();
+        Map<String, String> populatedValues = new HashMap<>();
 
         for(int i = 0; i < 1000; i++) {
             String key = "key" + i;
@@ -94,7 +94,7 @@ public class QuotaLimitingStoreTest {
         if(isThrottled) {
             assertTrue("No put operations rate limited", numPutExceptions > 0);
         } else {
-            assertTrue("Put throttled when rate is :" + Integer.MAX_VALUE, numPutExceptions == 0);
+            assertEquals("Put throttled when rate is :" + Integer.MAX_VALUE, 0, numPutExceptions);
         }
 
         for(int i = 0; i < 1000; i++) {
@@ -105,16 +105,10 @@ public class QuotaLimitingStoreTest {
                 // do a get
 
                 Versioned<Object> actualValue = storeClient.get(key);
-                if(actualValue == null) {
-                    if(populatedValues.containsKey(key) == false) {
-                        // expected, continue
-                        continue;
-                    } else {
-                        fail("Put successfully wrote the key, but get was not able to retrieve it, nor it got a quota exception");
-                    }
-                }
-
-                assertEquals(expectedValue, actualValue.getValue());
+                if(actualValue !=null)
+                    assertEquals(expectedValue, actualValue.getValue());
+                else if(populatedValues.containsKey(key))
+                    fail("Put successfully wrote the key, but get was not able to retrieve it, nor it got a quota exception");
             } catch(QuotaExceededException qee) {
                 numGetExceptions++;
             }
@@ -123,7 +117,7 @@ public class QuotaLimitingStoreTest {
         if(isThrottled) {
             assertTrue("No get operations rate limited", numGetExceptions > 0);
         } else {
-            assertTrue("Get throttled when rate is :" + Integer.MAX_VALUE, numGetExceptions == 0);
+            assertEquals("Get throttled when rate is :" + Integer.MAX_VALUE, 0, numGetExceptions);
         }
 
     }
@@ -143,13 +137,13 @@ public class QuotaLimitingStoreTest {
     }
 
     private void enableQuotaEnforcing() {
-        adminClient.metadataMgmtOps.updateRemoteMetadata(Arrays.asList(0),
+        adminClient.metadataMgmtOps.updateRemoteMetadata(Collections.singletonList(0),
                                                          MetadataStore.QUOTA_ENFORCEMENT_ENABLED_KEY,
                                                          Boolean.toString(true));
     }
 
     private void disableQuotaEnforcing() {
-        adminClient.metadataMgmtOps.updateRemoteMetadata(Arrays.asList(0),
+        adminClient.metadataMgmtOps.updateRemoteMetadata(Collections.singletonList(0),
                                                          MetadataStore.QUOTA_ENFORCEMENT_ENABLED_KEY,
                                                          Boolean.toString(false));
     }
@@ -190,7 +184,7 @@ public class QuotaLimitingStoreTest {
 
         FileBackedCachingStorageEngine quotaStore = new FileBackedCachingStorageEngine("quota-usage-test-store",
                                                                                        tempDir.getAbsolutePath());
-        InMemoryStorageEngine<ByteArray, byte[], byte[]> inMemoryEngine = new InMemoryStorageEngine<ByteArray, byte[], byte[]>("inMemoryBackingStore");
+        InMemoryStorageEngine<ByteArray, byte[], byte[]> inMemoryEngine = new InMemoryStorageEngine<>("inMemoryBackingStore");
         QuotaLimitStats quotaStats = new QuotaLimitStats(null, 1000);
         StatTrackingStore statTrackingStore = new StatTrackingStore(inMemoryEngine, null);
 
@@ -204,7 +198,7 @@ public class QuotaLimitingStoreTest {
         // provide a quota of 100 gets/sec
         quotaStore.put(new ByteArray(QuotaUtils.makeQuotaKey(statTrackingStore.getName(),
                                                              QuotaType.GET_THROUGHPUT).getBytes()),
-                       new Versioned<byte[]>("100.0".getBytes()),
+                       new Versioned<>("100.0".getBytes()),
                        null);
 
         long testIntervalMs = 5000;
