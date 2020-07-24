@@ -313,7 +313,7 @@ public class VoldemortServer extends AbstractService {
         }
     }
 
-    public void createOnlineServices() {
+    private void createOnlineServices() {
         onlineServices = Lists.newArrayList();
         if(voldemortConfig.isHttpServerEnabled()) {
             /*
