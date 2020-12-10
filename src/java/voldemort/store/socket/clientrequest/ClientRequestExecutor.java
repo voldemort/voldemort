@@ -349,13 +349,15 @@ public class ClientRequestExecutor extends SelectorManagerWorker implements Clos
         if(logger.isDebugEnabled()) {
             // check buffer sizes you often don't get out what you put in!
             if(socketChannel.socket().getReceiveBufferSize() != this.socketBufferSize) {
-                logger.debug("Requested socket receive buffer size was " + this.socketBufferSize
+				if(logger.isDebugEnabled())
+					logger.debug("Requested socket receive buffer size was " + this.socketBufferSize
                              + " bytes but actual size is "
                              + socketChannel.socket().getReceiveBufferSize() + " bytes.");
             }
 
             if(socketChannel.socket().getSendBufferSize() != this.socketBufferSize) {
-                logger.debug("Requested socket send buffer size was " + this.socketBufferSize
+				if(logger.isDebugEnabled())
+					logger.debug("Requested socket send buffer size was " + this.socketBufferSize
                              + " bytes but actual size is "
                              + socketChannel.socket().getSendBufferSize() + " bytes.");
             }
