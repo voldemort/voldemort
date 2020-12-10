@@ -99,32 +99,39 @@ public abstract class SelectorManagerWorker implements Runnable {
         try {
             SelectionKey selectionKey = socketChannel.keyFor(selector);
 
-            if(selectionKey.isConnectable())
-                connect(selectionKey);
-            else if(selectionKey.isReadable())
+            if(selectionKey.isReadable())
                 read(selectionKey);
             else if(selectionKey.isWritable())
                 write(selectionKey);
-            else if(!selectionKey.isValid())
-                throw new IllegalStateException("Selection key not valid for " + getDebugInfo());
-            else
-                throw new IllegalStateException("Unknown state, not readable, writable, or valid for " + getDebugInfo());
+            else if(!selectionKey.isValid())  {
+				if (logger.isEnabledFor(Level.ERROR))
+					logger.error("Selection key not valid for ", socketChannel.socket());
+				throw new IllegalStateException("Selection key not valid"); 	
+                //throw new IllegalStateException("Selection key not valid for "
+                                                + socketChannel.socket());
+			}									
+            else  {
+				if (logger.isEnabledFor(Level.ERROR))
+					logger.error("Unknown state, not readable, writable, or valid for", socketChannel.socket());
+				throw new IllegalStateException("Unknown state, not readable, writable, or valid"); 	
+                //throw new IllegalStateException("Unknown state, not readable, writable, or valid for "
+                                                + socketChannel.socket());
+			}									
         } catch(ClosedByInterruptException e) {
-            reportException(e);
             close();
         } catch(CancelledKeyException e) {
             close();
         } catch(EOFException e) {
-            // EOFException is expected, hence no logging, otherwise this block
-            // could be combined with IOException
-            reportException(e);
             close();
         } catch(IOException e) {
-            logger.info("IOException from " + getDebugInfo() + " with message - " + e.getMessage());
-            reportException(e);
+			if (logger.isInfoEnabled())
+				logger.info("Connection reset from " + socketChannel.socket() + " with message - "
+                        + e.getMessage());
             close();
         } catch(Throwable t) {
-            logger.error("Caught throwable from " + getDebugInfo(), t);
+            if(logger.isEnabledFor(Level.ERROR))
+                logger.error(t.getMessage(), t);
+
             close();
         }
     }
