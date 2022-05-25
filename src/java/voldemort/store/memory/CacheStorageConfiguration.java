@@ -28,7 +28,7 @@ import voldemort.store.StoreDefinition;
 import voldemort.utils.ByteArray;
 import voldemort.versioning.Versioned;
 
-import com.google.common.collect.MapMaker;
+import com.google.common.cache.CacheBuilder;
 
 /**
  * Identical to the InMemoryStorageConfiguration except that it creates google
@@ -50,8 +50,12 @@ public class CacheStorageConfiguration implements StorageConfiguration {
 
     public StorageEngine<ByteArray, byte[], byte[]> getStore(StoreDefinition storeDef,
                                                              RoutingStrategy strategy) {
-        ConcurrentMap<ByteArray, List<Versioned<byte[]>>> backingMap = new MapMaker().softValues()
-                                                                                     .makeMap();
+        ConcurrentMap<ByteArray, List<Versioned<byte[]>>> backingMap = 
+            CacheBuilder.newBuilder()
+                .softValues()
+                .<ByteArray, List<Versioned<byte[]>>>build()
+                .asMap();
+
         return new InMemoryStorageEngine<ByteArray, byte[], byte[]>(storeDef.getName(), backingMap);
     }
 

@@ -522,7 +522,7 @@ dependencies {
 
     // jna is library for invoking native functions
     // used in the readonly store
-    compile 'net.java.dev.jna:jna:3.2.7'
+    compile 'net.java.dev.jna:jna:5.11.0'
 
     // joda time is replacement for Java Date and Time
     // used in readonly store code.
