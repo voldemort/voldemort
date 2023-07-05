@@ -41,7 +41,7 @@ goto :eof
 
 :run
 if "%VOLD_OPTS%" == "" set "VOLD_OPTS=-Xmx2G -server -Dcom.sun.management.jmxremote"
-java -Dlog4j.configuration=%VOLDEMORT_CONFIG_DIR%\log4j.properties %VOLD_OPTS% -cp %CLASSPATH% %*
+java -Dlog4j2.configurationFile=%VOLDEMORT_CONFIG_DIR%\log4j.properties %VOLD_OPTS% -cp %CLASSPATH% %*
 
 endlocal
 :eof

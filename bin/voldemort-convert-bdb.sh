@@ -36,4 +36,4 @@ CLASSPATH=$CLASSPATH:$base_dir/dist/resources
 
 JVM_OPTS="-server -Xms5g -Xmx5g -XX:NewSize=1024m -XX:MaxNewSize=1024m -XX:+AlwaysPreTouch -XX:+UseCompressedOops -XX:+UseConcMarkSweepGC -XX:+UseParNewGC -XX:CMSInitiatingOccupancyFraction=70 -XX:SurvivorRatio=2"
 
-java -Dlog4j.configuration=src/java/log4j.properties $JVM_OPTS -cp $CLASSPATH voldemort.store.bdb.dataconversion.BdbConvertData $@
+java -Dlog4j2.configurationFile=src/java/log4j.properties $JVM_OPTS -cp $CLASSPATH voldemort.store.bdb.dataconversion.BdbConvertData $@

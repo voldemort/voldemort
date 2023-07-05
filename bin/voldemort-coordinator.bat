@@ -49,7 +49,7 @@ goto :eof
 :run
 if "%VOLD_OPTS%" == "" set "VOLD_OPTS=-Xmx1G -server -Dcom.sun.management.jmxremote"
 
-java -Dlog4j.configuration=src/java/log4j.properties %VOLD_OPTS% -cp %CLASSPATH% voldemort.rest.coordinator.CoordinatorService %*
+java -Dlog4j2.configurationFile=src/java/log4j.properties %VOLD_OPTS% -cp %CLASSPATH% voldemort.rest.coordinator.CoordinatorService %*
 
 endlocal
 :eof
