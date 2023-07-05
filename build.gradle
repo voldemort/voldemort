@@ -201,6 +201,7 @@ def depJdom = 'org.jdom:jdom:1.1'
 def depAzkaban = 'com.linkedin.azkaban:azkaban:2.5.0'
 def depGuava = 'com.google.guava:guava:14.0.1'
 def depLog4j = 'org.apache.logging.log4j:log4j-slf4j-impl:2.20.0'
+def depLog4jBridge = 'org.apache.logging.log4j:log4j-1.2-api:2.20.0'
 def depJacksonMapper = 'org.codehaus.jackson:jackson-mapper-asl:1.9.13'
 def depJoda = 'joda-time:joda-time:1.6'
 def depTehuti = 'io.tehuti:tehuti:0.7.0'
@@ -228,6 +229,7 @@ shadowJar {
         include(dependency(depAzkaban))
         include(dependency(depGuava))
         include(dependency(depLog4j))
+        include(dependency(depLog4jBridge))
         include(dependency(depJacksonMapper))
         include(dependency(depJoda))
         include(dependency(depTehuti))
@@ -533,6 +535,7 @@ dependencies {
 
     // log4j - logger used in almost all files
     compile depLog4j
+    compile depLog4jBridge
 
     // used in readonly store and Co-ordinator
     compile 'javax.mail:mail:1.4.1'
