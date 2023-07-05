@@ -200,7 +200,7 @@ def depProtoBuf = 'com.google.protobuf:protobuf-java:2.3.0'
 def depJdom = 'org.jdom:jdom:1.1'
 def depAzkaban = 'com.linkedin.azkaban:azkaban:2.5.0'
 def depGuava = 'com.google.guava:guava:14.0.1'
-def depLog4j = 'log4j:log4j:1.2.15'
+def depLog4j = 'org.apache.logging.log4j:log4j-slf4j-impl:2.20.0'
 def depJacksonMapper = 'org.codehaus.jackson:jackson-mapper-asl:1.9.13'
 def depJoda = 'joda-time:joda-time:1.6'
 def depTehuti = 'io.tehuti:tehuti:0.7.0'
@@ -549,11 +549,6 @@ dependencies {
 
     // Servlet
     compile 'javax.servlet:servlet-api:2.5'
-
-    // slf4j is another logging abstraction framework.
-    // It is used by the apache.avro, apache.hadoop and r2 clients
-    compile 'org.slf4j:slf4j-api:1.5.6'
-    compile 'org.slf4j:slf4j-log4j12:1.5.6'
 
     // snappy is one of the supported compression strategies in voldemort
     compile 'org.iq80.snappy:snappy:0.2'
