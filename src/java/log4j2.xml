@@ -1,0 +1,59 @@
+<!-- This file controls logging for the voldemort server and voldemort client -->
+<?xml version="1.0" encoding="UTF-8"?>
+<Configuration status="warn">
+    <Appenders>
+        <Console name="STDOUT">
+            <BurstFilter
+                level="${env:VOLDEMORT_LOG_BURST_FILTER_LEVEL:-WARN}" 
+                rate="${env:VOLDEMORT_LOG_BURST_FILTER_RATE:-10}" 
+                maxBurst="${env:VOLDEMORT_LOG_BURST_FILTER_MAX:-100}"/>
+            <PatternLayout pattern="[%d{ABSOLUTE} %c] %p %m [%t]%n"/>
+        </Console>
+    </Appenders>
+    <Loggers>
+        <Logger name="httpclient.wire" level="info">
+            <AppenderRef ref="STDOUT"/>
+        </Logger>
+
+        <Logger name="org.mortbay.log" level="warn">
+            <AppenderRef ref="STDOUT"/>
+        </Logger>
+
+        <Logger name="voldemort.server" level="info">
+            <AppenderRef ref="STDOUT"/>
+        </Logger>
+
+        <Logger name="voldemort.store.routed" level="info">
+            <AppenderRef ref="STDOUT"/>
+        </Logger>
+
+        <Logger name="voldemort.server.niosocket" level="info">
+            <AppenderRef ref="STDOUT"/>
+        </Logger>
+
+        <Logger name="voldemort.utils" level="info">
+            <AppenderRef ref="STDOUT"/>
+        </Logger>
+
+        <Logger name="voldemort.client.rebalance" level="info">
+            <AppenderRef ref="STDOUT"/>
+        </Logger>
+
+        <Logger name="voldemort.routing" level="info">
+            <AppenderRef ref="STDOUT"/>
+        </Logger>
+
+        <Logger name="voldemort.store.stats" level="info">
+            <AppenderRef ref="STDOUT"/>
+        </Logger>
+
+        <Logger name="krati" level="warn">
+            <AppenderRef ref="STDOUT"/>
+        </Logger>
+
+        <Root level="info">
+            <AppenderRef ref="STDOUT"/>
+        </Root>
+    </Loggers>
+</Configuration>
+

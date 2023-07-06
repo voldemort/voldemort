@@ -1,0 +1,19 @@
+<!-- This file controls logging for the voldemort admin tool -->
+<?xml version="1.0" encoding="UTF-8"?>
+<Configuration status="warn">
+    <Appenders>
+        <Console name="STDOUT">
+            <PatternLayout pattern="[%d{ABSOLUTE} %c] %p %m [%t]%n"/>
+        </Console>
+    </Appenders>
+    <Loggers>
+        <Logger name="voldemort.tools.admin" level="info">
+            <AppenderRef ref="STDOUT"/>
+        </Logger>
+
+        <Root level="error">
+            <AppenderRef ref="STDOUT"/>
+        </Root>
+    </Loggers>
+</Configuration>
+
