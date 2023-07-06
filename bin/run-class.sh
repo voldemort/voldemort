@@ -44,7 +44,7 @@ if [ -z "$VOLD_OPTS" ]; then
 fi
 
 if [ -z ${LOG4JPROPERTIES} ]; then
-  LOG4JPROPERTIES="-Dlog4j2.configurationFile=file://${base_dir}/src/java/log4j.properties"
+  LOG4JPROPERTIES="-Dlog4j2.configurationFile=file://${base_dir}/src/java/log4j2.xml"
 fi
 
 export CLASSPATH

@@ -21,5 +21,5 @@
 
 base_dir=$(cd $(dirname $0)/.. && pwd)
 
-export LOG4JPROPERTIES="-Dlog4j2.configurationFile=file://${base_dir}/src/java/log4j-admin.properties"
+export LOG4JPROPERTIES="-Dlog4j2.configurationFile=file://${base_dir}/src/java/log4j2-admin.xml"
 $base_dir/bin/run-class.sh voldemort.tools.admin.VAdminTool $@

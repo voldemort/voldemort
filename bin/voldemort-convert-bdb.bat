@@ -33,7 +33,7 @@ goto :eof
 :run
 set JVM_OPTS=-server -Xms2g -Xmx2g -XX:NewSize=1024m -XX:MaxNewSize=1024m -XX:+AlwaysPreTouch -XX:+UseCompressedOops -XX:+UseConcMarkSweepGC -XX:+UseParNewGC -XX:CMSInitiatingOccupancyFraction=70 -XX:SurvivorRatio=2
 
-java -Dlog4j2.debug -Dlog4j2.configurationFile="file:/%BASE_DIR%\src\java\log4j.properties" %JVM_OPTS% -cp %CLASSPATH% voldemort.store.bdb.dataconversion.BdbConvertData %*
+java -Dlog4j2.debug -Dlog4j2.configurationFile="file:/%BASE_DIR%\src\java\log4j2.xml" %JVM_OPTS% -cp %CLASSPATH% voldemort.store.bdb.dataconversion.BdbConvertData %*
 
 endlocal
 :eof

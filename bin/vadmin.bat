@@ -24,7 +24,7 @@ SET BASE_DIR=%~dp0..
 
 setlocal
 
-set LOG4JPROPERTIES=-Dlog4j2.configurationFile="file:/%BASE_DIR%/src/java/log4j-admin.properties"
+set LOG4JPROPERTIES=-Dlog4j2.configurationFile="file:/%BASE_DIR%/src/java/log4j2-admin.xml"
 
 call "%BASE_DIR%/bin/run-class.bat" voldemort.tools.admin.VAdminTool %*
 

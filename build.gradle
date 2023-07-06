@@ -113,15 +113,15 @@ sourceSets {
 
 compileJava.doLast {
     project.copy {
-        from (javaDir) { exclude '**/*.java','**/*.html','**/log4j.properties' }
+        from (javaDir) { exclude '**/*.java','**/*.html','**/log4j2.xml' }
         into classesDir
     }
 
     project.copy {
-        // Theoretically this block can be replaced by including the log4j.properties in main resources.
-        // But that causes the log4j.properties to be present in the voldJar . Not sure what is the
+        // Theoretically this block can be replaced by including the log4j2.xml in main resources.
+        // But that causes the log4j2.xml to be present in the voldJar. Not sure what is the
         // implication of this change, so avoiding it for now.
-        from (javaDir) { include 'log4j.properties' }
+        from (javaDir) { include 'log4j2.xml' }
         into resourcesDir
     }
 }

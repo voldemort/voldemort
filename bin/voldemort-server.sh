@@ -46,4 +46,4 @@ if [ -z "$VOLD_OPTS" ]; then
 fi
 
 export CLASSPATH
-java -Dlog4j2.configurationFile=file://$base_dir/src/java/log4j.properties $VOLD_OPTS voldemort.server.VoldemortServer $@
+java -Dlog4j2.configurationFile=file://$base_dir/src/java/log4j2.xml $VOLD_OPTS voldemort.server.VoldemortServer $@
