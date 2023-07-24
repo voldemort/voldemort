@@ -19,7 +19,7 @@ It is used at LinkedIn by numerous critical services powering a large portion of
 
 ## QuickStart ##
 
-*You can refer to http://www.project-voldemort.com for more info*
+*You can refer to https://www.project-voldemort.com for more info*
 
 ### Download Code ###
 
