@@ -1,5 +1,7 @@
 # Voldemort is a distributed key-value storage system #
 
+_N.B.: Voldemort is no longer under development. LinkedIn was the primary maintainer and user of Voldemort, and stopped all production usage in 2018. Most of the Voldemort Read-Only use cases and some of the Read-Write use cases have migrated to [Venice](https://github.com/linkedin/venice), which is actively maintained and also open sourced._
+
 ## Overview ##
 
 * Data is automatically replicated over multiple servers across multiple datacenters.
