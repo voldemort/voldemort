@@ -1,3 +1,68 @@
+# Postgresql Fork
+Using this Fork one can leverage the postgresql storage engine.
+
+# Geting Started
+To configure Voldemort to use postgresql, the following steps need to be performed
+* In the server.properties under $VOLDEMORT_HOME/config/single_node_cluster/config add the following properties
+* Update the postgres settings corresponding to your properties
+```
+    pg.host=localhost
+    pg.port=5432
+    pg.user=postgres
+    pg.password=postgres
+    pg.database=postgres
+    pg.batchSize=10000
+```     
+* Also update the storage.configs to include postgres storage engines configuration
+```      
+    storage.configs=voldemort.store.bdb.BdbStorageConfiguration, voldemort.store.postgresql.PostgresqlStorageConfiguration
+```      
+* In the STORES folder under $VOLDEMORT_HOME/config/single_node_cluster/config create a new file test-postgres and add the following properties to it
+```
+    <store>
+      <name>testPostgresql</name>
+      <persistence>postgresql</persistence>
+      <description>Test store</description>
+      <owners>harry@hogwarts.edu, hermoine@hogwarts.edu</owners>
+      <routing-strategy>consistent-routing</routing-strategy>
+      <routing>client</routing>
+      <replication-factor>1</replication-factor>
+      <required-reads>1</required-reads>
+      <required-writes>1</required-writes>
+      <hinted-handoff-strategy>consistent-handoff</hinted-handoff-strategy>
+      <key-serializer>
+        <type>string</type>
+      </key-serializer>
+      <value-serializer>
+        <type>string</type>
+      </value-serializer>
+    </store>
+```
+
+# Enhanced API
+The existing put operation in the storage engines does a commit on the underlyting postgres database. When the user needs to insert a large number of entries the commit gets called many times slowing down the process. To reduce the number of times commit gets called, new API for doing batched put or putAll has been added to the existing API. A batch_hard_limit has been set in the code to 100000 refer to PostgresqlStorageConfiguration.java. User can update this property pg.batchSize to regulate the number of entries per batch. At any time the batch size cannot exceed the batch hardLimit.
+    
+    /**
+     * Ingest a batch of key values pairs
+     * 
+     * @param batch of key value entries
+     * @return version The version of the object
+     */
+    public List<Version> putAll(Map<K, V> entries);
+
+    /**
+     * Like {@link voldemort.client.StoreClient #putAll(Map<K, V> entrieso)},
+     * except that the given transforms are applied on the value before writing
+     * it to the store
+     * 
+     * @param entries
+     * @param transforms
+     * @return
+     */
+    public List<Version> putAll(Map<K, V> entries, Object transforms);
+
+
+
 # Voldemort is a distributed key-value storage system #
 
 _N.B.: Voldemort is no longer under development. LinkedIn was the primary maintainer and user of Voldemort, and stopped all production usage in 2018. Most of the Voldemort Read-Only use cases and some of the Read-Write use cases have migrated to [Venice](https://github.com/linkedin/venice), which is actively maintained and also open sourced._
