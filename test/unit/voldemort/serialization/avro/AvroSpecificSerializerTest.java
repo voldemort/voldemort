@@ -15,12 +15,15 @@
  */
 package voldemort.serialization.avro;
 
+import java.nio.ByteBuffer;
+import java.util.Collections;
+import java.util.Map;
+
 import junit.framework.TestCase;
 
 import org.apache.avro.ipc.HandshakeRequest;
 import org.apache.avro.ipc.MD5;
 import org.apache.avro.specific.SpecificRecord;
-import org.apache.avro.util.Utf8;
 
 import voldemort.utils.ByteUtils;
 
@@ -43,11 +46,11 @@ public class AvroSpecificSerializerTest extends TestCase {
 
         String className = "java=org.apache.avro.ipc.HandshakeRequest";
 
-        HandshakeRequest req = new HandshakeRequest();
-        // set a few values to avoid NPEs
-        req.clientHash = new MD5();
-        req.clientProtocol = new Utf8("");
-        req.serverHash = new MD5();
+        MD5 clientHash = new MD5();
+        String clientProtocol = "";
+        MD5 serverHash = new MD5();
+        Map<String, ByteBuffer> meta = Collections.emptyMap();
+        HandshakeRequest req = new HandshakeRequest(clientHash, clientProtocol, serverHash, meta);
 
         AvroSpecificSerializer<HandshakeRequest> serializer = new AvroSpecificSerializer<HandshakeRequest>(className);
         byte[] bytes = serializer.toBytes(req);
