@@ -8,6 +8,9 @@ class TCPConnection < Connection
 
   attr_accessor :socket
 
+  class ConnectionError < RuntimeError; end
+  class ObsoleteVersionError < ConnectionError; end
+
   SOCKET_TIMEOUT = 3
 
   def connect_to(host, port)
@@ -60,6 +63,7 @@ class TCPConnection < Connection
 
   def put_from(db_name, key, value, version = nil, route = false)
     version = get_version(key) unless version
+    add_to_versions(version) # add version or increment when needed
     request = VoldemortRequest.new
     request.should_route = route
     request.store = db_name
@@ -74,9 +78,16 @@ class TCPConnection < Connection
     self.send(request)          # send the request
     raw_response = self.receive # read the response
     response = PutResponse.new.parse_from_string(raw_response)
-    reconnect_when_errors_in(response)
+    if(response.error)
+      case response.error.error_code
+      when 4
+        raise ObsoleteVersionError.new(response.error.error_message)
+      else
+        reconnect!
+        raise ConnectionError.new(response.error.error_message)
+      end
+    end
 
-    add_to_versions(version) # add version or increment when needed
     version
   end
 
@@ -99,6 +110,7 @@ class TCPConnection < Connection
   end
 
   def add_to_versions(version)
+    version.timestamp = Time.new.to_i * 1000
     entry = version.entries.detect { |e| e.node_id == self.connected_node.id.to_i }
     if(entry)
       entry.version += 1
@@ -107,7 +119,6 @@ class TCPConnection < Connection
       entry.node_id = self.connected_node.id.to_i
       entry.version = 1
       version.entries << entry
-      version.timestamp = Time.new.to_i * 1000
     end
     version
   end
