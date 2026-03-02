@@ -61,7 +61,7 @@ public class ClientRequestExecutor extends SelectorManagerWorker implements Clos
     protected ByteBufferContainer bufferContainer;
     private final SocketDestination socketDesination;
     private final long idleConnectionTimeoutNs;
-
+	private final Logger logger = Logger.getLogger(getClass());
     public ClientRequestExecutor(Selector selector,
                                  SocketChannel socketChannel,
                                  int socketBufferSize,
@@ -258,9 +258,11 @@ public class ClientRequestExecutor extends SelectorManagerWorker implements Clos
 
         int count = 0;
 
-        if((count = socketChannel.read(inputStream.getBuffer())) == -1)
-            throw new EOFException("EOF for " + socketChannel.socket());
-
+        if((count = socketChannel.read(inputStream.getBuffer())) == -1) {
+            if(logger.isDebugEnabled())
+                logger.debug("EOF for ", socketChannel.socket());		
+            throw new EOFException("EOF for ");
+		}
         if(logger.isTraceEnabled())
             traceInputBufferState("Read " + count + " bytes");
 
