@@ -54,6 +54,8 @@ public class VoldemortNativeClientRequestFormat implements RequestFormat {
     private final Logger logger = Logger.getLogger(getClass());
 
     public VoldemortNativeClientRequestFormat(int protocolVersion) {
+		if(protocolVersion < 0 || protocolVersion > 3)
+			throw new IllegalArgumentException("Unknown protocol version: " + protocolVersion);
         this.mapper = new ErrorCodeMapper();
         this.protocolVersion = protocolVersion;
     }
